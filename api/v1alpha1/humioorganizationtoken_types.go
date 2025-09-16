@@ -17,52 +17,52 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HumioSystemTokenSpec defines the desired state of HumioSystemToken
+// HumioOrganizationTokenSpec defines the desired state of HumioOrganizationToken
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
-type HumioSystemTokenSpec struct {
+type HumioOrganizationTokenSpec struct {
 	HumioTokenSpec `json:",inline"`
 }
 
-// HumioSystemTokenStatus defines the observed state of HumioSystemToken.
-type HumioSystemTokenStatus struct {
+// HumioOrganizationTokenStatus defines the observed state of HumioOrganizationToken.
+type HumioOrganizationTokenStatus struct {
 	HumioTokenStatus `json:",inline"`
 }
 
-// HumioSystemToken is the Schema for the humiosystemtokens API
+// HumioOrganizationToken is the Schema for the humioOrganizationtokens API
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humiosystemtokens,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the System Token"
+// +kubebuilder:resource:path=humioorganizationtokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the Organization Token"
 // +kubebuilder:printcolumn:name="HumioID",type="string",JSONPath=".status.id",description="Humio generated ID"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio System Token"
-type HumioSystemToken struct {
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Organization Token"
+type HumioOrganizationToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
-	Spec   HumioSystemTokenSpec   `json:"spec"`
-	Status HumioSystemTokenStatus `json:"status,omitempty"`
+	Spec   HumioOrganizationTokenSpec   `json:"spec"`
+	Status HumioOrganizationTokenStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// HumioSystemTokenList contains a list of HumioSystemToken
-type HumioSystemTokenList struct {
+// HumioOrganizationTokenList contains a list of HumioOrganizationToken
+type HumioOrganizationTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []HumioSystemToken `json:"items"`
+	Items           []HumioOrganizationToken `json:"items"`
 }
 
 // GetSpec returns the configured Spec for the token
-func (hst *HumioSystemToken) GetSpec() *HumioTokenSpec {
-	return &hst.Spec.HumioTokenSpec
+func (hot *HumioOrganizationToken) GetSpec() *HumioTokenSpec {
+	return &hot.Spec.HumioTokenSpec
 }
 
 // GetStatus returns the configured Status for the token
-func (hst *HumioSystemToken) GetStatus() *HumioTokenStatus {
-	return &hst.Status.HumioTokenStatus
+func (hot *HumioOrganizationToken) GetStatus() *HumioTokenStatus {
+	return &hot.Status.HumioTokenStatus
 }
 
 func init() {
-	SchemeBuilder.Register(&HumioSystemToken{}, &HumioSystemTokenList{})
+	SchemeBuilder.Register(&HumioOrganizationToken{}, &HumioOrganizationTokenList{})
 }

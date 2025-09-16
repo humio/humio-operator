@@ -519,7 +519,18 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
-		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioViewToken")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioSystemToken")
+		os.Exit(1)
+	}
+	if err := (&controller.HumioOrganizationTokenReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioOrganizationToken")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

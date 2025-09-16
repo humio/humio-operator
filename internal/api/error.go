@@ -26,6 +26,7 @@ const (
 	entityTypeIPFilter                   entityType = "ipfilter"
 	entityTypeViewToken                  entityType = "view-token"
 	entityTypeSystemToken                entityType = "system-token"
+	entityTypeOrganizationToken          entityType = "organization-token"
 )
 
 func (e entityType) String() string {
@@ -177,7 +178,14 @@ func ViewTokenNotFound(name string) error {
 
 func SystemTokenNotFound(name string) error {
 	return EntityNotFound{
-		entityType: entityTypeViewToken,
+		entityType: entityTypeSystemToken,
+		key:        name,
+	}
+}
+
+func OrganizationTokenNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeOrganizationToken,
 		key:        name,
 	}
 }

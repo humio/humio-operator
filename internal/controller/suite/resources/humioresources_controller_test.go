@@ -26,6 +26,7 @@ import (
 
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
@@ -47,9 +48,10 @@ import (
 const (
 	emailActionExample         string = "example@example.com"
 	expectedSecretValueExample string = "secret-token"
-	totalCRDs                  int    = 22 // Bump this as we introduce new CRD's
+	totalCRDs                  int    = 23 // Bump this as we introduce new CRD's
 	newFilterName              string = "new-filter-name"
 	exampleIPFilter            string = "example-ipfilter"
+	badIPFilter                string = "missing"
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
@@ -5245,7 +5247,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 	Context("Humio ViewToken", Label("envtest", "dummy", "real"), func() {
 		It("HumioViewToken: Should handle ViewToken correctly", func() {
 			ctx := context.Background()
-			filterName := exampleIPFilter + "viewtoken"
+			suffix := "viewtoken"
+			filterName := exampleIPFilter + suffix
 			viewName := "test-view-for-viewtoken"
 			viewTokenName := "example-viewtoken"
 			viewTokenSecretName := "example-viewtoken-secret"
@@ -5336,13 +5339,15 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// ViewToken tests
 			viewTokenSpec := humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: clusterKey.Name,
-				Name:               viewTokenName,
-				ViewNames:          []string{toCreateView.Spec.Name},
-				IPFilterName:       fetchedIPFilter.Spec.Name,
-				Permissions:        permissionNames,
-				TokenSecretName:    viewTokenSecretName,
-				ExpiresAt:          &expireAt,
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               viewTokenName,
+					IPFilterName:       fetchedIPFilter.Spec.Name,
+					Permissions:        permissionNames,
+					TokenSecretName:    viewTokenSecretName,
+					ExpiresAt:          &expireAt,
+				},
+				ViewNames: []string{fetchedView.Spec.Name},
 			}
 
 			keyViewToken := types.NamespacedName{
@@ -5372,7 +5377,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
 				return k8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
 			Expect(k8sViewToken.Status.ID).To(Not(BeEmpty()))
 
 			var initialViewToken *humiographql.ViewTokenDetailsViewPermissionsToken
@@ -5454,7 +5459,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, errK8sViewToken)
 				return errK8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
 			Expect(k8sClient.Delete(ctx, toCreateViewToken)).Should(Succeed())
 			deletedViewToken := &humiov1alpha1.HumioViewToken{}
 			Eventually(func() error {
@@ -5470,14 +5475,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: viewTokenSpec,
 			}
-			toCreateViewToken.Spec.IPFilterName = "missing"
+			toCreateViewToken.Spec.IPFilterName = badIPFilter
 			toCreateViewToken.ResourceVersion = ""
 			Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(Succeed())
 			errK8sViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, errK8sViewToken)
 				return errK8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
 			Expect(k8sClient.Delete(ctx, toCreateViewToken)).Should(Succeed())
 			deletedViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() error {
@@ -5499,7 +5504,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, errK8sViewToken)
 				return errK8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
 			Expect(k8sClient.Delete(ctx, toCreateViewToken)).Should(Succeed())
 			deletedViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() error {
@@ -5520,7 +5525,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
 				return k8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
 
 			updatedPermissions = []string{"missing"}
 			k8sViewToken.Spec.Permissions = updatedPermissions
@@ -5529,7 +5534,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, errK8sViewToken)
 				return errK8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
 			Expect(k8sClient.Delete(ctx, errK8sViewToken)).Should(Succeed())
 			deletedViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() error {
@@ -5550,7 +5555,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
 				return k8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
 			k8sViewToken.Spec.ViewNames = []string{viewName, "missing-view"}
 			Expect(k8sClient.Update(ctx, k8sViewToken)).Should(MatchError(ContainSubstring("Value is immutable")))
 			//cleanup
@@ -5574,7 +5579,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
 				return k8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
 			k8sViewToken.Spec.IPFilterName = newFilterName
 			Expect(k8sClient.Update(ctx, k8sViewToken)).Should(MatchError(ContainSubstring("Value is immutable")))
 			//cleanup
@@ -5598,24 +5603,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
 				return k8sViewToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenExists))
-			k8sViewToken.Spec.IPFilterName = newFilterName
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
+			k8sViewToken.Spec.IPFilterName = newFilterName + suffix
 			Expect(k8sClient.Update(ctx, k8sViewToken)).Should(MatchError(ContainSubstring("Value is immutable")))
 
 			//cleanup
-			Expect(k8sClient.Delete(ctx, toCreateIPFilter)).Should(Succeed())
-			deletedIPFilter := &humiov1alpha1.HumioIPFilter{}
-			Eventually(func() error {
-				err := k8sClient.Get(ctx, keyIPFilter, deletedIPFilter)
-				return err
-			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+			Expect(k8sClient.Delete(ctx, k8sViewToken)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, fetchedIPFilter)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, fetchedView)).Should(Succeed())
 		})
 	})
 
 	Context("Humio SystemToken", Label("envtest", "dummy", "real"), func() {
 		It("HumioSystemToken: Should handle SystemToken correctly", func() {
 			ctx := context.Background()
-			filterName := exampleIPFilter + "systemtoken"
+			suffix := "systemtoken"
+			filterName := exampleIPFilter + suffix
 			systemTokenName := "example-systemtoken"
 			systemTokenSecretName := "example-systemtoken-secret"
 			permissionNames := []string{"ReadHealthCheck", "ChangeBucketStorage"}
@@ -5676,12 +5679,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// SystemToken tests
 			systemTokenSpec := humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: clusterKey.Name,
-				Name:               systemTokenName,
-				IPFilterName:       fetchedIPFilter.Spec.Name,
-				Permissions:        permissionNames,
-				TokenSecretName:    systemTokenSecretName,
-				ExpiresAt:          &expireAt,
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               systemTokenName,
+					IPFilterName:       fetchedIPFilter.Spec.Name,
+					Permissions:        permissionNames,
+					TokenSecretName:    systemTokenSecretName,
+					ExpiresAt:          &expireAt,
+				},
 			}
 
 			keySystemToken := types.NamespacedName{
@@ -5703,7 +5708,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return err
 			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 
-			// test ViewToken creation
+			// test SystemToken creation
 			suite.UsingClusterBy(clusterKey.Name, "HumioSystemToken: Creating the SystemToken successfully")
 			Expect(k8sClient.Create(ctx, toCreateSystemToken)).Should(Succeed())
 
@@ -5711,7 +5716,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, k8sSystemToken)
 				return k8sSystemToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemTokenExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
 			Expect(k8sSystemToken.Status.ID).To(Not(BeEmpty()))
 
 			var initialSystemToken *humiographql.SystemTokenDetailsSystemPermissionsToken
@@ -5737,8 +5742,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() error {
 				return k8sClient.Get(ctx, secretKey, secret)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
-			Expect(secret.Data).To(HaveKey("token"))
-			Expect(secret.Data["token"]).ToNot(BeEmpty())
+			Expect(secret.Data).To(HaveKey(controller.TokenFieldName))
+			Expect(secret.Data).To(HaveKey(controller.ResourceFieldName))
+			Expect(secret.Data[controller.TokenFieldName]).ToNot(BeEmpty())
+			Expect(secret.Data[controller.ResourceFieldName]).ToNot(BeEmpty())
 
 			// test Permissions updates
 			suite.UsingClusterBy(clusterKey.Name, "HumioSystemToken: Updating the SystemToken permissions successfully")
@@ -5753,11 +5760,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			Eventually(func() []string {
-				updatedViewToken, err := humioClient.GetSystemToken(ctx, humioHttpClient, k8sSystemToken)
+				updatedSystemToken, err := humioClient.GetSystemToken(ctx, humioHttpClient, k8sSystemToken)
 				if err != nil {
 					return nil
 				}
-				return humio.FixPermissions(updatedViewToken.Permissions)
+				return humio.FixPermissions(updatedSystemToken.Permissions)
 			}, testTimeout, suite.TestInterval).Should(ContainElements(updatedPermissions))
 
 			// test delete SystemToken
@@ -5770,7 +5777,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() error {
 				_, err := humioClient.GetSystemToken(ctx, humioHttpClient, k8sSystemToken)
 				return err
-			}, testTimeout, suite.TestInterval).Should(MatchError(humioapi.ViewTokenNotFound(k8sSystemToken.Spec.Name)))
+			}, testTimeout, suite.TestInterval).Should(MatchError(humioapi.SystemTokenNotFound(k8sSystemToken.Spec.Name)))
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, secret)
 				return k8serrors.IsNotFound(err)
@@ -5787,14 +5794,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: systemTokenSpec,
 			}
-			toCreateSystemToken.Spec.IPFilterName = "missing"
+			toCreateSystemToken.Spec.IPFilterName = badIPFilter
 			toCreateSystemToken.ResourceVersion = ""
 			Expect(k8sClient.Create(ctx, toCreateSystemToken)).Should(Succeed())
 			errK8sSystemToken := &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, errK8sSystemToken)
 				return errK8sSystemToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
 			Expect(k8sClient.Delete(ctx, toCreateSystemToken)).Should(Succeed())
 			deletedSystemToken := &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() error {
@@ -5816,7 +5823,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, errK8sSystemToken)
 				return errK8sSystemToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
 			Expect(k8sClient.Delete(ctx, toCreateSystemToken)).Should(Succeed())
 			deletedSystemToken = &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() error {
@@ -5837,7 +5844,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, k8sSystemToken)
 				return k8sSystemToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
 
 			updatedPermissions = []string{"missing"}
 			k8sSystemToken.Spec.Permissions = updatedPermissions
@@ -5846,7 +5853,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, errK8sSystemToken)
 				return errK8sSystemToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemTokenConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
 			Expect(k8sClient.Delete(ctx, errK8sSystemToken)).Should(Succeed())
 			deletedSystemToken = &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() error {
@@ -5867,7 +5874,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, k8sSystemToken)
 				return k8sSystemToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemTokenExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
 			k8sSystemToken.Spec.IPFilterName = newFilterName
 			Expect(k8sClient.Update(ctx, k8sSystemToken)).Should(MatchError(ContainSubstring("Value is immutable")))
 			//cleanup
@@ -5891,17 +5898,319 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, k8sSystemToken)
 				return k8sSystemToken.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemTokenExists))
-			k8sSystemToken.Spec.IPFilterName = newFilterName
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
+			k8sSystemToken.Spec.IPFilterName = newFilterName + suffix
 			Expect(k8sClient.Update(ctx, k8sSystemToken)).Should(MatchError(ContainSubstring("Value is immutable")))
 
 			//cleanup
-			Expect(k8sClient.Delete(ctx, toCreateIPFilter)).Should(Succeed())
-			deletedIPFilter := &humiov1alpha1.HumioIPFilter{}
+			Expect(k8sClient.Delete(ctx, k8sSystemToken)).Should(Succeed())
+			deletedSystemToken = &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() error {
-				err := k8sClient.Get(ctx, keyIPFilter, deletedIPFilter)
+				err := k8sClient.Get(ctx, keySystemToken, deletedSystemToken)
 				return err
 			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+			Expect(k8sClient.Delete(ctx, fetchedIPFilter)).Should(Succeed())
+		})
+	})
+
+	Context("Humio OrganizationToken", Label("envtest", "dummy", "real"), func() {
+		It("HumioOrganizationToken: Should handle OrganizationToken correctly", func() {
+			ctx := context.Background()
+			suffix := "organizationtoken"
+			filterName := exampleIPFilter + suffix
+			orgTokenName := "example-organizationtoken"
+			orgTokenSecretName := "example-organizationtoken-secret"
+			permissionNames := []string{"ManageUsers", "ViewFleetManagement"}
+			expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 10))
+
+			// create dependencies first
+			// IPFilter
+			filterSpec := humiov1alpha1.HumioIPFilterSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               filterName,
+				IPFilter: []humiov1alpha1.FirewallRule{
+					{Action: "allow", Address: "127.0.0.1"},
+					{Action: "allow", Address: "10.0.0.0/8"},
+				},
+			}
+
+			keyIPFilter := types.NamespacedName{
+				Name:      filterName,
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateIPFilter := &humiov1alpha1.HumioIPFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyIPFilter.Name,
+					Namespace: keyIPFilter.Namespace,
+				},
+				Spec: filterSpec,
+			}
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+			// enable token permissions updates
+			err := humioClient.EnableTokenUpdatePermissionsForTests(ctx, humioHttpClient)
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Confirming the IPFilter does not exist in LogScale before we start")
+			Eventually(func() error {
+				_, err := humioClient.GetIPFilter(ctx, humioHttpClient, toCreateIPFilter)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating the IPFilter successfully")
+			Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(Succeed())
+
+			fetchedIPFilter := &humiov1alpha1.HumioIPFilter{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyIPFilter, fetchedIPFilter)
+				return fetchedIPFilter.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
+
+			var initialIPFilter *humiographql.IPFilterDetails
+			Eventually(func() error {
+				initialIPFilter, err = humioClient.GetIPFilter(ctx, humioHttpClient, fetchedIPFilter)
+				if err != nil {
+					return err
+				}
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(initialIPFilter).ToNot(BeNil())
+			Expect(initialIPFilter.Id).ToNot(BeEmpty())
+
+			// OrganizationToken tests
+			orgTokenSpec := humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               orgTokenName,
+					IPFilterName:       fetchedIPFilter.Spec.Name,
+					Permissions:        permissionNames,
+					TokenSecretName:    orgTokenSecretName,
+					ExpiresAt:          &expireAt,
+				},
+			}
+
+			keyOrganizationToken := types.NamespacedName{
+				Name:      orgTokenName,
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateOrganizationToken := &humiov1alpha1.HumioOrganizationToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyOrganizationToken.Name,
+					Namespace: keyOrganizationToken.Namespace,
+				},
+				Spec: orgTokenSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationToken: Confirming the OrganizationToken does not exist in LogScale before we start")
+			Eventually(func() error {
+				_, err := humioClient.GetOrganizationToken(ctx, humioHttpClient, toCreateOrganizationToken)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			// test OrganizationToken creation
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationToken: Creating the OrganizationToken successfully")
+			Expect(k8sClient.Create(ctx, toCreateOrganizationToken)).Should(Succeed())
+
+			k8sOrganizationToken := &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyOrganizationToken, k8sOrganizationToken)
+				return k8sOrganizationToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
+			Expect(k8sOrganizationToken.Status.ID).To(Not(BeEmpty()))
+
+			var initialOrganizationToken *humiographql.OrganizationTokenDetailsOrganizationPermissionsToken
+			Eventually(func() error {
+				initialOrganizationToken, err = humioClient.GetOrganizationToken(ctx, humioHttpClient, k8sOrganizationToken)
+				if err != nil {
+					return err
+				}
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(initialOrganizationToken).ToNot(BeNil())
+			Expect(initialOrganizationToken.Id).ToNot(BeEmpty())
+			Expect(k8sOrganizationToken.Status.ID).To(Equal(initialOrganizationToken.Id))
+			Expect(k8sOrganizationToken.Spec.ExpiresAt).To(Equal(orgTokenSpec.ExpiresAt))
+			Expect(k8sOrganizationToken.Spec.ExpiresAt.UnixMilli()).To(Equal(*initialOrganizationToken.ExpireAt))
+
+			// Check that the secret was created
+			secretKey := types.NamespacedName{
+				Name:      orgTokenSpec.TokenSecretName,
+				Namespace: clusterKey.Namespace,
+			}
+			secret := &corev1.Secret{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, secretKey, secret)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(secret.Data).To(HaveKey(controller.TokenFieldName))
+			Expect(secret.Data).To(HaveKey(controller.ResourceFieldName))
+			Expect(secret.Data[controller.TokenFieldName]).ToNot(BeEmpty())
+			Expect(secret.Data[controller.ResourceFieldName]).ToNot(BeEmpty())
+
+			// test Permissions updates
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationToken: Updating the OrganizationToken permissions successfully")
+			updatedPermissions := []string{"BlockQueries"}
+			k8sOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, keyOrganizationToken, k8sOrganizationToken); err != nil {
+					return err
+				}
+				k8sOrganizationToken.Spec.Permissions = updatedPermissions
+				return k8sClient.Update(ctx, k8sOrganizationToken)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() []string {
+				updatedOrganizationToken, err := humioClient.GetOrganizationToken(ctx, humioHttpClient, k8sOrganizationToken)
+				if err != nil {
+					return nil
+				}
+				return updatedOrganizationToken.Permissions
+			}, testTimeout, suite.TestInterval).Should(ContainElements(updatedPermissions))
+
+			// test delete OrganizationToken
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationToken: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, k8sOrganizationToken)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, keyOrganizationToken, k8sOrganizationToken)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Eventually(func() error {
+				_, err := humioClient.GetOrganizationToken(ctx, humioHttpClient, k8sOrganizationToken)
+				return err
+			}, testTimeout, suite.TestInterval).Should(MatchError(humioapi.OrganizationTokenNotFound(k8sOrganizationToken.Spec.Name)))
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, secretKey, secret)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Test ConfigError due to failed validations
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationToken: ConfigErrors")
+
+			// test bad ipFilterName
+			toCreateOrganizationToken = &humiov1alpha1.HumioOrganizationToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyOrganizationToken.Name,
+					Namespace: keyOrganizationToken.Namespace,
+				},
+				Spec: orgTokenSpec,
+			}
+			toCreateOrganizationToken.Spec.IPFilterName = badIPFilter
+			toCreateOrganizationToken.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, toCreateOrganizationToken)).Should(Succeed())
+			errK8sOrganizationToken := &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyOrganizationToken, errK8sOrganizationToken)
+				return errK8sOrganizationToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
+
+			Expect(k8sClient.Delete(ctx, toCreateOrganizationToken)).Should(Succeed())
+			deletedOrganizationToken := &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, keyOrganizationToken, deletedOrganizationToken)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			// test good -> bad -> good Permissions transitions Exists->ConfigError->Exists
+			toCreateOrganizationToken = &humiov1alpha1.HumioOrganizationToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyOrganizationToken.Name,
+					Namespace: keyOrganizationToken.Namespace,
+				},
+				Spec: orgTokenSpec,
+			}
+			toCreateOrganizationToken.Spec.Permissions = []string{"missing"}
+			Expect(k8sClient.Create(ctx, toCreateOrganizationToken)).Should(Succeed())
+			errK8sOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyOrganizationToken, errK8sOrganizationToken)
+				return errK8sOrganizationToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
+			Expect(k8sClient.Delete(ctx, toCreateOrganizationToken)).Should(Succeed())
+			deletedOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, keyOrganizationToken, deletedOrganizationToken)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			toCreateOrganizationToken = &humiov1alpha1.HumioOrganizationToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyOrganizationToken.Name,
+					Namespace: keyOrganizationToken.Namespace,
+				},
+				Spec: orgTokenSpec,
+			}
+			toCreateOrganizationToken.Spec.Permissions = []string{"ManageUsers"}
+			Expect(k8sClient.Create(ctx, toCreateOrganizationToken)).Should(Succeed())
+			k8sOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyOrganizationToken, k8sOrganizationToken)
+				return k8sOrganizationToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
+
+			updatedPermissions = []string{"missing"}
+			k8sOrganizationToken.Spec.Permissions = updatedPermissions
+			Expect(k8sClient.Update(ctx, k8sOrganizationToken)).Should(Succeed())
+			errK8sOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyOrganizationToken, errK8sOrganizationToken)
+				return errK8sOrganizationToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenConfigError))
+			Expect(k8sClient.Delete(ctx, errK8sOrganizationToken)).Should(Succeed())
+			deletedOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, keyOrganizationToken, deletedOrganizationToken)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			//test update with new IPFilterName fails with immutable error
+			toCreateOrganizationToken = &humiov1alpha1.HumioOrganizationToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyOrganizationToken.Name,
+					Namespace: keyOrganizationToken.Namespace,
+				},
+				Spec: orgTokenSpec,
+			}
+			Expect(k8sClient.Create(ctx, toCreateOrganizationToken)).Should(Succeed())
+			k8sOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyOrganizationToken, k8sOrganizationToken)
+				return k8sOrganizationToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
+			k8sOrganizationToken.Spec.IPFilterName = newFilterName
+			Expect(k8sClient.Update(ctx, k8sOrganizationToken)).Should(MatchError(ContainSubstring("Value is immutable")))
+
+			//cleanup
+			Expect(k8sClient.Delete(ctx, k8sOrganizationToken)).Should(Succeed())
+			deletedOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, keyOrganizationToken, deletedOrganizationToken)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			//test update with new ExpiresAt fails with immutable error
+			toCreateOrganizationToken = &humiov1alpha1.HumioOrganizationToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyOrganizationToken.Name,
+					Namespace: keyOrganizationToken.Namespace,
+				},
+				Spec: orgTokenSpec,
+			}
+			Expect(k8sClient.Create(ctx, toCreateOrganizationToken)).Should(Succeed())
+			k8sOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyOrganizationToken, k8sOrganizationToken)
+				return k8sOrganizationToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTokenExists))
+			k8sOrganizationToken.Spec.IPFilterName = newFilterName + suffix
+			Expect(k8sClient.Update(ctx, k8sOrganizationToken)).Should(MatchError(ContainSubstring("Value is immutable")))
+
+			//cleanup
+			Expect(k8sClient.Delete(ctx, k8sOrganizationToken)).Should(Succeed())
+			deletedOrganizationToken = &humiov1alpha1.HumioOrganizationToken{}
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, keyOrganizationToken, deletedOrganizationToken)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+			Expect(k8sClient.Delete(ctx, fetchedIPFilter)).Should(Succeed())
 		})
 	})
 })

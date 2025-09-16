@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -48,6 +47,16 @@ type HumioSystemTokenReconciler struct {
 	HumioClient humio.Client
 	Namespace   string
 	Recorder    record.EventRecorder
+}
+
+// TokenController interface method
+func (r *HumioSystemTokenReconciler) Logger() logr.Logger {
+	return r.Log
+}
+
+// TokenController interface method
+func (r *HumioSystemTokenReconciler) GetRecorder() record.EventRecorder {
+	return r.Recorder
 }
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiosystemtokens,verbs=get;list;watch;create;update;patch;delete
@@ -81,11 +90,11 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// setup humio client configuration
 	cluster, err := helpers.NewCluster(ctx, r, hst.Spec.ManagedClusterName, hst.Spec.ExternalClusterName, hst.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, hst, humiov1alpha1.HumioSystemTokenConfigError, hst.Status.ID, hst.Status.Token)
+		setStateErr := setState(ctx, r, hst, humiov1alpha1.HumioTokenConfigError, hst.Status.ID, hst.Status.Token)
 		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
+			return reconcile.Result{}, logErrorAndReturn(r.Log, setStateErr, "unable to set cluster state")
 		}
-		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to obtain humio client config")
+		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "unable to obtain humio client config")
 	}
 
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
@@ -109,8 +118,8 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// first iteration on delete we run the finalize function which includes delete
 			r.Log.Info("SystemToken contains finalizer so run finalize method")
 			if err := r.finalize(ctx, humioHttpClient, hst); err != nil {
-				_ = r.setState(ctx, hst, humiov1alpha1.HumioSystemTokenUnknown, hst.Status.ID, hst.Status.Token)
-				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalize method returned an error")
+				_ = setState(ctx, r, hst, humiov1alpha1.HumioTokenUnknown, hst.Status.ID, hst.Status.Token)
+				return reconcile.Result{}, logErrorAndReturn(r.Log, err, "Finalize method returned an error")
 			}
 			// If no error was detected, we need to requeue so that we can remove the finalizer
 			return reconcile.Result{Requeue: true}, nil
@@ -121,7 +130,7 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Add finalizer for SystemToken so we can run cleanup on delete
 	if !helpers.ContainsElement(hst.GetFinalizers(), humioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to SystemToken")
-		if err := r.addFinalizer(ctx, hst); err != nil {
+		if err := addFinalizer(ctx, r, hst); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -135,28 +144,28 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// run validation across spec fields
 			validation, err := r.validateDependencies(ctx, humioHttpClient, hst, currentSystemToken)
 			if err != nil {
-				return r.handleCriticalError(ctx, hst, err)
+				return handleCriticalError(ctx, r, hst, err)
 			}
 			// create the SystemToken after successful validation
 			tokenId, secret, addErr := r.HumioClient.CreateSystemToken(ctx, humioHttpClient, hst, validation.IPFilterID, validation.Permissions)
 			if addErr != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create SystemToken")
+				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not create SystemToken")
 			}
 			r.Log.Info("Successfully created SystemToken")
 			// we only see secret once so any failed actions that depend on it are not recoverable
 			encSecret, encErr := encryptToken(ctx, r, cluster, secret, hst.Namespace)
 			if encErr != nil {
-				return r.handleCriticalError(ctx, hst, encErr)
+				return handleCriticalError(ctx, r, hst, encErr)
 			}
 			// set Status with the returned token id and the encrypted secret
-			err = r.setState(ctx, hst, humiov1alpha1.HumioSystemTokenExists, tokenId, encSecret)
+			err = setState(ctx, r, hst, humiov1alpha1.HumioTokenExists, tokenId, encSecret)
 			if err != nil {
-				return r.handleCriticalError(ctx, hst, err)
+				return handleCriticalError(ctx, r, hst, err)
 			}
 			r.Log.Info("Successfully updated SystemToken Status")
 			return reconcile.Result{Requeue: true}, nil
 		}
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if SystemToken exists")
+		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "could not check if SystemToken exists")
 	}
 
 	// SystemToken exists, we check for differences
@@ -165,20 +174,20 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// we plan to update so we validate dependencies
 		validation, err := r.validateDependencies(ctx, humioHttpClient, hst, currentSystemToken)
 		if err != nil {
-			return r.handleCriticalError(ctx, hst, err)
+			return handleCriticalError(ctx, r, hst, err)
 		}
 		r.Log.Info("information differs, triggering update for SystemToken", "diff", diffKeysAndValues)
 		updateErr := r.HumioClient.UpdateSystemToken(ctx, humioHttpClient, hst, validation.Permissions)
 		if updateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update SystemToken")
+			return reconcile.Result{}, logErrorAndReturn(r.Log, updateErr, "could not update SystemToken")
 		}
 	}
 
 	// ensure associated K8s secret exists if token is set
-	err = r.ensureSystemTokenSecretExists(ctx, hst, cluster)
+	err = ensureTokenSecretExists(ctx, r, hst, cluster, "SystemToken")
 	if err != nil {
-		_ = r.setState(ctx, hst, humiov1alpha1.HumioSystemTokenConfigError, hst.Status.ID, hst.Status.Token)
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not ensure SystemToken secret exists")
+		_ = setState(ctx, r, hst, humiov1alpha1.HumioTokenConfigError, hst.Status.ID, hst.Status.Token)
+		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "could not ensure SystemToken secret exists")
 	}
 
 	// At the end of successful reconcile refetch in case of updated state
@@ -193,16 +202,16 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if errors.As(lastErr, &humioapi.EntityNotFound{}) {
-		_ = r.setState(ctx, hst, humiov1alpha1.HumioSystemTokenNotFound, hst.Status.ID, hst.Status.Token)
+		_ = setState(ctx, r, hst, humiov1alpha1.HumioTokenNotFound, hst.Status.ID, hst.Status.Token)
 	} else if lastErr != nil {
-		_ = r.setState(ctx, hst, humiov1alpha1.HumioSystemTokenUnknown, hst.Status.ID, hst.Status.Token)
+		_ = setState(ctx, r, hst, humiov1alpha1.HumioTokenUnknown, hst.Status.ID, hst.Status.Token)
 	} else {
 		// on every reconcile validate dependencies that can change outside of k8s
 		_, depErr := r.validateDependencies(ctx, humioHttpClient, hst, humioSystemToken)
 		if depErr != nil {
-			return r.handleCriticalError(ctx, hst, depErr)
+			return handleCriticalError(ctx, r, hst, depErr)
 		}
-		_ = r.setState(ctx, hst, humiov1alpha1.HumioSystemTokenExists, humioSystemToken.Id, hst.Status.Token)
+		_ = setState(ctx, r, hst, humiov1alpha1.HumioTokenExists, humioSystemToken.Id, hst.Status.Token)
 	}
 
 	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
@@ -225,7 +234,7 @@ func (r *HumioSystemTokenReconciler) finalize(ctx context.Context, client *humio
 	}
 	err := r.HumioClient.DeleteSystemToken(ctx, client, hst)
 	if err != nil {
-		return r.logErrorAndReturn(err, "error in finalize function when trying to delete Humio Token")
+		return logErrorAndReturn(r.Log, err, "error in finalize function when trying to delete Humio Token")
 	}
 	// this is for test environment as in real k8s env garbage collection will delete it
 	secret := &corev1.Secret{
@@ -237,47 +246,6 @@ func (r *HumioSystemTokenReconciler) finalize(ctx context.Context, client *humio
 	_ = r.Delete(ctx, secret)
 	r.Log.Info("Successfully ran finalize method")
 	return nil
-}
-
-func (r *HumioSystemTokenReconciler) addFinalizer(ctx context.Context, hst *humiov1alpha1.HumioSystemToken) error {
-	r.Log.Info("Adding Finalizer to HumioSystemToken")
-	hst.SetFinalizers(append(hst.GetFinalizers(), humioFinalizer))
-	err := r.Update(ctx, hst)
-	if err != nil {
-		return r.logErrorAndReturn(err, "Failed to add Finalizer to HumioSystemToken")
-	}
-	r.Log.Info("Successfully added Finalizer to HumioSystemToken")
-	return nil
-}
-
-func (r *HumioSystemTokenReconciler) setState(ctx context.Context, hst *humiov1alpha1.HumioSystemToken, state string, id string, secret string) error {
-	r.Log.Info(fmt.Sprintf("Updating SystemToken Status: state=%s, id=%s, token=%s", state, id, redactToken(secret)))
-	if hst.Status.State == state && hst.Status.ID == id && hst.Status.Token == secret {
-		r.Log.Info("No changes for Status, skipping")
-		return nil
-	}
-	hst.Status.State = state
-	hst.Status.ID = id
-	hst.Status.Token = secret
-	err := r.Status().Update(ctx, hst)
-	if err == nil {
-		r.Log.Info("Successfully updated state")
-	}
-	return err
-}
-
-func (r *HumioSystemTokenReconciler) logErrorAndReturn(err error, msg string) error {
-	r.Log.Error(err, msg)
-	return fmt.Errorf("%s: %w", msg, err)
-}
-
-// update state, log error and record k8s event
-func (r *HumioSystemTokenReconciler) handleCriticalError(ctx context.Context, hst *humiov1alpha1.HumioSystemToken, err error) (reconcile.Result, error) {
-	_ = r.logErrorAndReturn(err, "unrecoverable error encountered")
-	_ = r.setState(ctx, hst, humiov1alpha1.HumioSystemTokenConfigError, hst.Status.ID, hst.Status.Token)
-	r.Recorder.Event(hst, corev1.EventTypeWarning, "Unrecoverable error", err.Error())
-	// we requeue after 1 minute since the error is not self healing and requires user intervention
-	return reconcile.Result{RequeueAfter: CriticalErrorRequeue}, nil
 }
 
 type SystemTokenValidationResult struct {
@@ -367,56 +335,6 @@ func (r *HumioSystemTokenReconciler) validateIPFilter(ctx context.Context, clien
 	}
 
 	return ipFilterDetails, nil
-}
-
-func (r *HumioSystemTokenReconciler) ensureSystemTokenSecretExists(ctx context.Context, hst *humiov1alpha1.HumioSystemToken, cluster helpers.ClusterInterface) error {
-	if hst.Spec.TokenSecretName == "" {
-		// unexpected situation as TokenSecretName is mandatory
-		return fmt.Errorf("SystemToken.Spec.TokenSecretName is mandatory but missing")
-	}
-	if hst.Status.Token == "" {
-		return fmt.Errorf("SystemToken.Status.Token is mandatory but missing")
-	}
-	secret, err := decryptToken(ctx, r, cluster, hst.Status.Token, hst.Namespace)
-	if err != nil {
-		return err
-	}
-
-	secretData := map[string][]byte{
-		TokenFieldName:    []byte(secret),
-		ResourceFieldName: []byte(hst.Spec.Name),
-	}
-	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hst.Namespace, hst.Spec.TokenSecretName, secretData, hst.Spec.TokenSecretLabels, hst.Spec.TokenSecretAnnotations)
-	if err := controllerutil.SetControllerReference(hst, desiredSecret, r.Scheme()); err != nil {
-		return r.logErrorAndReturn(err, "could not set controller reference")
-	}
-
-	existingSecret, err := kubernetes.GetSecret(ctx, r, hst.Spec.TokenSecretName, hst.Namespace)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			err = r.Create(ctx, desiredSecret)
-			if err != nil {
-				return fmt.Errorf("unable to create system token secret for HumioSystemToken: %w", err)
-			}
-			r.Log.Info("successfully created system token secret", "TokenSecretName", hst.Spec.TokenSecretName)
-		}
-	} else {
-		// kubernetes secret exists, check if we can/need to update it
-		r.Log.Info("system token secret already exists", "TokenSecretName", hst.Spec.TokenSecretName)
-		// prevent updating a secret with same name but different humio resource
-		if string(existingSecret.Data[ResourceFieldName]) != "" && string(existingSecret.Data[ResourceFieldName]) != hst.Spec.Name {
-			return r.logErrorAndReturn(fmt.Errorf("secret exists but has a different resource name: %s", string(existingSecret.Data[ResourceFieldName])), "unable to update system token secret")
-		}
-		if string(existingSecret.Data[TokenFieldName]) != string(desiredSecret.Data[TokenFieldName]) ||
-			!cmp.Equal(existingSecret.Labels, desiredSecret.Labels) ||
-			!cmp.Equal(existingSecret.Annotations, desiredSecret.Annotations) {
-			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hst.Spec.TokenSecretName)
-			if err = r.Update(ctx, desiredSecret); err != nil {
-				return r.logErrorAndReturn(err, "unable to update system token secret")
-			}
-		}
-	}
-	return nil
 }
 
 func (r *HumioSystemTokenReconciler) systemTokenAlreadyAsExpected(fromK8s *humiov1alpha1.HumioSystemToken, fromGql *humiographql.SystemTokenDetailsSystemPermissionsToken) (bool, map[string]string) {

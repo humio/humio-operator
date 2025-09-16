@@ -17,36 +17,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// HumioViewTokenUnknown is the Unknown state of the View token
-	HumioViewTokenUnknown = "Unknown"
-	// HumioViewTokenExists is the Exists state of the View token
-	HumioViewTokenExists = "Exists"
-	// HumioViewTokenNotFound is the NotFound state of the View token
-	HumioViewTokenNotFound = "NotFound"
-	// HumioViewTokenConfigError is the state of the View token when user-provided specification results in configuration error, such as non-existent humio cluster
-	HumioViewTokenConfigError = "ConfigError"
-)
-
 // HumioViewTokenSpec defines the desired state of HumioViewToken
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioViewTokenSpec struct {
-	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio resources should be created.
-	// This conflicts with ExternalClusterName.
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:Optional
-	ManagedClusterName string `json:"managedClusterName,omitempty"`
-	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
-	// This conflicts with ManagedClusterName.
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:Optional
-	ExternalClusterName string `json:"externalClusterName,omitempty"`
-	// Name is the name of the view token inside Humio
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
-	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
+	HumioTokenSpec `json:",inline"`
 	// ViewNames is the Humio list of View names for the token.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=100
@@ -54,51 +28,11 @@ type HumioViewTokenSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	ViewNames []string `json:"viewNames"`
-	// IPFilterName is the Humio IP Filter to be attached to the View Token
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
-	// +kubebuilder:validation:Optional
-	IPFilterName string `json:"ipFilterName,omitempty"`
-	// Permissions is the list of Humio permissions attached to the view token
-	// +kubebuilder:validation:MaxItems=100
-	// +kubebuilder:validation:XValidation:rule="self.all(item, size(item) >= 1 && size(item) <= 253)",message="permissions: each item must be 1-253 characters long"
-	// +kubebuilder:validation:Required
-	Permissions []string `json:"permissions"`
-	// ExpiresAt is the time when the View token is set to expire.
-	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Format=date-time
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
-	// +kubebuilder:validation:Optional
-	ExpiresAt *metav1.Time `json:"expiresAt,omitempty"`
-	// TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the view token.
-	// The key in the secret storing the View token is "token".
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?$`
-	// +kubebuilder:validation:Required
-	TokenSecretName string `json:"tokenSecretName"`
-	// TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing the View token.
-	// +kubebuilder:validation:MaxProperties=63
-	// +kubebuilder:validation:XValidation:rule="self.all(key, size(key) <= 63 && size(key) > 0)",message="tokenSecretLabels keys must be 1-63 characters"
-	// +kubebuilder:validation:XValidation:rule="self.all(key, size(self[key]) <= 63 && size(self[key]) > 0)",message="tokenSecretLabels values must be 1-63 characters"
-	// +kubebuilder:validation:Optional
-	TokenSecretLabels map[string]string `json:"tokenSecretLabels"`
-	// TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing the View token.
-	// +kubebuilder:validation:MaxProperties=63
-	// +kubebuilder:validation:XValidation:rule="self.all(key, size(key) > 0 && size(key) <= 63)",message="tokenSecretAnnotations keys must be 1-63 characters"
-	// +kubebuilder:validation:Optional
-	TokenSecretAnnotations map[string]string `json:"tokenSecretAnnotations,omitempty"`
 }
 
 // HumioViewTokenStatus defines the observed state of HumioViewToken.
 type HumioViewTokenStatus struct {
-	// State reflects the current state of the HumioViewToken
-	State string `json:"state,omitempty"`
-	// ID stores the Humio generated ID for the View token
-	ID string `json:"id,omitempty"`
-	// Token stores the encrypted Humio generated secret for the View token
-	Token string `json:"token,omitempty"`
+	HumioTokenStatus `json:",inline"`
 }
 
 // HumioViewToken is the Schema for the humioviewtokens API
@@ -124,6 +58,16 @@ type HumioViewTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HumioViewToken `json:"items"`
+}
+
+// GetSpec returns the configured Spec for the token
+func (hvt *HumioViewToken) GetSpec() *HumioTokenSpec {
+	return &hvt.Spec.HumioTokenSpec
+}
+
+// GetStatus returns the configured Status for the token
+func (hvt *HumioViewToken) GetStatus() *HumioTokenStatus {
+	return &hvt.Status.HumioTokenStatus
 }
 
 func init() {
