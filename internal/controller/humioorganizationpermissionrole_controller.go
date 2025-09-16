@@ -96,10 +96,10 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 	isHumioOrganizationPermissionRoleMarkedToBeDeleted := hp.GetDeletionTimestamp() != nil
 	if isHumioOrganizationPermissionRoleMarkedToBeDeleted {
 		r.Log.Info("OrganizationPermissionRole marked to be deleted")
-		if helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
+		if helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
 			_, err := r.HumioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, hp)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
+				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, hp)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -108,7 +108,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 				return reconcile.Result{Requeue: true}, nil
 			}
 
-			// Run finalization logic for humioFinalizer. If the
+			// Run finalization logic for HumioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("OrganizationPermissionRole contains finalizer so run finalizer method")
@@ -122,7 +122,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
+	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to organizationPermissionRole")
 		if err := r.addFinalizer(ctx, hp); err != nil {
 			return reconcile.Result{}, err
@@ -194,7 +194,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) finalize(ctx context.Context
 
 func (r *HumioOrganizationPermissionRoleReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioOrganizationPermissionRole) error {
 	r.Log.Info("Adding Finalizer for the HumioOrganizationPermissionRole")
-	hp.SetFinalizers(append(hp.GetFinalizers(), humioFinalizer))
+	hp.SetFinalizers(append(hp.GetFinalizers(), HumioFinalizer))
 
 	// Update CR
 	err := r.Update(ctx, hp)

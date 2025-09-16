@@ -26,7 +26,7 @@ spec:
       name: State
       type: string
     - description: Humio generated ID
-      jsonPath: .status.id
+      jsonPath: .status.humioId
       name: HumioID
       type: string
     name: v1alpha1
@@ -55,7 +55,7 @@ spec:
             description: HumioViewTokenSpec defines the desired state of HumioViewToken
             properties:
               expiresAt:
-                description: ExpiresAt is the time when the View token is set to expire.
+                description: ExpiresAt is the time when the token is set to expire.
                 format: date-time
                 type: string
                 x-kubernetes-validations:
@@ -69,7 +69,7 @@ spec:
                 type: string
               ipFilterName:
                 description: IPFilterName is the Humio IP Filter to be attached to
-                  the View Token
+                  the Token
                 maxLength: 253
                 minLength: 1
                 type: string
@@ -83,7 +83,7 @@ spec:
                 minLength: 1
                 type: string
               name:
-                description: Name is the name of the view token inside Humio
+                description: Name is the name of the token inside Humio
                 maxLength: 253
                 minLength: 1
                 type: string
@@ -92,7 +92,7 @@ spec:
                   rule: self == oldSelf
               permissions:
                 description: Permissions is the list of Humio permissions attached
-                  to the view token
+                  to the token
                 items:
                   type: string
                 maxItems: 100
@@ -105,7 +105,7 @@ spec:
                   type: string
                 description: TokenSecretAnnotations specifies additional key,value
                   pairs to add as annotations on the Kubernetes Secret containing
-                  the View token.
+                  the token.
                 maxProperties: 63
                 type: object
                 x-kubernetes-validations:
@@ -115,7 +115,7 @@ spec:
                 additionalProperties:
                   type: string
                 description: TokenSecretLabels specifies additional key,value pairs
-                  to add as labels on the Kubernetes Secret containing the View token.
+                  to add as labels on the Kubernetes Secret containing the token.
                 maxProperties: 63
                 type: object
                 x-kubernetes-validations:
@@ -125,8 +125,8 @@ spec:
                   rule: self.all(key, size(self[key]) <= 63 && size(self[key]) > 0)
               tokenSecretName:
                 description: |-
-                  TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the view token.
-                  The key in the secret storing the View token is "token".
+                  TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the token.
+                  The key in the secret storing the token is "token".
                 maxLength: 253
                 minLength: 1
                 pattern: ^[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
@@ -156,15 +156,11 @@ spec:
           status:
             description: HumioViewTokenStatus defines the observed state of HumioViewToken.
             properties:
-              id:
-                description: ID stores the Humio generated ID for the View token
+              humioId:
+                description: HumioID stores the Humio generated ID for the token
                 type: string
               state:
-                description: State reflects the current state of the HumioViewToken
-                type: string
-              token:
-                description: Token stores the encrypted Humio generated secret for
-                  the View token
+                description: State reflects the current state of the HumioToken
                 type: string
             type: object
         required:

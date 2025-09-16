@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.0
-  name: humiosystemtokens.core.humio.com
+  name: humioorganizationtokens.core.humio.com
   labels:
     app: 'humio-operator'
     app.kubernetes.io/name: 'humio-operator'
@@ -14,14 +14,14 @@ metadata:
 spec:
   group: core.humio.com
   names:
-    kind: HumioSystemToken
-    listKind: HumioSystemTokenList
-    plural: humiosystemtokens
-    singular: humiosystemtoken
+    kind: HumioOrganizationToken
+    listKind: HumioOrganizationTokenList
+    plural: humioorganizationtokens
+    singular: humioorganizationtoken
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: The state of the System Token
+    - description: The state of the Organization Token
       jsonPath: .status.state
       name: State
       type: string
@@ -32,7 +32,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioSystemToken is the Schema for the humiosystemtokens API
+        description: HumioOrganizationToken is the Schema for the humioOrganizationtokens
+          API
         properties:
           apiVersion:
             description: |-
@@ -52,7 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioSystemTokenSpec defines the desired state of HumioSystemToken
+            description: HumioOrganizationTokenSpec defines the desired state of HumioOrganizationToken
             properties:
               expiresAt:
                 description: ExpiresAt is the time when the token is set to expire.
@@ -141,7 +142,8 @@ spec:
               rule: (has(self.managedClusterName) && self.managedClusterName != "")
                 != (has(self.externalClusterName) && self.externalClusterName != "")
           status:
-            description: HumioSystemTokenStatus defines the observed state of HumioSystemToken.
+            description: HumioOrganizationTokenStatus defines the observed state of
+              HumioOrganizationToken.
             properties:
               humioId:
                 description: HumioID stores the Humio generated ID for the token

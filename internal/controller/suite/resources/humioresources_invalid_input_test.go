@@ -26,221 +26,261 @@ var _ = Describe("HumioViewTokenCRD", Label("envtest", "dummy", "real"), func() 
 		Entry("name not specified", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				//Name:               "",
-				TokenSecretName: "test-secret",
-				ViewNames:       []string{"test-view"},
-				Permissions:     []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					//Name:               "",
+					TokenSecretName: "test-secret",
+					Permissions:     []string{"ReadAccess"},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("name empty value", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("name too long", "spec.name: Too long:", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               strings.Repeat("A", 255),
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               strings.Repeat("A", 255),
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("viewNames not specified", "spec.viewNames: Required value", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+				},
 				//ViewNames:          []string{""},
-				Permissions: []string{"ReadAccess"},
 			},
 		}),
 		Entry("viewNames value not set", "spec.viewNames: Invalid value", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{""},
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+				},
+				ViewNames: []string{""},
 			},
 		}),
 		Entry("viewNames name too long", "spec.viewNames: Invalid value", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{strings.Repeat("A", 255)},
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+				},
+				ViewNames: []string{strings.Repeat("A", 255)},
 			},
 		}),
 		Entry("Permissions not set", "spec.permissions: Required value", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				// Permissions: []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					// Permissions: []string{"ReadAccess"},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("Permissions entry is empty", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{""},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{""},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("Permissions entry too long", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{strings.Repeat("A", 255)},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{strings.Repeat("A", 255)},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("Permissions are too many", "spec.permissions: Too many", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        strings.Split(strings.Repeat("validName,", 100)+"validName", ","),
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        strings.Split(strings.Repeat("validName,", 100)+"validName", ","),
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("IPFilterName too long", "spec.ipFilterName: Too long:", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
-				IPFilterName:       strings.Repeat("A", 255),
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					IPFilterName:       strings.Repeat("A", 255),
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretName not set", "spec.tokenSecretName: Invalid value: \"\": spec.tokenSecretName in body should be at least 1 chars long", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				//TokenSecretName:    "test-secret",
-				ViewNames:   []string{"test-view"},
-				Permissions: []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					//TokenSecretName:    "test-secret",
+					Permissions: []string{"ReadAccess"},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretName set empty", "spec.tokenSecretName: Invalid value: \"\": spec.tokenSecretName in body should be at least 1 chars long", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "",
+					Permissions:        []string{"ReadAccess"},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretName too long", "spec.tokenSecretName: Too long", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    strings.Repeat("A", 255),
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    strings.Repeat("A", 255),
+					Permissions:        []string{"ReadAccess"},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretName invalid char", "spec.tokenSecretName: Invalid value", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test.&",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test.&",
+					Permissions:        []string{"ReadAccess"},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretLabel key too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
-				TokenSecretLabels:  map[string]string{strings.Repeat("A", 255): ""},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					TokenSecretLabels:  map[string]string{strings.Repeat("A", 255): ""},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretLabel value too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
-				TokenSecretLabels:  map[string]string{"key": strings.Repeat("A", 255)},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					TokenSecretLabels:  map[string]string{"key": strings.Repeat("A", 255)},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretLabel too many keys", "spec.tokenSecretLabels: Too many: 64: must have at most 63 items", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
-				TokenSecretLabels: func() map[string]string {
-					m := make(map[string]string)
-					for i := range 64 {
-						m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
-					}
-					return m
-				}(),
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					TokenSecretLabels: func() map[string]string {
+						m := make(map[string]string)
+						for i := range 64 {
+							m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
+						}
+						return m
+					}(),
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretAnnotations key too long", "spec.tokenSecretAnnotations: Invalid value: \"object\": tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName:     "test-cluster",
-				Name:                   "test-name",
-				TokenSecretName:        "test-secret",
-				ViewNames:              []string{"test-view"},
-				Permissions:            []string{"ReadAccess"},
-				TokenSecretLabels:      map[string]string{"key": "value"},
-				TokenSecretAnnotations: map[string]string{strings.Repeat("A", 255): ""},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName:     "test-cluster",
+					Name:                   "test-name",
+					TokenSecretName:        "test-secret",
+					Permissions:            []string{"ReadAccess"},
+					TokenSecretLabels:      map[string]string{"key": "value"},
+					TokenSecretAnnotations: map[string]string{strings.Repeat("A", 255): ""},
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 		Entry("TokenSecretAnnotations too many keys", "spec.tokenSecretAnnotations: Too many: 64: must have at most 63 items", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				ViewNames:          []string{"test-view"},
-				Permissions:        []string{"ReadAccess"},
-				TokenSecretLabels:  map[string]string{"key": "value"},
-				TokenSecretAnnotations: func() map[string]string {
-					m := make(map[string]string)
-					for i := range 64 {
-						m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
-					}
-					return m
-				}(),
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					TokenSecretLabels:  map[string]string{"key": "value"},
+					TokenSecretAnnotations: func() map[string]string {
+						m := make(map[string]string)
+						for i := range 64 {
+							m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
+						}
+						return m
+					}(),
+				},
+				ViewNames: []string{"test-view"},
 			},
 		}),
 	)
@@ -257,174 +297,426 @@ var _ = Describe("HumioSystemTokenCRD", Label("envtest", "dummy", "real"), func(
 		Entry("name not specified", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				//Name:               "",
-				TokenSecretName: "test-secret",
-				Permissions:     []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					//Name:               "",
+					TokenSecretName: "test-secret",
+					Permissions:     []string{"ReadAccess"},
+				},
 			},
 		}),
 		Entry("name empty value", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "",
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+				},
 			},
 		}),
 		Entry("name too long", "spec.name: Too long:", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               strings.Repeat("A", 255),
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               strings.Repeat("A", 255),
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+				},
 			},
 		}),
 		Entry("Permissions not set", "spec.permissions: Required value", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				// Permissions: []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					// Permissions: []string{"ReadAccess"},
+				},
 			},
 		}),
 		Entry("Permissions entry is empty", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{""},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{""},
+				},
 			},
 		}),
 		Entry("Permissions entry too long", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{strings.Repeat("A", 255)},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{strings.Repeat("A", 255)},
+				},
 			},
 		}),
 		Entry("Permissions are too many", "spec.permissions: Too many", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				Permissions:        strings.Split(strings.Repeat("validName,", 100)+"validName", ","),
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        strings.Split(strings.Repeat("validName,", 100)+"validName", ","),
+				},
 			},
 		}),
 		Entry("IPFilterName too long", "spec.ipFilterName: Too long:", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{"ReadAccess"},
-				IPFilterName:       strings.Repeat("A", 255),
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					IPFilterName:       strings.Repeat("A", 255),
+				},
 			},
 		}),
 		Entry("TokenSecretName not set", "spec.tokenSecretName: Invalid value: \"\": spec.tokenSecretName in body should be at least 1 chars long", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				//TokenSecretName:    "test-secret",
-				Permissions: []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					//TokenSecretName:    "test-secret",
+					Permissions: []string{"ReadAccess"},
+				},
 			},
 		}),
 		Entry("TokenSecretName set empty", "spec.tokenSecretName: Invalid value: \"\": spec.tokenSecretName in body should be at least 1 chars long", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "",
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "",
+					Permissions:        []string{"ReadAccess"},
+				},
 			},
 		}),
 		Entry("TokenSecretName too long", "spec.tokenSecretName: Too long", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    strings.Repeat("A", 255),
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    strings.Repeat("A", 255),
+					Permissions:        []string{"ReadAccess"},
+				},
 			},
 		}),
 		Entry("TokenSecretName invalid char", "spec.tokenSecretName: Invalid value", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test.&",
-				Permissions:        []string{"ReadAccess"},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test.&",
+					Permissions:        []string{"ReadAccess"},
+				},
 			},
 		}),
 		Entry("TokenSecretLabel key too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{"ReadAccess"},
-				TokenSecretLabels:  map[string]string{strings.Repeat("A", 255): ""},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					TokenSecretLabels:  map[string]string{strings.Repeat("A", 255): ""},
+				},
 			},
 		}),
 		Entry("TokenSecretLabel value too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{"ReadAccess"},
-				TokenSecretLabels:  map[string]string{"key": strings.Repeat("A", 255)},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					TokenSecretLabels:  map[string]string{"key": strings.Repeat("A", 255)},
+				},
 			},
 		}),
 		Entry("TokenSecretLabel too many keys", "spec.tokenSecretLabels: Too many: 64: must have at most 63 items", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{"ReadAccess"},
-				TokenSecretLabels: func() map[string]string {
-					m := make(map[string]string)
-					for i := range 64 {
-						m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
-					}
-					return m
-				}(),
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					TokenSecretLabels: func() map[string]string {
+						m := make(map[string]string)
+						for i := range 64 {
+							m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
+						}
+						return m
+					}(),
+				},
 			},
 		}),
 		Entry("TokenSecretAnnotations key too long", "spec.tokenSecretAnnotations: Invalid value: \"object\": tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName:     "test-cluster",
-				Name:                   "test-name",
-				TokenSecretName:        "test-secret",
-				Permissions:            []string{"ReadAccess"},
-				TokenSecretLabels:      map[string]string{"key": "value"},
-				TokenSecretAnnotations: map[string]string{strings.Repeat("A", 255): ""},
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName:     "test-cluster",
+					Name:                   "test-name",
+					TokenSecretName:        "test-secret",
+					Permissions:            []string{"ReadAccess"},
+					TokenSecretLabels:      map[string]string{"key": "value"},
+					TokenSecretAnnotations: map[string]string{strings.Repeat("A", 255): ""},
+				},
 			},
 		}),
 		Entry("TokenSecretAnnotations too many keys", "spec.tokenSecretAnnotations: Too many: 64: must have at most 63 items", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
-				ManagedClusterName: "test-cluster",
-				Name:               "test-name",
-				TokenSecretName:    "test-secret",
-				Permissions:        []string{"ReadAccess"},
-				TokenSecretLabels:  map[string]string{"key": "value"},
-				TokenSecretAnnotations: func() map[string]string {
-					m := make(map[string]string)
-					for i := range 64 {
-						m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
-					}
-					return m
-				}(),
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ReadAccess"},
+					TokenSecretLabels:  map[string]string{"key": "value"},
+					TokenSecretAnnotations: func() map[string]string {
+						m := make(map[string]string)
+						for i := range 64 {
+							m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
+						}
+						return m
+					}(),
+				},
+			},
+		}),
+	)
+})
+
+var _ = Describe("HumioOrganizationTokenCRD", Label("envtest", "dummy", "real"), func() {
+	DescribeTable("invalid inputs should be rejected by the constraints in the CRD/API",
+		func(expectedOutput string, invalidInput humiov1alpha1.HumioOrganizationToken) {
+			err := k8sClient.Create(context.TODO(), &invalidInput)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(expectedOutput))
+		},
+		// Each Entry has a name and the parameters for the function above
+		Entry("name not specified", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					//Name:               "",
+					TokenSecretName: "test-secret",
+					Permissions:     []string{"ManageUsers"},
+				},
+			},
+		}),
+		Entry("name empty value", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ManageUsers"},
+				},
+			},
+		}),
+		Entry("name too long", "spec.name: Too long:", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               strings.Repeat("A", 255),
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ManageUsers"},
+				},
+			},
+		}),
+		Entry("Permissions not set", "spec.permissions: Required value", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					// Permissions: []string{"ManageUsers"},
+				},
+			},
+		}),
+		Entry("Permissions entry is empty", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{""},
+				},
+			},
+		}),
+		Entry("Permissions entry too long", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{strings.Repeat("A", 255)},
+				},
+			},
+		}),
+		Entry("Permissions are too many", "spec.permissions: Too many", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        strings.Split(strings.Repeat("validName,", 100)+"validName", ","),
+				},
+			},
+		}),
+		Entry("IPFilterName too long", "spec.ipFilterName: Too long:", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ManageUsers"},
+					IPFilterName:       strings.Repeat("A", 255),
+				},
+			},
+		}),
+		Entry("TokenSecretName not set", "spec.tokenSecretName: Invalid value: \"\": spec.tokenSecretName in body should be at least 1 chars long", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					//TokenSecretName:    "test-secret",
+					Permissions: []string{"ManageUsers"},
+				},
+			},
+		}),
+		Entry("TokenSecretName set empty", "spec.tokenSecretName: Invalid value: \"\": spec.tokenSecretName in body should be at least 1 chars long", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "",
+					Permissions:        []string{"ManageUsers"},
+				},
+			},
+		}),
+		Entry("TokenSecretName too long", "spec.tokenSecretName: Too long", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    strings.Repeat("A", 255),
+					Permissions:        []string{"ManageUsers"},
+				},
+			},
+		}),
+		Entry("TokenSecretName invalid char", "spec.tokenSecretName: Invalid value", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test.&",
+					Permissions:        []string{"ManageUsers"},
+				},
+			},
+		}),
+		Entry("TokenSecretLabel key too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ManageUsers"},
+					TokenSecretLabels:  map[string]string{strings.Repeat("A", 255): ""},
+				},
+			},
+		}),
+		Entry("TokenSecretLabel value too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ManageUsers"},
+					TokenSecretLabels:  map[string]string{"key": strings.Repeat("A", 255)},
+				},
+			},
+		}),
+		Entry("TokenSecretLabel too many keys", "spec.tokenSecretLabels: Too many: 64: must have at most 63 items", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ManageUsers"},
+					TokenSecretLabels: func() map[string]string {
+						m := make(map[string]string)
+						for i := range 64 {
+							m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
+						}
+						return m
+					}(),
+				},
+			},
+		}),
+		Entry("TokenSecretAnnotations key too long", "spec.tokenSecretAnnotations: Invalid value: \"object\": tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName:     "test-cluster",
+					Name:                   "test-name",
+					TokenSecretName:        "test-secret",
+					Permissions:            []string{"ManageUsers"},
+					TokenSecretLabels:      map[string]string{"key": "value"},
+					TokenSecretAnnotations: map[string]string{strings.Repeat("A", 255): ""},
+				},
+			},
+		}),
+		Entry("TokenSecretAnnotations too many keys", "spec.tokenSecretAnnotations: Too many: 64: must have at most 63 items", humiov1alpha1.HumioOrganizationToken{
+			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
+				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
+					ManagedClusterName: "test-cluster",
+					Name:               "test-name",
+					TokenSecretName:    "test-secret",
+					Permissions:        []string{"ManageUsers"},
+					TokenSecretLabels:  map[string]string{"key": "value"},
+					TokenSecretAnnotations: func() map[string]string {
+						m := make(map[string]string)
+						for i := range 64 {
+							m[fmt.Sprintf("validName%d", i)] = strings.Repeat("A", 10)
+						}
+						return m
+					}(),
+				},
 			},
 		}),
 	)

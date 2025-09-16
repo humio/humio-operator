@@ -99,11 +99,11 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("Checking if feature flag is marked to be deleted")
 	if featureFlag.GetDeletionTimestamp() != nil {
 		r.Log.Info("Feature flag marked to be deleted")
-		if helpers.ContainsElement(featureFlag.GetFinalizers(), humioFinalizer) {
+		if helpers.ContainsElement(featureFlag.GetFinalizers(), HumioFinalizer) {
 			enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
 			objErr := r.Get(ctx, req.NamespacedName, featureFlag)
 			if errors.As(objErr, &humioapi.EntityNotFound{}) || !enabled || errors.As(err, &humioapi.EntityNotFound{}) {
-				featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), humioFinalizer))
+				featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, featureFlag)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -141,9 +141,9 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Add finalizer
 	r.Log.Info("Checking if feature flag requires finalizer")
-	if !helpers.ContainsElement(featureFlag.GetFinalizers(), humioFinalizer) {
+	if !helpers.ContainsElement(featureFlag.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to feature flag")
-		featureFlag.SetFinalizers(append(featureFlag.GetFinalizers(), humioFinalizer))
+		featureFlag.SetFinalizers(append(featureFlag.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, featureFlag)
 		if err != nil {
 			return reconcile.Result{}, err

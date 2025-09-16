@@ -38,8 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const humioFinalizer = "core.humio.com/finalizer" // TODO: Not only used for ingest tokens, but also parsers, repositories and views.
-
 // HumioIngestTokenReconciler reconciles a HumioIngestToken object
 type HumioIngestTokenReconciler struct {
 	client.Client
@@ -98,10 +96,10 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	isHumioIngestTokenMarkedToBeDeleted := hit.GetDeletionTimestamp() != nil
 	if isHumioIngestTokenMarkedToBeDeleted {
 		r.Log.Info("Ingest token marked to be deleted")
-		if helpers.ContainsElement(hit.GetFinalizers(), humioFinalizer) {
+		if helpers.ContainsElement(hit.GetFinalizers(), HumioFinalizer) {
 			_, err := r.HumioClient.GetIngestToken(ctx, humioHttpClient, hit)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hit.SetFinalizers(helpers.RemoveElement(hit.GetFinalizers(), humioFinalizer))
+				hit.SetFinalizers(helpers.RemoveElement(hit.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, hit)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -110,7 +108,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return reconcile.Result{Requeue: true}, nil
 			}
 
-			// Run finalization logic for humioFinalizer. If the
+			// Run finalization logic for HumioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Ingest token contains finalizer so run finalizer method")
@@ -124,7 +122,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hit.GetFinalizers(), humioFinalizer) {
+	if !helpers.ContainsElement(hit.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to ingest token")
 		if err := r.addFinalizer(ctx, hit); err != nil {
 			return reconcile.Result{}, err
@@ -208,7 +206,7 @@ func (r *HumioIngestTokenReconciler) finalize(ctx context.Context, client *humio
 
 func (r *HumioIngestTokenReconciler) addFinalizer(ctx context.Context, hit *humiov1alpha1.HumioIngestToken) error {
 	r.Log.Info("Adding Finalizer for the HumioIngestToken")
-	hit.SetFinalizers(append(hit.GetFinalizers(), humioFinalizer))
+	hit.SetFinalizers(append(hit.GetFinalizers(), HumioFinalizer))
 
 	// Update CR
 	err := r.Update(ctx, hit)
