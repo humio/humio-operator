@@ -1,0 +1,38 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  name: example-humiocluster
+  namespace: logging
+  labels:
+    app: 'humiocluster'
+    app.kubernetes.io/name: 'humiocluster'
+    app.kubernetes.io/instance: 'example-humiocluster'
+    app.kubernetes.io/managed-by: 'manual'
+spec:
+  extraKafkaConfigs: "security.protocol=PLAINTEXT"
+  tls:
+    enabled: true
+  #image: "humio/humio-core:1.171.1"
+  nodeCount: 1
+  targetReplicationFactor: 1
+  environmentVariables:
+    - name: "ENABLE_SCHEDULED_REPORT"
+      value: "true"
+    - name: "DEFAULT_PDF_RENDER_SERVICE_URL"
+      value: "http://pdf-render-service.logging.svc.cluster.local:5123"
+    - name: "PDF_RENDER_SERVICE_CALLBACK_BASE_URL"
+      value: "https://example-humiocluster.example.com"
+    - name: "HUMIO_OPTS"
+      value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false"
+    - name: "ZOOKEEPER_URL"
+      value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
+    - name: "KAFKA_SERVERS"
+      value: "humio-cp-kafka-0.humio-cp-kafka-headless:9092"
+    - name: "SINGLE_USER_PASSWORD"
+      value: "develop3r"
+  dataVolumePersistentVolumeClaimSpecTemplate:
+    storageClassName: standard
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 10Gi

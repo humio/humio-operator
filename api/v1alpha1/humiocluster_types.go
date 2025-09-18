@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strconv"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -522,6 +524,18 @@ type HumioClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HumioCluster `json:"items"`
+}
+
+// GetObservedGeneration exposes ObservedGeneration as int64 for test helpers
+func (hc *HumioCluster) GetObservedGeneration() int64 {
+	if hc == nil {
+		return 0
+	}
+	val, err := strconv.ParseInt(hc.Status.ObservedGeneration, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return val
 }
 
 func init() {

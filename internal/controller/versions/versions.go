@@ -24,6 +24,8 @@ const (
 
 	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 
+	defaultPDFRenderServiceImage = "humio/pdf-render-service:0.1.2--build-104--sha-9a7598de95bb9775b6f59d874c37a206713bae01"
+
 	dummyImageSuffix = "-dummy"
 )
 
@@ -99,4 +101,16 @@ func UpgradeRollingBestEffortVersionJumpNewVersion() string {
 }
 func SidecarWaitForGlobalImageVersion() string {
 	return sidecarWaitForGlobalImageVersion
+}
+
+func DefaultPDFRenderServiceImage() string {
+	// In dummy-image mode, prefer a locally built dummy HTTP server image that
+	// our CI preloads into kind. This ensures probes succeed without pulling
+	// external images.
+	if helpers.UseDummyImage() {
+		// This image is built from images/logscale-dummy and preloaded by the
+		// e2e harness. It serves HTTP on HUMIO_PORT which we set in the controller.
+		return "humio/humio-core:dummy"
+	}
+	return defaultPDFRenderServiceImage
 }
