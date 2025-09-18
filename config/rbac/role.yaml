@@ -26,6 +26,43 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  - issuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - core.humio.com
   resources:
   - humioactions
@@ -42,6 +79,7 @@ rules:
   - humiomulticlustersearchviews
   - humioorganizationpermissionroles
   - humioparsers
+  - humiopdfrenderservices
   - humiorepositories
   - humioscheduledsearches
   - humiosystempermissionroles
@@ -73,6 +111,7 @@ rules:
   - humiomulticlustersearchviews/finalizers
   - humioorganizationpermissionroles/finalizers
   - humioparsers/finalizers
+  - humiopdfrenderservices/finalizers
   - humiorepositories/finalizers
   - humioscheduledsearches/finalizers
   - humiosystempermissionroles/finalizers
@@ -98,6 +137,7 @@ rules:
   - humiomulticlustersearchviews/status
   - humioorganizationpermissionroles/status
   - humioparsers/status
+  - humiopdfrenderservices/status
   - humiorepositories/status
   - humioscheduledsearches/status
   - humiosystempermissionroles/status

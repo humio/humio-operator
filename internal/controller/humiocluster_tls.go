@@ -96,12 +96,20 @@ func validCAIssuer(ctx context.Context, k8sclient client.Client, namespace, issu
 	return false, nil
 }
 
+// GenericCAIssuerConfig holds the configuration needed to create a CA Issuer for any resource
+type GenericCAIssuerConfig struct {
+	Namespace    string
+	Name         string
+	Labels       map[string]string
+	CASecretName string
+}
+
 type CACert struct {
 	Certificate []byte
 	Key         []byte
 }
 
-func generateCACertificate() (CACert, error) {
+func GenerateCACertificate() (CACert, error) {
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().Unix()),
 		Subject: pkix.Name{
