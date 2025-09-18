@@ -26,6 +26,12 @@ declare -r tmp_helm_test_case_dir="hack/helm-test/test-cases/tmp"
 run_test_suite() {
     trap "cleanup_upgrade" RETURN
 
+    local test_name_filter=${TEST_NAME:-${1:-}}
+    local jq_expr='.test_scenarios[]'
+    if [ -n "$test_name_filter" ]; then
+        jq_expr=".test_scenarios[] | select(.name==\"${test_name_filter}\")"
+    fi
+
     yq eval -o=j hack/helm-test/test-cases.yaml | jq -c '.test_scenarios[]' | while IFS= read -r scenario; do
         local name=$(echo "$scenario" | jq -r '.name')
         local from_version=$(echo $scenario | jq -r '.from.version')
@@ -41,6 +47,32 @@ run_test_suite() {
         local expect_restarts=$(echo $scenario | jq -r '.expect_restarts')
         local description=$(echo $scenario | jq -r '.description')
         local namespace=$(echo $scenario | jq -r '.namespace')
+
+        # Skip restart_upgrade when operator image is unchanged between "from" and "present"
+        if [ "$name" = "restart_upgrade" ] && [ "$to_version" = "present" ]; then
+            # Determine the "from" operator image. By default, the chart uses .Chart.AppVersion
+            # as the operator image tag, which matches the version we install from the repo.
+            from_operator_image="humio/humio-operator:${from_version}"
+
+            # Ensure we have a local copy of the "from" image (pull if needed)
+            if ! $docker image inspect "$from_operator_image" >/dev/null 2>&1; then
+                $docker pull "$from_operator_image" >/dev/null 2>&1 || true
+            fi
+
+            # Ensure the local "present" image exists (build if missing)
+            present_image="controller:latest"
+            if ! $docker image inspect "$present_image" >/dev/null 2>&1; then
+                make docker-build
+            fi
+
+            from_id=$($docker image inspect "$from_operator_image" --format='{{.Id}}' 2>/dev/null || true)
+            present_id=$($docker image inspect "$present_image" --format='{{.Id}}' 2>/dev/null || true)
+
+            if [ -n "$from_id" ] && [ -n "$present_id" ] && [ "$from_id" = "$present_id" ]; then
+                echo "Skipping test: $name (operator image unchanged: $from_operator_image == $present_image)"
+                continue
+            fi
+        fi
 
         echo "Running test: $name"
         echo "Description: $description"
