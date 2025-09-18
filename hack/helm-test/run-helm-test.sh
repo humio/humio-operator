@@ -26,7 +26,13 @@ declare -r tmp_helm_test_case_dir="hack/helm-test/test-cases/tmp"
 run_test_suite() {
     trap "cleanup_upgrade" RETURN
 
-    yq eval -o=j hack/helm-test/test-cases.yaml | jq -c '.test_scenarios[]' | while IFS= read -r scenario; do
+    local test_name_filter=${TEST_NAME:-${1:-}}
+    local jq_expr='.test_scenarios[]'
+    if [ -n "$test_name_filter" ]; then
+        jq_expr=".test_scenarios[] | select(.name==\"${test_name_filter}\")"
+    fi
+
+    yq eval -o=j hack/helm-test/test-cases.yaml | jq -c "$jq_expr" | while IFS= read -r scenario; do
         local name=$(echo "$scenario" | jq -r '.name')
         local from_version=$(echo $scenario | jq -r '.from.version')
         local to_version=$(echo $scenario | jq -r '.to.version')
@@ -96,9 +102,7 @@ test_upgrade() {
     if [ "$from_cluster" == "null" ]; then
       from_cluster=$base_logscale_cluster_file
     fi
-    # If no explicit target cluster file is provided, default to the base
-    # test cluster manifest instead of attempting to apply a literal "null" path.
-    if [ "$to_cluster" == "null" ]; then
+    if [ "$from_cluster" == "null" ]; then
       to_cluster=$base_logscale_cluster_file
     fi
     if [ "$from_values" == "null" ]; then
