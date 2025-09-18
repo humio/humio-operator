@@ -25,6 +25,8 @@ const (
 	entityTypeViewPermissionRole         entityType = "view-permission-role"
 	entityTypeIPFilter                   entityType = "ipfilter"
 	entityTypeViewToken                  entityType = "view-token"
+	entityTypeSystemToken                entityType = "system-token"
+	entityTypeOrganizationToken          entityType = "organization-token"
 )
 
 func (e entityType) String() string {
@@ -170,6 +172,20 @@ func IPFilterNotFound(name string) error {
 func ViewTokenNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeViewToken,
+		key:        name,
+	}
+}
+
+func SystemTokenNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeSystemToken,
+		key:        name,
+	}
+}
+
+func OrganizationTokenNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeOrganizationToken,
 		key:        name,
 	}
 }

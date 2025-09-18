@@ -17,59 +17,52 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HumioViewTokenSpec defines the desired state of HumioViewToken
+// HumioSystemTokenSpec defines the desired state of HumioSystemToken
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
-type HumioViewTokenSpec struct {
+type HumioSystemTokenSpec struct {
 	HumioTokenSpec `json:",inline"`
-	// ViewNames is the Humio list of View names for the token.
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=100
-	// +kubebuilder:validation:XValidation:rule="self.all(item, size(item) >= 1 && size(item) <= 253)",message="viewNames: each item must be 1-253 characters long"
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
-	// +kubebuilder:validation:Required
-	ViewNames []string `json:"viewNames"`
 }
 
-// HumioViewTokenStatus defines the observed state of HumioViewToken.
-type HumioViewTokenStatus struct {
+// HumioSystemTokenStatus defines the observed state of HumioSystemToken.
+type HumioSystemTokenStatus struct {
 	HumioTokenStatus `json:",inline"`
 }
 
-// HumioViewToken is the Schema for the humioviewtokens API
+// HumioSystemToken is the Schema for the humiosystemtokens API
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humioviewtokens,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the View Token"
+// +kubebuilder:resource:path=humiosystemtokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the System Token"
 // +kubebuilder:printcolumn:name="HumioID",type="string",JSONPath=".status.id",description="Humio generated ID"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio View Token"
-type HumioViewToken struct {
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio System Token"
+type HumioSystemToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
-	Spec   HumioViewTokenSpec   `json:"spec"`
-	Status HumioViewTokenStatus `json:"status,omitempty"`
+	Spec   HumioSystemTokenSpec   `json:"spec"`
+	Status HumioSystemTokenStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// HumioViewTokenList contains a list of HumioViewToken
-type HumioViewTokenList struct {
+// HumioSystemTokenList contains a list of HumioSystemToken
+type HumioSystemTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []HumioViewToken `json:"items"`
+	Items           []HumioSystemToken `json:"items"`
 }
 
 // GetSpec returns the configured Spec for the token
-func (hvt *HumioViewToken) GetSpec() *HumioTokenSpec {
-	return &hvt.Spec.HumioTokenSpec
+func (hst *HumioSystemToken) GetSpec() *HumioTokenSpec {
+	return &hst.Spec.HumioTokenSpec
 }
 
 // GetStatus returns the configured Status for the token
-func (hvt *HumioViewToken) GetStatus() *HumioTokenStatus {
-	return &hvt.Status.HumioTokenStatus
+func (hst *HumioSystemToken) GetStatus() *HumioTokenStatus {
+	return &hst.Status.HumioTokenStatus
 }
 
 func init() {
-	SchemeBuilder.Register(&HumioViewToken{}, &HumioViewTokenList{})
+	SchemeBuilder.Register(&HumioSystemToken{}, &HumioSystemTokenList{})
 }

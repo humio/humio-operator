@@ -1,6 +1,8 @@
 package controller
 
-import "time"
+import (
+	"time"
+)
 
 // CommonConfig has common configuration parameters for all controllers.
 type CommonConfig struct {

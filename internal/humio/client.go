@@ -60,6 +60,8 @@ type Client interface {
 	ViewPermissionRolesClient
 	IPFilterClient
 	ViewTokenClient
+	SystemTokenClient
+	OrganizationTokenClient
 	SecurityPoliciesClient
 }
 
@@ -212,7 +214,18 @@ type ViewTokenClient interface {
 	UpdateViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken, []humiographql.Permission) error
 	DeleteViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) error
 }
-
+type SystemTokenClient interface {
+	CreateSystemToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioSystemToken, string, []humiographql.SystemPermission) (string, string, error)
+	GetSystemToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioSystemToken) (*humiographql.SystemTokenDetailsSystemPermissionsToken, error)
+	UpdateSystemToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioSystemToken, []humiographql.SystemPermission) error
+	DeleteSystemToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioSystemToken) error
+}
+type OrganizationTokenClient interface {
+	CreateOrganizationToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioOrganizationToken, string, []humiographql.OrganizationPermission) (string, string, error)
+	GetOrganizationToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioOrganizationToken) (*humiographql.OrganizationTokenDetailsOrganizationPermissionsToken, error)
+	UpdateOrganizationToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioOrganizationToken, []humiographql.OrganizationPermission) error
+	DeleteOrganizationToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioOrganizationToken) error
+}
 type SecurityPoliciesClient interface {
 	EnableTokenUpdatePermissionsForTests(context.Context, *humioapi.Client) error
 }
@@ -3003,7 +3016,7 @@ func (h *ClientConfig) CreateViewToken(ctx context.Context, client *humioapi.Cli
 func (h *ClientConfig) GetViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) (*humiographql.ViewTokenDetailsViewPermissionsToken, error) {
 	// we return early if the id is not set on the viewToken, it means it wasn't created / doesn't exists / we plan to delete it
 	if viewToken.Status.ID == "" {
-		h.logger.Info("Unexpected scenario, missing ID for ViewToken.Status.ID: %s", viewToken.Status.ID)
+		h.logger.Info("unexpected scenario, missing ID for ViewToken.Status.ID", "id", viewToken.Status.ID)
 		return nil, humioapi.ViewTokenNotFound(viewToken.Spec.Name)
 	}
 	viewTokenResp, err := humiographql.GetViewToken(ctx, client, viewToken.Status.ID)
@@ -3011,7 +3024,7 @@ func (h *ClientConfig) GetViewToken(ctx context.Context, client *humioapi.Client
 		return nil, err
 	}
 	if len(viewTokenResp.Tokens.Results) == 0 {
-		h.logger.Info("Unexpected scenario, query return 0 results for ViewToken ID: %s", viewToken.Status.ID)
+		h.logger.Info("unexpected scenario, query return 0 results for ViewToken ID", "id", viewToken.Status.ID)
 		return nil, humioapi.ViewTokenNotFound(viewToken.Spec.Name)
 	}
 	data := viewTokenResp.Tokens.Results[0].(*humiographql.GetViewTokenTokensTokenQueryResultSetResultsViewPermissionsToken)
@@ -3041,6 +3054,140 @@ func (h *ClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Cli
 // EnableTokenUpdatePermissions turns ON the ability to update token permissions (disabled by default)
 func (h *ClientConfig) EnableTokenUpdatePermissionsForTests(ctx context.Context, client *humioapi.Client) error {
 	_, err := humiographql.UpdateTokenSecurityPolicies(ctx, client, true, true, true, true, true, true, true)
+	return err
+}
+
+func (h *ClientConfig) CreateSystemToken(ctx context.Context, client *humioapi.Client, systemToken *humiov1alpha1.HumioSystemToken, ipFilterId string, permissions []humiographql.SystemPermission) (string, string, error) {
+	var expireAtPtr *int64
+	var ipFilterPtr *string
+	// cleanup expireAt
+	if systemToken.Spec.ExpiresAt != nil {
+		timestamp := systemToken.Spec.ExpiresAt.UnixMilli()
+		expireAtPtr = &timestamp
+	}
+	// cleanup ipFilter
+	if ipFilterId != "" {
+		ipFilterPtr = &ipFilterId
+	}
+
+	systemTokenCreateResp, err := humiographql.CreateSystemToken(
+		ctx,
+		client,
+		systemToken.Spec.Name,
+		ipFilterPtr,
+		expireAtPtr,
+		permissions,
+	)
+	if err != nil {
+		return "", "", err
+	}
+	token := systemTokenCreateResp.CreateSystemPermissionsToken
+	tokenParts := strings.Split(token, "~")
+	return tokenParts[0], token, nil
+}
+
+func (h *ClientConfig) GetSystemToken(ctx context.Context, client *humioapi.Client, systemToken *humiov1alpha1.HumioSystemToken) (*humiographql.SystemTokenDetailsSystemPermissionsToken, error) {
+	// we return early if the id is not set on the viewToken, it means it wasn't created / doesn't exists / we plan to delete it
+	if systemToken.Status.ID == "" {
+		h.logger.Info("unexpected scenario, missing ID for SystemToken.Status.ID", "id", systemToken.Status.ID)
+		return nil, humioapi.SystemTokenNotFound(systemToken.Spec.Name)
+	}
+	systemTokenResp, err := humiographql.GetSystemToken(ctx, client, systemToken.Status.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(systemTokenResp.Tokens.Results) == 0 {
+		h.logger.Info("unexpected scenario, query return 0 results for SystemToken ID", "id", systemToken.Status.ID)
+		return nil, humioapi.SystemTokenNotFound(systemToken.Spec.Name)
+	}
+	data := systemTokenResp.Tokens.Results[0].(*humiographql.GetSystemTokenTokensTokenQueryResultSetResultsSystemPermissionsToken)
+	token := data.SystemTokenDetailsSystemPermissionsToken
+
+	return &token, nil
+}
+
+func (h *ClientConfig) DeleteSystemToken(ctx context.Context, client *humioapi.Client, systemToken *humiov1alpha1.HumioSystemToken) error {
+	_, err := humiographql.DeleteToken(
+		ctx,
+		client,
+		systemToken.Status.ID,
+	)
+	return err
+}
+func (h *ClientConfig) UpdateSystemToken(ctx context.Context, client *humioapi.Client, hvt *humiov1alpha1.HumioSystemToken, permissions []humiographql.SystemPermission) error {
+	_, err := humiographql.UpdateSystemToken(
+		ctx,
+		client,
+		hvt.Status.ID,
+		permissions,
+	)
+	return err
+}
+
+func (h *ClientConfig) CreateOrganizationToken(ctx context.Context, client *humioapi.Client, orgToken *humiov1alpha1.HumioOrganizationToken, ipFilterId string, permissions []humiographql.OrganizationPermission) (string, string, error) {
+	var expireAtPtr *int64
+	var ipFilterPtr *string
+	// cleanup expireAt
+	if orgToken.Spec.ExpiresAt != nil {
+		timestamp := orgToken.Spec.ExpiresAt.UnixMilli()
+		expireAtPtr = &timestamp
+	}
+	// cleanup ipFilter
+	if ipFilterId != "" {
+		ipFilterPtr = &ipFilterId
+	}
+
+	orgTokenCreateResp, err := humiographql.CreateOrganizationToken(
+		ctx,
+		client,
+		orgToken.Spec.Name,
+		ipFilterPtr,
+		expireAtPtr,
+		permissions,
+	)
+	if err != nil {
+		return "", "", err
+	}
+	token := orgTokenCreateResp.CreateOrganizationPermissionsToken
+	tokenParts := strings.Split(token, "~")
+	return tokenParts[0], token, nil
+}
+
+func (h *ClientConfig) GetOrganizationToken(ctx context.Context, client *humioapi.Client, orgToken *humiov1alpha1.HumioOrganizationToken) (*humiographql.OrganizationTokenDetailsOrganizationPermissionsToken, error) {
+	// we return early if the id is not set on the OrganizationToken, it means it wasn't created / doesn't exists / we plan to delete it
+	if orgToken.Status.ID == "" {
+		h.logger.Info("unexpected scenario, missing ID for OrganizationToken.Status.ID", "id", orgToken.Status.ID)
+		return nil, humioapi.OrganizationTokenNotFound(orgToken.Spec.Name)
+	}
+	orgTokenResp, err := humiographql.GetOrganizationToken(ctx, client, orgToken.Status.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(orgTokenResp.Tokens.Results) == 0 {
+		h.logger.Info("unexpected scenario, query return 0 results for OrganizationToken ID", "id", orgToken.Status.ID)
+		return nil, humioapi.OrganizationTokenNotFound(orgToken.Spec.Name)
+	}
+	data := orgTokenResp.Tokens.Results[0].(*humiographql.GetOrganizationTokenTokensTokenQueryResultSetResultsOrganizationPermissionsToken)
+	token := data.OrganizationTokenDetailsOrganizationPermissionsToken
+
+	return &token, nil
+}
+
+func (h *ClientConfig) DeleteOrganizationToken(ctx context.Context, client *humioapi.Client, orgToken *humiov1alpha1.HumioOrganizationToken) error {
+	_, err := humiographql.DeleteToken(
+		ctx,
+		client,
+		orgToken.Status.ID,
+	)
+	return err
+}
+func (h *ClientConfig) UpdateOrganizationToken(ctx context.Context, client *humioapi.Client, hot *humiov1alpha1.HumioOrganizationToken, permissions []humiographql.OrganizationPermission) error {
+	_, err := humiographql.UpdateOrganizationToken(
+		ctx,
+		client,
+		hot.Status.ID,
+		permissions,
+	)
 	return err
 }
 
@@ -3112,7 +3259,7 @@ var EquivalentSpecificPermissions = map[string][]string{
 }
 
 // We need to fix permissions as these are not directly mapped, at least not all
-// OrganizationOwnedQueries permission gets added when the token is created
+// OrganizationOwnedQueries permission gets added when the view token is created
 // EquivalentSpecificPermissions translate specific permissions to others
 func FixPermissions(permissions []string) []string {
 	permSet := make(map[string]bool)

@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.0
-  name: humioviewtokens.core.humio.com
+  name: humiosystemtokens.core.humio.com
   labels:
     app: 'humio-operator'
     app.kubernetes.io/name: 'humio-operator'
@@ -14,14 +14,14 @@ metadata:
 spec:
   group: core.humio.com
   names:
-    kind: HumioViewToken
-    listKind: HumioViewTokenList
-    plural: humioviewtokens
-    singular: humioviewtoken
+    kind: HumioSystemToken
+    listKind: HumioSystemTokenList
+    plural: humiosystemtokens
+    singular: humiosystemtoken
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: The state of the View Token
+    - description: The state of the System Token
       jsonPath: .status.state
       name: State
       type: string
@@ -32,7 +32,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioViewToken is the Schema for the humioviewtokens API
+        description: HumioSystemToken is the Schema for the humiosystemtokens API
         properties:
           apiVersion:
             description: |-
@@ -52,7 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioViewTokenSpec defines the desired state of HumioViewToken
+            description: HumioSystemTokenSpec defines the desired state of HumioSystemToken
             properties:
               expiresAt:
                 description: ExpiresAt is the time when the token is set to expire.
@@ -131,30 +131,17 @@ spec:
                 minLength: 1
                 pattern: ^[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                 type: string
-              viewNames:
-                description: ViewNames is the Humio list of View names for the token.
-                items:
-                  type: string
-                maxItems: 100
-                minItems: 1
-                type: array
-                x-kubernetes-validations:
-                - message: 'viewNames: each item must be 1-253 characters long'
-                  rule: self.all(item, size(item) >= 1 && size(item) <= 253)
-                - message: Value is immutable
-                  rule: self == oldSelf
             required:
             - name
             - permissions
             - tokenSecretName
-            - viewNames
             type: object
             x-kubernetes-validations:
             - message: Must specify exactly one of managedClusterName or externalClusterName
               rule: (has(self.managedClusterName) && self.managedClusterName != "")
                 != (has(self.externalClusterName) && self.externalClusterName != "")
           status:
-            description: HumioViewTokenStatus defines the observed state of HumioViewToken.
+            description: HumioSystemTokenStatus defines the observed state of HumioSystemToken.
             properties:
               id:
                 description: ID stores the Humio generated ID for the token
