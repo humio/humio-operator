@@ -96,7 +96,9 @@ test_upgrade() {
     if [ "$from_cluster" == "null" ]; then
       from_cluster=$base_logscale_cluster_file
     fi
-    if [ "$from_cluster" == "null" ]; then
+    # If no explicit target cluster file is provided, default to the base
+    # test cluster manifest instead of attempting to apply a literal "null" path.
+    if [ "$to_cluster" == "null" ]; then
       to_cluster=$base_logscale_cluster_file
     fi
     if [ "$from_values" == "null" ]; then
