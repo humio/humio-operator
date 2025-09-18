@@ -5140,6 +5140,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Delete(ctx, toCreateRepository)).Should(Succeed())
 		})
 	})
+<<<<<<< HEAD
 
 	Context("Humio IPFilter", Label("envtest", "dummy", "real"), func() {
 		It("HumioIPFilter: Should handle ipFilter correctly", func() {
@@ -5241,6 +5242,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(MatchError(humioapi.IPFilterNotFound(fetchedIPFilter.Spec.Name)))
 		})
 	})
+=======
+>>>>>>> b5e2b52 (PDF Render Service integration (clean squash): apply branch diff onto master)
 })
 
 type repositoryExpectation struct {

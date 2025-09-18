@@ -475,7 +475,7 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 
 	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than
 	// ingress
-	if !EnvVarHasKey(envDefaults, "PUBLIC_URL") {
+	if !EnvVarHasKey(envVars, "PUBLIC_URL") {
 		// Only include the path suffix if it's non-root. It likely wouldn't harm anything, but it's unnecessary
 		pathSuffix := ""
 		if hnp.GetPath() != "/" {
@@ -1119,3 +1119,5 @@ func mergeEnvironmentVariables(src, dest *corev1.Container) {
 		}
 	}
 }
+
+// Note: Use EnvVarHasKey from this package to avoid duplicating helpers

@@ -534,4 +534,15 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+	if err = (&controller.HumioPdfRenderServiceReconciler{
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		BaseLogger: log,
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
+		os.Exit(1)
+	}
 }

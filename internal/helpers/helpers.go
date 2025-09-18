@@ -78,6 +78,36 @@ func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 	return UseCertManager() && *hc.Spec.TLS.Enabled
 }
 
+// TLSEnabledForHPRS returns true if TLS is enabled for the PDF Render Service
+// This follows the same logic as TLSEnabled for HumioCluster to ensure consistency
+// When TLS is explicitly configured, it respects the explicit setting.
+// When not configured, it falls back to cert-manager availability.
+func TLSEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	if hprs.Spec.TLS == nil {
+		return UseCertManager()
+	}
+	if hprs.Spec.TLS.Enabled == nil {
+		return UseCertManager()
+	}
+	// For PDF Render Service, we respect the explicit setting regardless of cert-manager status
+	// This is different from HumioCluster where both cert-manager AND explicit setting must be true
+	result := *hprs.Spec.TLS.Enabled
+	return result
+}
+
+// GetCASecretNameForHPRS returns the CA secret name for PDF Render Service
+func GetCASecretNameForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) string {
+	if hprs.Spec.TLS != nil && hprs.Spec.TLS.CASecretName != "" {
+		return hprs.Spec.TLS.CASecretName
+	}
+	return hprs.Name + "-ca-keypair"
+}
+
+// UseExistingCAForHPRS returns true if PDF Render Service uses existing CA
+func UseExistingCAForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	return hprs.Spec.TLS != nil && hprs.Spec.TLS.CASecretName != ""
+}
+
 // AsSHA256 does a sha 256 hash on an object and returns the result
 func AsSHA256(o interface{}) string {
 	h := sha256.New()
@@ -155,7 +185,13 @@ func NewLogger() (*uberzap.Logger, error) {
 
 // UseCertManager returns whether the operator will use cert-manager
 func UseCertManager() bool {
-	return !UseEnvtest() && os.Getenv("USE_CERTMANAGER") == TrueStr
+	// In envtest environments, cert-manager is not functional even if configured
+	if UseEnvtest() {
+		return false
+	}
+
+	// Only use cert-manager if explicitly enabled via environment variable
+	return os.Getenv("USE_CERTMANAGER") == TrueStr
 }
 
 // GetDefaultHumioCoreImageFromEnvVar returns the user-defined default image for humio-core containers
@@ -227,6 +263,13 @@ func GetE2ELicenseFromEnvVar() string {
 	return os.Getenv("HUMIO_E2E_LICENSE")
 }
 
+// UseKindCluster returns true if we're running tests in a kind cluster environment.
+// This is detected by checking for the presence of the HUMIO_E2E_LICENSE environment variable
+// which is consistently set when running the kind-based E2E tests.
+func UseKindCluster() bool {
+	return os.Getenv("HUMIO_E2E_LICENSE") != ""
+}
+
 // PreserveKindCluster returns true if the intention is to not delete kind cluster after test execution.
 // This is to allow reruns of tests to be performed where resources can be reused.
 func PreserveKindCluster() bool {
@@ -279,6 +322,50 @@ func EmptySliceIfNil(slice []string) []string {
 		return []string{}
 	}
 	return slice
+}
+
+// PdfRenderServiceChildName generates the child resource name for a HumioPdfRenderService.
+// This uses the CR name to ensure unique names per instance within the namespace.
+// The result is guaranteed to be under 63 characters to meet Kubernetes naming requirements.
+func PdfRenderServiceChildName(pdfServiceName string) string {
+	const maxKubernetesNameLength = 63
+
+	// Use a simple naming pattern: "hprs-<name>"
+	// This is short, clear, and avoids duplication
+	result := fmt.Sprintf("hprs-%s", pdfServiceName)
+
+	// Ensure the result fits within Kubernetes naming limits
+	if len(result) <= maxKubernetesNameLength {
+		return result
+	}
+
+	// Truncate to fit within limits
+	return result[:maxKubernetesNameLength]
+}
+
+// PdfRenderServiceTlsSecretName generates the TLS secret name for a HumioPdfRenderService.
+// This uses the same logic as the controller to ensure consistency between controller and tests.
+func PdfRenderServiceTlsSecretName(pdfServiceName string) string {
+	return PdfRenderServiceChildName(pdfServiceName) + "-tls"
+}
+
+// PdfRenderServiceHpaName generates the HPA name for a HumioPdfRenderService.
+// This uses the same logic as the controller to ensure consistency between controller and tests.
+func PdfRenderServiceHpaName(pdfServiceName string) string {
+	// Use the child name to ensure consistency and avoid duplication
+	childName := PdfRenderServiceChildName(pdfServiceName)
+	return fmt.Sprintf("%s-hpa", childName)
+}
+
+// HpaEnabledForHPRS returns true if HPA should be managed for the
+// HumioPdfRenderService. New behavior:
+// - Autoscaling = nil: HPA disabled (no autoscaling configured)
+// - Autoscaling present: HPA enabled when MaxReplicas > 0
+func HpaEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	if hprs == nil || hprs.Spec.Autoscaling == nil {
+		return false
+	}
+	return hprs.Spec.Autoscaling.MaxReplicas > 0
 }
 
 // FirewallRulesToString converts a slice of FirewallRule structs to a string format

@@ -348,6 +348,17 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioPdfRenderServiceReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		BaseLogger: log,
+		Namespace:  clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controller.HumioMultiClusterSearchViewReconciler{
 		Client: k8sManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
