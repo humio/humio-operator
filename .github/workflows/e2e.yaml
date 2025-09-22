@@ -31,23 +31,28 @@ jobs:
         chmod +x ./kind
         ./kind delete cluster || true
         make clean
+    - name: Source env variables
+      run: |
+          echo "DOCKER_USERNAME=$DOCKER_USERNAME" >> $GITHUB_ENV
+          echo "DOCKER_PASSWORD=$DOCKER_PASSWORD" >> $GITHUB_ENV
+          echo "HUMIO_E2E_LICENSE=$HUMIO_E2E_LICENSE" >> $GITHUB_ENV
     - name: Login to DockerHub
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ env.DOCKER_USERNAME }}
+        password: ${{ env.DOCKER_PASSWORD }}
     - name: Get temp bin dir
       id: bin_dir
       run: echo "BIN_DIR=$(mktemp -d --tmpdir=${{ github.workspace }})" >> $GITHUB_OUTPUT
     - name: run e2e tests
       env:
         BIN_DIR: ${{ steps.bin_dir.outputs.BIN_DIR }}
-        HUMIO_E2E_LICENSE: ${{ secrets.HUMIO_E2E_LICENSE }}
+        HUMIO_E2E_LICENSE: ${{ env.HUMIO_E2E_LICENSE }}
         E2E_KIND_K8S_VERSION: ${{ matrix.kind-k8s-version }}
         E2E_LOGS_HUMIO_HOSTNAME: ${{ secrets.E2E_LOGS_HUMIO_HOSTNAME }}
         E2E_LOGS_HUMIO_INGEST_TOKEN: ${{ secrets.E2E_LOGS_HUMIO_INGEST_TOKEN }}
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ env.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ env.DOCKER_PASSWORD }}
         GINKGO_NODES: "6"
       run: |
         hack/run-e2e-using-kind.sh
