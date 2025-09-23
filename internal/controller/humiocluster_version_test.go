@@ -20,7 +20,7 @@ type versionParsingTestCase struct {
 	expectedAssumeLatest    bool   // Expected IsLatest() result
 }
 
-var _ = DescribeTable("HumioVersionFromString", Label("unit"),
+var _ = DescribeTable("HumioVersionFromString",
 	func(testCase versionParsingTestCase) {
 		gotVersion := HumioVersionFromString(testCase.userDefinedImageVersion)
 
