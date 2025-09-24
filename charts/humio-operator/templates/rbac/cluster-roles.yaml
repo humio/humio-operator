@@ -123,6 +123,16 @@ rules:
   - humioipfilters
   - humioipfilters/finalizers
   - humioipfilters/status
+  - humioviewtokens
+  - humioviewtokens/finalizers
+  - humioviewtokens/status
+  - humiosystemtokens
+  - humiosystemtokens/finalizers
+  - humiosystemtokens/status
+  - humioorganizationtokens
+  - humioorganizationtokens/finalizers
+  - humioorganizationtokens/status
+
   verbs:
   - create
   - delete

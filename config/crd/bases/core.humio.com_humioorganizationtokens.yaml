@@ -1,0 +1,161 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: humioorganizationtokens.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.31.1'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioOrganizationToken
+    listKind: HumioOrganizationTokenList
+    plural: humioorganizationtokens
+    singular: humioorganizationtoken
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the Organization Token
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: Humio generated ID
+      jsonPath: .status.humioId
+      name: HumioID
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioOrganizationToken is the Schema for the humioOrganizationtokens
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioOrganizationTokenSpec defines the desired state of HumioOrganizationToken
+            properties:
+              expiresAt:
+                description: ExpiresAt is the time when the token is set to expire.
+                format: date-time
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
+                minLength: 1
+                type: string
+              ipFilterName:
+                description: IPFilterName is the Humio IP Filter to be attached to
+                  the Token
+                maxLength: 253
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+              managedClusterName:
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio resources should be created.
+                  This conflicts with ExternalClusterName.
+                minLength: 1
+                type: string
+              name:
+                description: Name is the name of the token inside Humio
+                maxLength: 253
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+              permissions:
+                description: Permissions is the list of Humio permissions attached
+                  to the token
+                items:
+                  type: string
+                maxItems: 100
+                type: array
+                x-kubernetes-validations:
+                - message: 'permissions: each item must be 1-253 characters long'
+                  rule: self.all(item, size(item) >= 1 && size(item) <= 253)
+              tokenSecretAnnotations:
+                additionalProperties:
+                  type: string
+                description: TokenSecretAnnotations specifies additional key,value
+                  pairs to add as annotations on the Kubernetes Secret containing
+                  the token.
+                maxProperties: 63
+                type: object
+                x-kubernetes-validations:
+                - message: tokenSecretAnnotations keys must be 1-63 characters
+                  rule: self.all(key, size(key) > 0 && size(key) <= 63)
+              tokenSecretLabels:
+                additionalProperties:
+                  type: string
+                description: TokenSecretLabels specifies additional key,value pairs
+                  to add as labels on the Kubernetes Secret containing the token.
+                maxProperties: 63
+                type: object
+                x-kubernetes-validations:
+                - message: tokenSecretLabels keys must be 1-63 characters
+                  rule: self.all(key, size(key) <= 63 && size(key) > 0)
+                - message: tokenSecretLabels values must be 1-63 characters
+                  rule: self.all(key, size(self[key]) <= 63 && size(self[key]) > 0)
+              tokenSecretName:
+                description: |-
+                  TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the token.
+                  The key in the secret storing the token is "token".
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                type: string
+            required:
+            - name
+            - permissions
+            - tokenSecretName
+            type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
+          status:
+            description: HumioOrganizationTokenStatus defines the observed state of
+              HumioOrganizationToken.
+            properties:
+              humioId:
+                description: HumioID stores the Humio generated ID for the token
+                type: string
+              state:
+                description: State reflects the current state of the HumioToken
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

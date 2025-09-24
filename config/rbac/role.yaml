@@ -41,13 +41,16 @@ rules:
   - humioipfilters
   - humiomulticlustersearchviews
   - humioorganizationpermissionroles
+  - humioorganizationtokens
   - humioparsers
   - humiorepositories
   - humioscheduledsearches
   - humiosystempermissionroles
+  - humiosystemtokens
   - humiousers
   - humioviewpermissionroles
   - humioviews
+  - humioviewtokens
   verbs:
   - create
   - delete
@@ -72,13 +75,16 @@ rules:
   - humioipfilters/finalizers
   - humiomulticlustersearchviews/finalizers
   - humioorganizationpermissionroles/finalizers
+  - humioorganizationtokens/finalizers
   - humioparsers/finalizers
   - humiorepositories/finalizers
   - humioscheduledsearches/finalizers
   - humiosystempermissionroles/finalizers
+  - humiosystemtokens/finalizers
   - humiousers/finalizers
   - humioviewpermissionroles/finalizers
   - humioviews/finalizers
+  - humioviewtokens/finalizers
   verbs:
   - update
 - apiGroups:
@@ -97,13 +103,16 @@ rules:
   - humioipfilters/status
   - humiomulticlustersearchviews/status
   - humioorganizationpermissionroles/status
+  - humioorganizationtokens/status
   - humioparsers/status
   - humiorepositories/status
   - humioscheduledsearches/status
   - humiosystempermissionroles/status
+  - humiosystemtokens/status
   - humiousers/status
   - humioviewpermissionroles/status
   - humioviews/status
+  - humioviewtokens/status
   verbs:
   - get
   - patch

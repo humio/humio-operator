@@ -94,10 +94,10 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	isHumioRepositoryMarkedToBeDeleted := hr.GetDeletionTimestamp() != nil
 	if isHumioRepositoryMarkedToBeDeleted {
 		r.Log.Info("Repository marked to be deleted")
-		if helpers.ContainsElement(hr.GetFinalizers(), humioFinalizer) {
+		if helpers.ContainsElement(hr.GetFinalizers(), HumioFinalizer) {
 			_, err := r.HumioClient.GetRepository(ctx, humioHttpClient, hr)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hr.SetFinalizers(helpers.RemoveElement(hr.GetFinalizers(), humioFinalizer))
+				hr.SetFinalizers(helpers.RemoveElement(hr.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, hr)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -106,7 +106,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				return reconcile.Result{Requeue: true}, nil
 			}
 
-			// Run finalization logic for humioFinalizer. If the
+			// Run finalization logic for HumioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Repository contains finalizer so run finalizer method")
@@ -120,7 +120,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hr.GetFinalizers(), humioFinalizer) {
+	if !helpers.ContainsElement(hr.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to repository")
 		if err := r.addFinalizer(ctx, hr); err != nil {
 			return reconcile.Result{}, err
@@ -198,7 +198,7 @@ func (r *HumioRepositoryReconciler) finalize(ctx context.Context, client *humioa
 
 func (r *HumioRepositoryReconciler) addFinalizer(ctx context.Context, hr *humiov1alpha1.HumioRepository) error {
 	r.Log.Info("Adding Finalizer for the HumioRepository")
-	hr.SetFinalizers(append(hr.GetFinalizers(), humioFinalizer))
+	hr.SetFinalizers(append(hr.GetFinalizers(), HumioFinalizer))
 
 	// Update CR
 	err := r.Update(ctx, hr)

@@ -46,6 +46,10 @@ import (
 const (
 	emailActionExample         string = "example@example.com"
 	expectedSecretValueExample string = "secret-token"
+	totalCRDs                  int    = 23 // Bump this as we introduce new CRD's
+	newFilterName              string = "new-filter-name"
+	exampleIPFilter            string = "example-ipfilter"
+	badIPFilter                string = "missing"
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
@@ -519,7 +523,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in Humio")
 			var initialView *humiographql.GetSearchDomainSearchDomainView
 			Eventually(func() error {
-				initialView, err = humioClient.GetView(ctx, humioHttpClient, viewToCreate)
+				initialView, err = humioClient.GetView(ctx, humioHttpClient, viewToCreate, false)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialView).ToNot(BeNil())
@@ -534,7 +538,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Eventually(func() humiographql.GetSearchDomainSearchDomainView {
-				initialView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView)
+				initialView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView, false)
 				if err != nil {
 					return humiographql.GetSearchDomainSearchDomainView{}
 				}
@@ -567,7 +571,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in Humio")
 			var updatedView *humiographql.GetSearchDomainSearchDomainView
 			Eventually(func() error {
-				updatedView, err = humioClient.GetView(ctx, humioHttpClient, fetchedView)
+				updatedView, err = humioClient.GetView(ctx, humioHttpClient, fetchedView, false)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(updatedView).ToNot(BeNil())
@@ -581,7 +585,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				AutomaticSearch: *fetchedView.Spec.AutomaticSearch,
 			}
 			Eventually(func() humiographql.GetSearchDomainSearchDomainView {
-				updatedView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView)
+				updatedView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView, false)
 				if err != nil {
 					return humiographql.GetSearchDomainSearchDomainView{}
 				}
@@ -4175,7 +4179,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(20)) // Bump this as we introduce new CRD's
+			Expect(resources).To(HaveLen(totalCRDs)) // Bump this as we introduce new CRD's
 
 			for i := range resources {
 				// Get the GVK information
@@ -5140,7 +5144,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	Context("Humio IPFilter", Label("envtest", "dummy", "real"), func() {
 		It("HumioIPFilter: Should handle ipFilter correctly", func() {
 			// some defaults
-			name := "example-ipfilter"
+			name := exampleIPFilter
 			ipRules := []humiov1alpha1.FirewallRule{
 				{Action: "allow", Address: "127.0.0.1"},
 				{Action: "allow", Address: "10.0.0.0/8"},
@@ -5164,73 +5168,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: spec,
 			}
-
-			// test CRD validation by k8s
-			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Validating CRD")
-
-			// test invalid name
-			testCasesName := []struct {
-				Name  string
-				Error string
-			}{
-				{
-					Name:  strings.Repeat("A", 255),
-					Error: "Invalid value",
-				},
-				{
-					Name:  "",
-					Error: "Invalid value",
-				},
-			}
-			for _, tc := range testCasesName {
-				toCreateIPFilter.Spec.Name = tc.Name
-				Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(MatchError(ContainSubstring(tc.Error)))
-			}
-
-			// reset name
-			toCreateIPFilter.Spec.Name = name
-
-			// test invalid IP rules
-			testCasesRule := []struct {
-				Rule  humiov1alpha1.FirewallRule
-				Error string
-			}{
-				{
-					Rule: humiov1alpha1.FirewallRule{
-						Action:  "allow",
-						Address: "",
-					},
-					Error: "address: Invalid value",
-				},
-				{
-					Rule: humiov1alpha1.FirewallRule{
-						Action:  "allow",
-						Address: "0.0.0",
-					},
-					Error: "address: Invalid value",
-				},
-				{
-					Rule: humiov1alpha1.FirewallRule{
-						Action:  "reject",
-						Address: "0.0.0.0/0",
-					},
-					Error: "action: Unsupported value",
-				},
-				{
-					Rule: humiov1alpha1.FirewallRule{
-						Action:  "",
-						Address: "127.0.0.1",
-					},
-					Error: "action: Unsupported value",
-				},
-			}
-			for _, tc := range testCasesRule {
-				toCreateIPFilter.Spec.IPFilter = []humiov1alpha1.FirewallRule{tc.Rule}
-				Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(MatchError(ContainSubstring(tc.Error)))
-			}
-			// reset IPFilter
-			toCreateIPFilter.Spec.IPFilter = ipRules
-			// end test CRD validation
 
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 

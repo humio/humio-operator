@@ -1,0 +1,15 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioSystemToken
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humiosystemtoken-sample
+spec:
+  managedClusterName: humiocluster
+  name: humio-example-token
+  permissions:
+    - ReadHealthCheck
+    - ViewOrganizations
+    - ChangeUsername
+  tokenSecretName: secrettoken

@@ -22,6 +22,11 @@ operations:
   - graphql/views.graphql
   - graphql/users.graphql
   - graphql/ipfilter.graphql
+  - graphql/shared-tokens.graphql
+  - graphql/view-tokens.graphql
+  - graphql/system-tokens.graphql
+  - graphql/organization-tokens.graphql
+  - graphql/security-policies.graphql
 generated: humiographql.go
 
 bindings:

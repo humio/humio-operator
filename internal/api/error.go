@@ -24,6 +24,9 @@ const (
 	entityTypeOrganizationPermissionRole entityType = "organization-permission-role"
 	entityTypeViewPermissionRole         entityType = "view-permission-role"
 	entityTypeIPFilter                   entityType = "ipfilter"
+	entityTypeViewToken                  entityType = "view-token"
+	entityTypeSystemToken                entityType = "system-token"
+	entityTypeOrganizationToken          entityType = "organization-token"
 )
 
 func (e entityType) String() string {
@@ -162,6 +165,27 @@ func ViewPermissionRoleNotFound(name string) error {
 func IPFilterNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeIPFilter,
+		key:        name,
+	}
+}
+
+func ViewTokenNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeViewToken,
+		key:        name,
+	}
+}
+
+func SystemTokenNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeSystemToken,
+		key:        name,
+	}
+}
+
+func OrganizationTokenNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeOrganizationToken,
 		key:        name,
 	}
 }

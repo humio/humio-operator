@@ -34,6 +34,8 @@ Resource Types:
 
 - [HumioOrganizationPermissionRole](#humioorganizationpermissionrole)
 
+- [HumioOrganizationToken](#humioorganizationtoken)
+
 - [HumioParser](#humioparser)
 
 - [HumioRepository](#humiorepository)
@@ -42,11 +44,15 @@ Resource Types:
 
 - [HumioSystemPermissionRole](#humiosystempermissionrole)
 
+- [HumioSystemToken](#humiosystemtoken)
+
 - [HumioUser](#humiouser)
 
 - [HumioViewPermissionRole](#humioviewpermissionrole)
 
 - [HumioView](#humioview)
+
+- [HumioViewToken](#humioviewtoken)
 
 
 
@@ -37859,6 +37865,194 @@ HumioOrganizationPermissionRoleStatus defines the observed state of HumioOrganiz
       </tr></tbody>
 </table>
 
+## HumioOrganizationToken
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioOrganizationToken is the Schema for the humioOrganizationtokens API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioOrganizationToken</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioorganizationtokenspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioOrganizationTokenSpec defines the desired state of HumioOrganizationToken<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioorganizationtokenstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioOrganizationTokenStatus defines the observed state of HumioOrganizationToken.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioOrganizationToken.spec
+<sup><sup>[↩ Parent](#humioorganizationtoken)</sup></sup>
+
+
+
+HumioOrganizationTokenSpec defines the desired state of HumioOrganizationToken
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the token inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>permissions</b></td>
+        <td>[]string</td>
+        <td>
+          Permissions is the list of Humio permissions attached to the token<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(item, size(item) >= 1 && size(item) <= 253): permissions: each item must be 1-253 characters long</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>tokenSecretName</b></td>
+        <td>string</td>
+        <td>
+          TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the token.
+The key in the secret storing the token is "token".<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>expiresAt</b></td>
+        <td>string</td>
+        <td>
+          ExpiresAt is the time when the token is set to expire.<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ipFilterName</b></td>
+        <td>string</td>
+        <td>
+          IPFilterName is the Humio IP Filter to be attached to the Token<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>tokenSecretAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing the token.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(key, size(key) > 0 && size(key) <= 63): tokenSecretAnnotations keys must be 1-63 characters</li>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>tokenSecretLabels</b></td>
+        <td>map[string]string</td>
+        <td>
+          TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing the token.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(key, size(key) <= 63 && size(key) > 0): tokenSecretLabels keys must be 1-63 characters</li><li>self.all(key, size(self[key]) <= 63 && size(self[key]) > 0): tokenSecretLabels values must be 1-63 characters</li>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioOrganizationToken.status
+<sup><sup>[↩ Parent](#humioorganizationtoken)</sup></sup>
+
+
+
+HumioOrganizationTokenStatus defines the observed state of HumioOrganizationToken.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>humioId</b></td>
+        <td>string</td>
+        <td>
+          HumioID stores the Humio generated ID for the token<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
 ## HumioParser
 <sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
 
@@ -38579,6 +38773,194 @@ HumioSystemPermissionRoleStatus defines the observed state of HumioSystemPermiss
       </tr></tbody>
 </table>
 
+## HumioSystemToken
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioSystemToken is the Schema for the humiosystemtokens API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioSystemToken</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiosystemtokenspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioSystemTokenSpec defines the desired state of HumioSystemToken<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiosystemtokenstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioSystemTokenStatus defines the observed state of HumioSystemToken.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioSystemToken.spec
+<sup><sup>[↩ Parent](#humiosystemtoken)</sup></sup>
+
+
+
+HumioSystemTokenSpec defines the desired state of HumioSystemToken
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the token inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>permissions</b></td>
+        <td>[]string</td>
+        <td>
+          Permissions is the list of Humio permissions attached to the token<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(item, size(item) >= 1 && size(item) <= 253): permissions: each item must be 1-253 characters long</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>tokenSecretName</b></td>
+        <td>string</td>
+        <td>
+          TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the token.
+The key in the secret storing the token is "token".<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>expiresAt</b></td>
+        <td>string</td>
+        <td>
+          ExpiresAt is the time when the token is set to expire.<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ipFilterName</b></td>
+        <td>string</td>
+        <td>
+          IPFilterName is the Humio IP Filter to be attached to the Token<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>tokenSecretAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing the token.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(key, size(key) > 0 && size(key) <= 63): tokenSecretAnnotations keys must be 1-63 characters</li>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>tokenSecretLabels</b></td>
+        <td>map[string]string</td>
+        <td>
+          TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing the token.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(key, size(key) <= 63 && size(key) > 0): tokenSecretLabels keys must be 1-63 characters</li><li>self.all(key, size(self[key]) <= 63 && size(self[key]) > 0): tokenSecretLabels values must be 1-63 characters</li>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioSystemToken.status
+<sup><sup>[↩ Parent](#humiosystemtoken)</sup></sup>
+
+
+
+HumioSystemTokenStatus defines the observed state of HumioSystemToken.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>humioId</b></td>
+        <td>string</td>
+        <td>
+          HumioID stores the Humio generated ID for the token<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
 ## HumioUser
 <sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
 
@@ -39075,6 +39457,203 @@ HumioViewStatus defines the observed state of HumioView.
         <td>string</td>
         <td>
           State reflects the current state of the HumioView<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioViewToken
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioViewToken is the Schema for the humioviewtokens API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioViewToken</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioviewtokenspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioViewTokenSpec defines the desired state of HumioViewToken<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioviewtokenstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioViewTokenStatus defines the observed state of HumioViewToken.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioViewToken.spec
+<sup><sup>[↩ Parent](#humioviewtoken)</sup></sup>
+
+
+
+HumioViewTokenSpec defines the desired state of HumioViewToken
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the token inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>permissions</b></td>
+        <td>[]string</td>
+        <td>
+          Permissions is the list of Humio permissions attached to the token<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(item, size(item) >= 1 && size(item) <= 253): permissions: each item must be 1-253 characters long</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>tokenSecretName</b></td>
+        <td>string</td>
+        <td>
+          TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the token.
+The key in the secret storing the token is "token".<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>viewNames</b></td>
+        <td>[]string</td>
+        <td>
+          ViewNames is the Humio list of View names for the token.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(item, size(item) >= 1 && size(item) <= 253): viewNames: each item must be 1-253 characters long</li><li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>expiresAt</b></td>
+        <td>string</td>
+        <td>
+          ExpiresAt is the time when the token is set to expire.<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ipFilterName</b></td>
+        <td>string</td>
+        <td>
+          IPFilterName is the Humio IP Filter to be attached to the Token<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>tokenSecretAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing the token.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(key, size(key) > 0 && size(key) <= 63): tokenSecretAnnotations keys must be 1-63 characters</li>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>tokenSecretLabels</b></td>
+        <td>map[string]string</td>
+        <td>
+          TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing the token.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(key, size(key) <= 63 && size(key) > 0): tokenSecretLabels keys must be 1-63 characters</li><li>self.all(key, size(self[key]) <= 63 && size(self[key]) > 0): tokenSecretLabels values must be 1-63 characters</li>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioViewToken.status
+<sup><sup>[↩ Parent](#humioviewtoken)</sup></sup>
+
+
+
+HumioViewTokenStatus defines the observed state of HumioViewToken.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>humioId</b></td>
+        <td>string</td>
+        <td>
+          HumioID stores the Humio generated ID for the token<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioToken<br/>
         </td>
         <td>false</td>
       </tr></tbody>
