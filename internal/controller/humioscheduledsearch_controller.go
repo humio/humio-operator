@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -84,7 +83,7 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set scheduled search state")
 		}
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
@@ -216,16 +215,20 @@ func scheduledSearchAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha
 		keyValues["description"] = diff
 	}
 	labelsFromGraphQL := fromGraphQL.GetLabels()
+	labelsFromKubernetes := fromKubernetesCustomResource.Spec.Labels
+	if labelsFromKubernetes == nil {
+		labelsFromKubernetes = make([]string, 0)
+	}
 	sort.Strings(labelsFromGraphQL)
-	sort.Strings(fromKubernetesCustomResource.Spec.Labels)
-	if diff := cmp.Diff(labelsFromGraphQL, fromKubernetesCustomResource.Spec.Labels); diff != "" {
+	sort.Strings(labelsFromKubernetes)
+	if diff := cmp.Diff(labelsFromGraphQL, labelsFromKubernetes); diff != "" {
 		keyValues["labels"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetStart(), fromKubernetesCustomResource.Spec.QueryStart); diff != "" {
-		keyValues["throttleField"] = diff
+		keyValues["queryStart"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetEnd(), fromKubernetesCustomResource.Spec.QueryEnd); diff != "" {
-		keyValues["throttleTimeSeconds"] = diff
+		keyValues["queryEnd"] = diff
 	}
 	actionsFromGraphQL := humioapi.GetActionNames(fromGraphQL.GetActionsV2())
 	sort.Strings(actionsFromGraphQL)
@@ -234,16 +237,16 @@ func scheduledSearchAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha
 		keyValues["actions"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetTimeZone(), fromKubernetesCustomResource.Spec.TimeZone); diff != "" {
-		keyValues["queryTimestampType"] = diff
+		keyValues["timeZone"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetQueryString(), fromKubernetesCustomResource.Spec.QueryString); diff != "" {
 		keyValues["queryString"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetSchedule(), fromKubernetesCustomResource.Spec.Schedule); diff != "" {
-		keyValues["triggerMode"] = diff
+		keyValues["schedule"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetBackfillLimit(), fromKubernetesCustomResource.Spec.BackfillLimit); diff != "" {
-		keyValues["searchIntervalSeconds"] = diff
+		keyValues["backfillLimit"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetEnabled(), fromKubernetesCustomResource.Spec.Enabled); diff != "" {
 		keyValues["enabled"] = diff
