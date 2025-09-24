@@ -145,7 +145,7 @@ func MapToSortedString(m map[string]string) string {
 
 // NewLogger returns a JSON logger with references to the origin of the log entry.
 // All log entries also includes a field "ts" containing the timestamp in RFC3339 format.
-func NewLogger() (*uberzap.Logger, error) {
+func NewLogger(logLevel string) (*uberzap.Logger, error) {
 	loggerCfg := uberzap.NewProductionConfig()
 	loggerCfg.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	loggerCfg.EncoderConfig.FunctionKey = "func"
