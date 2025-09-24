@@ -85,7 +85,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	var log logr.Logger
-	zapLog, _ := helpers.NewLogger("INFO")
+	zapLog, _ := helpers.NewLogger(suite.LogLevel)
 	defer func(zapLog *uberzap.Logger) {
 		_ = zapLog.Sync()
 	}(zapLog)
