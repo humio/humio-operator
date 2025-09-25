@@ -5,6 +5,7 @@ operator:
     tag:
     pullPolicy: IfNotPresent
     pullSecrets: []
+  loglevel: INFO
   metrics:
     enabled: true
     listen:

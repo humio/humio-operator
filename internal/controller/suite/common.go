@@ -35,6 +35,8 @@ const (
 	dockerPasswordEnvVar = "DOCKER_PASSWORD"
 	// DockerRegistryCredentialsSecretName is the name of the k8s secret containing the registry credentials
 	DockerRegistryCredentialsSecretName = "regcred"
+	// Default loglevel used for tests
+	LogLevel = "INFO"
 )
 
 const TestInterval = time.Second * 1
