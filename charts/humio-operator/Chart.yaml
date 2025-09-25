@@ -10,7 +10,6 @@ icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--
 sources:
 - https://github.com/humio/humio-operator
 maintainers:
-- name: SaaldjorMike
 - name: jswoods
 - name: schofield
 
