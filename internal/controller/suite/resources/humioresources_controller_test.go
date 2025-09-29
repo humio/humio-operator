@@ -5140,19 +5140,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Delete(ctx, toCreateRepository)).Should(Succeed())
 		})
 	})
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 05437ff (Corrected the second null-check to use to_cluster (not from_cluster), defaulting to the base manifest when unspecified)
 
 	Context("Humio IPFilter", Label("envtest", "dummy", "real"), func() {
 		It("HumioIPFilter: Should handle ipFilter correctly", func() {
 			// some defaults
-<<<<<<< HEAD
 			name := exampleIPFilter
-=======
-			name := "example-ipfilter"
->>>>>>> 05437ff (Corrected the second null-check to use to_cluster (not from_cluster), defaulting to the base manifest when unspecified)
 			ipRules := []humiov1alpha1.FirewallRule{
 				{Action: "allow", Address: "127.0.0.1"},
 				{Action: "allow", Address: "10.0.0.0/8"},
@@ -5177,76 +5169,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: spec,
 			}
 
-<<<<<<< HEAD
-=======
-			// test CRD validation by k8s
-			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Validating CRD")
-
-			// test invalid name
-			testCasesName := []struct {
-				Name  string
-				Error string
-			}{
-				{
-					Name:  strings.Repeat("A", 255),
-					Error: "Invalid value",
-				},
-				{
-					Name:  "",
-					Error: "Invalid value",
-				},
-			}
-			for _, tc := range testCasesName {
-				toCreateIPFilter.Spec.Name = tc.Name
-				Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(MatchError(ContainSubstring(tc.Error)))
-			}
-
-			// reset name
-			toCreateIPFilter.Spec.Name = name
-
-			// test invalid IP rules
-			testCasesRule := []struct {
-				Rule  humiov1alpha1.FirewallRule
-				Error string
-			}{
-				{
-					Rule: humiov1alpha1.FirewallRule{
-						Action:  "allow",
-						Address: "",
-					},
-					Error: "address: Invalid value",
-				},
-				{
-					Rule: humiov1alpha1.FirewallRule{
-						Action:  "allow",
-						Address: "0.0.0",
-					},
-					Error: "address: Invalid value",
-				},
-				{
-					Rule: humiov1alpha1.FirewallRule{
-						Action:  "reject",
-						Address: "0.0.0.0/0",
-					},
-					Error: "action: Unsupported value",
-				},
-				{
-					Rule: humiov1alpha1.FirewallRule{
-						Action:  "",
-						Address: "127.0.0.1",
-					},
-					Error: "action: Unsupported value",
-				},
-			}
-			for _, tc := range testCasesRule {
-				toCreateIPFilter.Spec.IPFilter = []humiov1alpha1.FirewallRule{tc.Rule}
-				Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(MatchError(ContainSubstring(tc.Error)))
-			}
-			// reset IPFilter
-			toCreateIPFilter.Spec.IPFilter = ipRules
-			// end test CRD validation
-
->>>>>>> 05437ff (Corrected the second null-check to use to_cluster (not from_cluster), defaulting to the base manifest when unspecified)
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Confirming the IPFilter does not exist in LogScale before we start")
@@ -5319,11 +5241,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(MatchError(humioapi.IPFilterNotFound(fetchedIPFilter.Spec.Name)))
 		})
 	})
-<<<<<<< HEAD
-=======
->>>>>>> b5e2b52 (PDF Render Service integration (clean squash): apply branch diff onto master)
-=======
->>>>>>> 05437ff (Corrected the second null-check to use to_cluster (not from_cluster), defaulting to the base manifest when unspecified)
 })
 
 type repositoryExpectation struct {
