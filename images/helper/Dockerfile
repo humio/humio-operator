@@ -22,4 +22,6 @@ COPY LICENSE /licenses/LICENSE
 COPY --from=builder /app /
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
+USER 1001
+
 ENTRYPOINT ["/app"]
