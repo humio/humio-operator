@@ -28,7 +28,10 @@ if [ ! -x "${docker}" ] ; then
   echo "'docker' is not installed. Install it and rerun the script."
   exit 1
 fi
-$docker login
+
+if [ "${docker_username}" != "none" ] && [ "${docker_password}" != "none" ]; then
+  echo "${docker_password}" | ${docker} login --username "${docker_username}" --password-stdin
+fi
 
 mkdir -p $bin_dir
 

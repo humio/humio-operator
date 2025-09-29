@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 declare -r kindest_node_image_multiplatform_amd64_arm64=${E2E_KIND_K8S_VERSION:-kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f}
-declare -r kind_version=0.29.0
+declare -r kind_version=0.30.0
 declare -r go_version=1.23.6
 declare -r helm_version=3.14.4
-declare -r kubectl_version=1.23.3
+declare -r kubectl_version=1.34.0
 declare -r jq_version=1.7.1
 declare -r yq_version=4.45.2
 declare -r default_cert_manager_version=1.12.12
@@ -239,7 +239,7 @@ EOF
 helm_install_cert_manager() {
   $helm get metadata cert-manager && return
 
-  k8s_server_version=$($kubectl version --short=true | grep "Server Version:" | awk '{print $NF}' | sed 's/v//' | cut -d. -f1-2)
+  k8s_server_version=$($kubectl version | grep "Server Version:" | awk '{print $NF}' | sed 's/v//' | cut -d. -f1-2)
   cert_manager_version=v${default_cert_manager_version}
   if [[ ${k8s_server_version} < 1.27 ]] ; then cert_manager_version=v1.11.5 ; fi
   $helm repo add jetstack https://charts.jetstack.io
