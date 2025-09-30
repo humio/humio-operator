@@ -379,6 +379,9 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 			controllerutil.RemoveFinalizer(secret, controller.HumioFinalizer)
 			Expect(k8sClient.Update(ctx, secret)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, secretKey, secret)
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 			// check new secret was created
 			newSecret := &corev1.Secret{}
 			Eventually(func() error {
@@ -679,6 +682,9 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 			controllerutil.RemoveFinalizer(secret, controller.HumioFinalizer)
 			Expect(k8sClient.Update(ctx, secret)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, secretKey, secret)
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 			// check new secret was created
 			newSecret := &corev1.Secret{}
 			Eventually(func() error {
@@ -979,6 +985,9 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 			controllerutil.RemoveFinalizer(secret, controller.HumioFinalizer)
 			Expect(k8sClient.Update(ctx, secret)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, secretKey, secret)
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 			// check new secret was created
 			newSecret := &corev1.Secret{}
 			Eventually(func() error {
