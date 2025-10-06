@@ -18,6 +18,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -63,12 +64,12 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 
 		// create IPFilter dependency
 		keyIPFilter = types.NamespacedName{
-			Name:      "viewtoken-filter-cr",
+			Name:      fmt.Sprintf("viewtoken-filter-cr-%d", GinkgoParallelProcess()),
 			Namespace: clusterKey.Namespace,
 		}
 		specIPFilter := humiov1alpha1.HumioIPFilterSpec{
 			ManagedClusterName: clusterKey.Name,
-			Name:               "viewtoken-filter",
+			Name:               fmt.Sprintf("viewtoken-filter-%d", GinkgoParallelProcess()),
 			IPFilter: []humiov1alpha1.FirewallRule{
 				{Action: "allow", Address: "127.0.0.1"},
 				{Action: "allow", Address: "10.0.0.0/8"},
@@ -143,16 +144,16 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 			expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 10))
 
 			keyViewToken = types.NamespacedName{
-				Name:      "viewtoken-cr",
+				Name:      fmt.Sprintf("viewtoken-cr-%d", GinkgoParallelProcess()),
 				Namespace: clusterKey.Namespace,
 			}
 			specViewToken = humiov1alpha1.HumioViewTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "viewtoken",
+					Name:               fmt.Sprintf("viewtoken-%d", GinkgoParallelProcess()),
 					IPFilterName:       k8sIPFilter.Spec.Name,
 					Permissions:        permissionNames,
-					TokenSecretName:    "viewtoken-secret",
+					TokenSecretName:    fmt.Sprintf("viewtoken-secret-%d", GinkgoParallelProcess()),
 					ExpiresAt:          &expireAt,
 				},
 				ViewNames: []string{k8sView.Spec.Name},
@@ -225,6 +226,8 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 			Expect(secret.Data).To(HaveKey(controller.ResourceFieldID))
 			Expect(secret.Data).To(HaveKey(controller.ResourceFieldName))
 			Expect(secret.Data).To(HaveKey(controller.TokenFieldName))
+			// refresh token
+			Expect(k8sClient.Get(ctx, keyViewToken, k8sViewToken)).To(Succeed())
 			Expect(string(secret.Data[controller.ResourceFieldID])).To(Equal(k8sViewToken.Status.HumioID))
 			Expect(string(secret.Data[controller.ResourceFieldName])).To(Equal(k8sViewToken.Spec.Name))
 			tokenParts := strings.Split(string(secret.Data[controller.TokenFieldName]), "~")
@@ -259,16 +262,16 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 			expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 10))
 
 			keyViewToken = types.NamespacedName{
-				Name:      "viewtoken-cr",
+				Name:      fmt.Sprintf("viewtoken-cr-%d", GinkgoParallelProcess()),
 				Namespace: clusterKey.Namespace,
 			}
 			specViewToken = humiov1alpha1.HumioViewTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "viewtoken",
+					Name:               fmt.Sprintf("viewtoken-%d", GinkgoParallelProcess()),
 					IPFilterName:       k8sIPFilter.Spec.Name,
 					Permissions:        permissionNames,
-					TokenSecretName:    "viewtoken-secret",
+					TokenSecretName:    fmt.Sprintf("viewtoken-secret-%d", GinkgoParallelProcess()),
 					ExpiresAt:          &expireAt,
 				},
 				ViewNames: []string{k8sView.Spec.Name},
@@ -422,12 +425,12 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 
 		// create IPFilter dependency
 		keyIPFilter = types.NamespacedName{
-			Name:      "systemtoken-filter-cr",
+			Name:      fmt.Sprintf("systemtoken-filter-cr-%d", GinkgoParallelProcess()),
 			Namespace: clusterKey.Namespace,
 		}
 		specIPFilter := humiov1alpha1.HumioIPFilterSpec{
 			ManagedClusterName: clusterKey.Name,
-			Name:               "systemtoken-filter",
+			Name:               fmt.Sprintf("systemtoken-filter-%d", GinkgoParallelProcess()),
 			IPFilter: []humiov1alpha1.FirewallRule{
 				{Action: "allow", Address: "127.0.0.1"},
 				{Action: "allow", Address: "10.0.0.0/8"},
@@ -465,16 +468,16 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 			expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 10))
 
 			keySystemToken = types.NamespacedName{
-				Name:      "systemtoken-cr",
+				Name:      fmt.Sprintf("systemtoken-cr-%d", GinkgoParallelProcess()),
 				Namespace: clusterKey.Namespace,
 			}
 			specSystemToken = humiov1alpha1.HumioSystemTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "systemtoken",
+					Name:               fmt.Sprintf("systemtoken-%d", GinkgoParallelProcess()),
 					IPFilterName:       k8sIPFilter.Spec.Name,
 					Permissions:        permissionNames,
-					TokenSecretName:    "systemtoken-secret",
+					TokenSecretName:    fmt.Sprintf("systemtoken-secret-%d", GinkgoParallelProcess()),
 					ExpiresAt:          &expireAt,
 				},
 			}
@@ -546,6 +549,8 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 			Expect(secret.Data).To(HaveKey(controller.ResourceFieldID))
 			Expect(secret.Data).To(HaveKey(controller.ResourceFieldName))
 			Expect(secret.Data).To(HaveKey(controller.TokenFieldName))
+			// refresh token
+			Expect(k8sClient.Get(ctx, keySystemToken, k8sSystemToken)).To(Succeed())
 			Expect(string(secret.Data[controller.ResourceFieldID])).To(Equal(k8sSystemToken.Status.HumioID))
 			Expect(string(secret.Data[controller.ResourceFieldName])).To(Equal(k8sSystemToken.Spec.Name))
 			tokenParts := strings.Split(string(secret.Data[controller.TokenFieldName]), "~")
@@ -576,10 +581,10 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 			specSystemToken = humiov1alpha1.HumioSystemTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "systemtoken",
+					Name:               fmt.Sprintf("systemtoken-%d", GinkgoParallelProcess()),
 					IPFilterName:       k8sIPFilter.Spec.Name,
 					Permissions:        permissionNames,
-					TokenSecretName:    "systemtoken-secret",
+					TokenSecretName:    fmt.Sprintf("systemtoken-secret-%d", GinkgoParallelProcess()),
 					ExpiresAt:          &expireAt,
 				},
 			}
@@ -725,12 +730,12 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 
 		// create IPFilter dependency
 		keyIPFilter = types.NamespacedName{
-			Name:      "systemtoken-filter-cr",
+			Name:      fmt.Sprintf("orgtoken-filter-cr-%d", GinkgoParallelProcess()),
 			Namespace: clusterKey.Namespace,
 		}
 		specIPFilter := humiov1alpha1.HumioIPFilterSpec{
 			ManagedClusterName: clusterKey.Name,
-			Name:               "systemtoken-filter",
+			Name:               fmt.Sprintf("orgtoken-filter-%d", GinkgoParallelProcess()),
 			IPFilter: []humiov1alpha1.FirewallRule{
 				{Action: "allow", Address: "127.0.0.1"},
 				{Action: "allow", Address: "10.0.0.0/8"},
@@ -768,16 +773,16 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 			expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 10))
 
 			keyOrgToken = types.NamespacedName{
-				Name:      "orgtoken-cr",
+				Name:      fmt.Sprintf("orgtoken-cr-%d", GinkgoParallelProcess()),
 				Namespace: clusterKey.Namespace,
 			}
 			specOrgToken = humiov1alpha1.HumioOrganizationTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "orgtoken",
+					Name:               fmt.Sprintf("orgtoken-%d", GinkgoParallelProcess()),
 					IPFilterName:       k8sIPFilter.Spec.Name,
 					Permissions:        permissionNames,
-					TokenSecretName:    "orgtoken-secret",
+					TokenSecretName:    fmt.Sprintf("orgtoken-secret-%d", GinkgoParallelProcess()),
 					ExpiresAt:          &expireAt,
 				},
 			}
@@ -849,6 +854,8 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 			Expect(secret.Data).To(HaveKey(controller.ResourceFieldID))
 			Expect(secret.Data).To(HaveKey(controller.ResourceFieldName))
 			Expect(secret.Data).To(HaveKey(controller.TokenFieldName))
+			// refresh token
+			Expect(k8sClient.Get(ctx, keyOrgToken, k8sOrgToken)).To(Succeed())
 			Expect(string(secret.Data[controller.ResourceFieldID])).To(Equal(k8sOrgToken.Status.HumioID))
 			Expect(string(secret.Data[controller.ResourceFieldName])).To(Equal(k8sOrgToken.Spec.Name))
 			tokenParts := strings.Split(string(secret.Data[controller.TokenFieldName]), "~")
@@ -873,16 +880,16 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 			expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 10))
 
 			keyOrgToken = types.NamespacedName{
-				Name:      "orgtoken-cr",
+				Name:      fmt.Sprintf("orgtoken-cr-%d", GinkgoParallelProcess()),
 				Namespace: clusterKey.Namespace,
 			}
 			specOrgToken = humiov1alpha1.HumioOrganizationTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "orgtoken",
+					Name:               fmt.Sprintf("orgtoken-%d", GinkgoParallelProcess()),
 					IPFilterName:       k8sIPFilter.Spec.Name,
 					Permissions:        permissionNames,
-					TokenSecretName:    "orgtoken-secret",
+					TokenSecretName:    fmt.Sprintf("orgtoken-secret-%d", GinkgoParallelProcess()),
 					ExpiresAt:          &expireAt,
 				},
 			}

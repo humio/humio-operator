@@ -46,7 +46,7 @@ import (
 const (
 	emailActionExample         string = "example@example.com"
 	expectedSecretValueExample string = "secret-token"
-	totalCRDs                  int    = 23 // Bump this as we introduce new CRD's
+	totalCRDs                  int    = 24 // Bump this as we introduce new CRD's
 	newFilterName              string = "new-filter-name"
 	exampleIPFilter            string = "example-ipfilter"
 	badIPFilter                string = "missing"

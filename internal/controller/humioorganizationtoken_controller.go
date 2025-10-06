@@ -76,7 +76,7 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, nil
 	}
 	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
-	r.Log.Info("Reconciling HumioOrganizationToken")
+	r.Log.Info("reconciling HumioOrganizationToken")
 
 	// reading k8s object
 	hot, err := r.getHumioOrganizationToken(ctx, req)
@@ -112,14 +112,14 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 				if err != nil {
 					return reconcile.Result{}, err
 				}
-				r.Log.Info("Finalizer removed successfully")
+				r.Log.Info("finalizer removed successfully")
 				return reconcile.Result{Requeue: true}, nil
 			}
 			// first iteration on delete we run the finalize function which includes delete
 			r.Log.Info("OrganizationToken contains finalizer so run finalize method")
 			if err := r.finalize(ctx, humioHttpClient, hot); err != nil {
 				_ = setState(ctx, r, hot, humiov1alpha1.HumioTokenUnknown, hot.Status.HumioID)
-				return reconcile.Result{}, logErrorAndReturn(r.Log, err, "Finalize method returned an error")
+				return reconcile.Result{}, logErrorAndReturn(r.Log, err, "finalize method returned an error")
 			}
 			// If no error was detected, we need to requeue so that we can remove the finalizer
 			return reconcile.Result{Requeue: true}, nil
@@ -160,8 +160,8 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 				_ = setState(ctx, r, hot, humiov1alpha1.HumioTokenConfigError, tokenId)
 				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not create k8s secret for OrganizationToken")
 			}
-			r.Log.Info("Successfully created OrganizationToken")
-			return reconcile.Result{Requeue: true}, nil
+			r.Log.Info("successfully created OrganizationToken")
+			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "could not check if OrganizationToken exists")
 	}
@@ -256,7 +256,7 @@ func (r *HumioOrganizationTokenReconciler) finalize(ctx context.Context, client 
 	}
 	// this is for test environment as in real k8s env garbage collection will delete it
 	_ = r.Delete(ctx, secret)
-	r.Log.Info("Successfully ran finalize method")
+	r.Log.Info("successfully ran finalize method")
 	return nil
 }
 
@@ -361,11 +361,12 @@ func (r *HumioOrganizationTokenReconciler) organizationTokenAlreadyAsExpected(fr
 }
 
 func (r *HumioOrganizationTokenReconciler) ensureTokenSecret(ctx context.Context, hot *humiov1alpha1.HumioOrganizationToken, humioHttpClient *humioapi.Client, cluster helpers.ClusterInterface) error {
+	r.Log.Info("looking for secret", "TokenSecretName", hot.Spec.TokenSecretName, "namespace", hot.Namespace)
 	existingSecret, err := kubernetes.GetSecret(ctx, r, hot.Spec.TokenSecretName, hot.Namespace)
 	if err != nil {
 		// k8s secret doesn't exist anymore, we have to rotate the Humio token
 		if k8serrors.IsNotFound(err) {
-			r.Log.Info("OrganizationToken k8s secret doesn't exist, rotating OrganizationToken")
+			r.Log.Info("organizationToken k8s secret doesn't exist, rotating OrganizationToken")
 			tokenId, secret, err := r.HumioClient.RotateOrganizationToken(ctx, humioHttpClient, hot)
 			if err != nil {
 				// we can try rotate again on the next reconcile

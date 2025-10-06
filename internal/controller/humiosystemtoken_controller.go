@@ -77,7 +77,7 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
-	r.Log.Info("Reconciling HumioSystemToken")
+	r.Log.Info("reconciling HumioSystemToken")
 
 	// reading k8s object
 	hst, err := r.getHumioSystemToken(ctx, req)
@@ -162,7 +162,7 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not create k8s secret for SystemToken")
 			}
 			r.Log.Info("Successfully created SystemToken")
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "could not check if SystemToken exists")
 	}
@@ -257,7 +257,7 @@ func (r *HumioSystemTokenReconciler) finalize(ctx context.Context, client *humio
 	}
 	// this is for test environment as in real k8s env garbage collection will delete it
 	_ = r.Delete(ctx, secret)
-	r.Log.Info("Successfully ran finalize method")
+	r.Log.Info("successfully ran finalize method")
 	return nil
 }
 
@@ -363,6 +363,7 @@ func (r *HumioSystemTokenReconciler) systemTokenAlreadyAsExpected(fromK8s *humio
 }
 
 func (r *HumioSystemTokenReconciler) ensureTokenSecret(ctx context.Context, hst *humiov1alpha1.HumioSystemToken, humioHttpClient *humioapi.Client, cluster helpers.ClusterInterface) error {
+	r.Log.Info("looking for secret", "TokenSecretName", hst.Spec.TokenSecretName, "namespace", hst.Namespace)
 	existingSecret, err := kubernetes.GetSecret(ctx, r, hst.Spec.TokenSecretName, hst.Namespace)
 	if err != nil {
 		// k8s secret doesn't exist anymore, we have to rotate the Humio token

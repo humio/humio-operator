@@ -109,6 +109,7 @@ func ensureTokenSecretExists(ctx context.Context, controller TokenController, to
 		if err != nil {
 			return logErrorAndReturn(logger, err, fmt.Sprintf("unable to create %s token k8s secret: %v", tokenTypeName, err))
 		}
+		logger.Info("Created secret", "TokenSecretName", tokenResource.GetSpec().TokenSecretName)
 	}
 	return nil
 }
