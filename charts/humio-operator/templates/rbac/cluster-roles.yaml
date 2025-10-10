@@ -45,6 +45,16 @@ rules:
   - deployments
   verbs:
   - get
+  - list
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -132,7 +142,9 @@ rules:
   - humioorganizationtokens
   - humioorganizationtokens/finalizers
   - humioorganizationtokens/status
-
+  - humiopdfrenderservices
+  - humiopdfrenderservices/finalizers
+  - humiopdfrenderservices/status
   verbs:
   - create
   - delete
