@@ -109,10 +109,15 @@ func UseExistingCAForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
 }
 
 // AsSHA256 does a sha 256 hash on an object and returns the result
-func AsSHA256(o interface{}) string {
+func AsSHA256(o any) string {
 	h := sha256.New()
 	_, _ = fmt.Fprintf(h, "%v", o)
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// IntPtr returns a int pointer to the specified int value
+func IntPtr(val int) *int {
+	return &val
 }
 
 // BoolPtr returns a bool pointer to the specified boolean value

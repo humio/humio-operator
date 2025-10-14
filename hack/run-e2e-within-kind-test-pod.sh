@@ -5,4 +5,4 @@ set -x -o pipefail
 source hack/functions.sh
 
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
-ginkgo run --label-filter=real -timeout 120m -procs=$GINKGO_NODES --no-color --skip-package helpers -v ./internal/controller/suite/... | tee /proc/1/fd/1
+ginkgo run --label-filter=real -timeout 120m -procs=${GINKGO_NODES} --no-color --skip-package helpers -v ${SUITE:+./internal/controller/suite/$SUITE/...} | tee /proc/1/fd/1

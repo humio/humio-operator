@@ -64,6 +64,11 @@ if $kubectl get crd | grep -q "humio.com"; then
 fi
 
 $kubectl apply --server-side=true -k config/crd/
-$kubectl run test-pod --env="HUMIO_E2E_LICENSE=$humio_e2e_license" --env="GINKGO_NODES=$ginkgo_nodes" --env="DOCKER_USERNAME=$docker_username" --env="DOCKER_PASSWORD=$docker_password" --env="USE_CERTMANAGER=$use_certmanager" --env="PRESERVE_KIND_CLUSTER=$preserve_kind_cluster" --env="HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE=$humio_operator_default_humio_core_image" --restart=Never --image=testcontainer --image-pull-policy=Never -- sleep 86400
+$kubectl apply --server-side=true -k config/rbac/
+$kubectl run test-pod --env="HUMIO_E2E_LICENSE=$humio_e2e_license" --env="GINKGO_NODES=$ginkgo_nodes" --env="DOCKER_USERNAME=$docker_username" \
+  --env="DOCKER_PASSWORD=$docker_password" --env="USE_CERTMANAGER=$use_certmanager" --env="PRESERVE_KIND_CLUSTER=$preserve_kind_cluster" \
+  --env="HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE=$humio_operator_default_humio_core_image" --env="SUITE=$SUITE" \
+  --labels="app=humio-operator,app.kubernetes.io/instance=humio-operator,app.kubernetes.io/component=webhook" \
+  --restart=Never --image=testcontainer --image-pull-policy=Never -- sleep 86400
 while [[ $($kubectl get pods test-pod -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" ; $kubectl describe pod test-pod ; sleep 1 ; done
 $kubectl exec test-pod -- hack/run-e2e-within-kind-test-pod.sh

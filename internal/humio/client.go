@@ -35,6 +35,7 @@ import (
 	"github.com/go-logr/logr"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	humiov1beta1 "github.com/humio/humio-operator/api/v1beta1"
 	humioapi "github.com/humio/humio-operator/internal/api"
 )
 
@@ -54,6 +55,7 @@ type Client interface {
 	FeatureFlagsClient
 	AggregateAlertsClient
 	ScheduledSearchClient
+	ScheduledSearchClientV2
 	UsersClient
 	OrganizationPermissionRolesClient
 	SystemPermissionRolesClient
@@ -162,6 +164,15 @@ type ScheduledSearchClient interface {
 	UpdateScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error
 	DeleteScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error
 	ValidateActionsForScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error
+}
+
+// ScheduledSearchClientV2 soon to replace ScheduledSearchClient
+type ScheduledSearchClientV2 interface {
+	AddScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error
+	GetScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetailsV2, error)
+	UpdateScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error
+	DeleteScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error
+	ValidateActionsForScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error
 }
 
 type LicenseClient interface {
@@ -2082,6 +2093,43 @@ func (h *ClientConfig) AddScheduledSearch(ctx context.Context, client *humioapi.
 	return err
 }
 
+func (h *ClientConfig) AddScheduledSearchV2(ctx context.Context, client *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) error {
+	err := validateSearchDomain(ctx, client, hss.Spec.ViewName)
+	if err != nil {
+		return fmt.Errorf("problem getting view for scheduled search: %w", err)
+	}
+	if err = h.ValidateActionsForScheduledSearchV2(ctx, client, hss); err != nil {
+		return fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	queryOwnershipType := humiographql.QueryOwnershipTypeOrganization
+
+	var maxWaitTimeSeconds *int64
+	if hss.Spec.QueryTimestampType != humiographql.QueryTimestampTypeEventtimestamp {
+		maxWaitTimeSeconds = &hss.Spec.MaxWaitTimeSeconds
+	}
+
+	_, err = humiographql.CreateScheduledSearchV2(
+		ctx,
+		client,
+		hss.Spec.ViewName,
+		hss.Spec.Name,
+		&hss.Spec.Description,
+		hss.Spec.QueryString,
+		hss.Spec.SearchIntervalSeconds,
+		hss.Spec.SearchIntervalOffsetSeconds,
+		maxWaitTimeSeconds,
+		hss.Spec.QueryTimestampType,
+		hss.Spec.Schedule,
+		hss.Spec.TimeZone,
+		hss.Spec.BackfillLimit,
+		hss.Spec.Enabled,
+		hss.Spec.Actions,
+		helpers.EmptySliceIfNil(hss.Spec.Labels),
+		queryOwnershipType,
+	)
+	return err
+}
+
 func (h *ClientConfig) GetScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetails, error) {
 	err := validateSearchDomain(ctx, client, hss.Spec.ViewName)
 	if err != nil {
@@ -2121,6 +2169,45 @@ func (h *ClientConfig) GetScheduledSearch(ctx context.Context, client *humioapi.
 	return &respGetScheduledSearch.ScheduledSearchDetails, nil
 }
 
+func (h *ClientConfig) GetScheduledSearchV2(ctx context.Context, client *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetailsV2, error) {
+	err := validateSearchDomain(ctx, client, hss.Spec.ViewName)
+	if err != nil {
+		return nil, fmt.Errorf("problem getting view for scheduled search %s: %w", hss.Spec.Name, err)
+	}
+
+	var scheduledSearchId string
+	respList, err := humiographql.ListScheduledSearchesV2(
+		ctx,
+		client,
+		hss.Spec.ViewName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	respListSearchDomain := respList.GetSearchDomain()
+	for _, scheduledSearch := range respListSearchDomain.GetScheduledSearches() {
+		if scheduledSearch.Name == hss.Spec.Name {
+			scheduledSearchId = scheduledSearch.GetId()
+		}
+	}
+	if scheduledSearchId == "" {
+		return nil, humioapi.ScheduledSearchNotFound(hss.Spec.Name)
+	}
+
+	respGet, err := humiographql.GetScheduledSearchByIDV2(
+		ctx,
+		client,
+		hss.Spec.ViewName,
+		scheduledSearchId,
+	)
+	if err != nil {
+		return nil, err
+	}
+	respGetSearchDomain := respGet.GetSearchDomain()
+	respGetScheduledSearch := respGetSearchDomain.GetScheduledSearch()
+	return &respGetScheduledSearch.ScheduledSearchDetailsV2, nil
+}
+
 func (h *ClientConfig) UpdateScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	err := validateSearchDomain(ctx, client, hss.Spec.ViewName)
 	if err != nil {
@@ -2156,6 +2243,47 @@ func (h *ClientConfig) UpdateScheduledSearch(ctx context.Context, client *humioa
 	return err
 }
 
+func (h *ClientConfig) UpdateScheduledSearchV2(ctx context.Context, client *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) error {
+	err := validateSearchDomain(ctx, client, hss.Spec.ViewName)
+	if err != nil {
+		return fmt.Errorf("problem getting view for scheduled search: %w", err)
+	}
+	if err = h.ValidateActionsForScheduledSearchV2(ctx, client, hss); err != nil {
+		return fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	currentScheduledSearch, err := h.GetScheduledSearchV2(ctx, client, hss)
+	if err != nil {
+		return fmt.Errorf("could not find scheduled search with name: %q", hss.Spec.Name)
+	}
+
+	var maxWaitTimeSeconds *int64
+	if hss.Spec.QueryTimestampType != humiographql.QueryTimestampTypeEventtimestamp {
+		maxWaitTimeSeconds = &hss.Spec.MaxWaitTimeSeconds
+	}
+	queryOwnershipType := humiographql.QueryOwnershipTypeOrganization
+	_, err = humiographql.UpdateScheduledSearchV2(
+		ctx,
+		client,
+		hss.Spec.ViewName,
+		currentScheduledSearch.GetId(),
+		hss.Spec.Name,
+		&hss.Spec.Description,
+		hss.Spec.QueryString,
+		hss.Spec.SearchIntervalSeconds,
+		hss.Spec.SearchIntervalOffsetSeconds,
+		maxWaitTimeSeconds,
+		hss.Spec.QueryTimestampType,
+		hss.Spec.Schedule,
+		hss.Spec.TimeZone,
+		hss.Spec.BackfillLimit,
+		hss.Spec.Enabled,
+		hss.Spec.Actions,
+		helpers.EmptySliceIfNil(hss.Spec.Labels),
+		queryOwnershipType,
+	)
+	return err
+}
+
 func (h *ClientConfig) DeleteScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	currentScheduledSearch, err := h.GetScheduledSearch(ctx, client, hss)
 	if err != nil {
@@ -2166,6 +2294,24 @@ func (h *ClientConfig) DeleteScheduledSearch(ctx context.Context, client *humioa
 	}
 
 	_, err = humiographql.DeleteScheduledSearchByID(
+		ctx,
+		client,
+		hss.Spec.ViewName,
+		currentScheduledSearch.GetId(),
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteScheduledSearchV2(ctx context.Context, client *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) error {
+	currentScheduledSearch, err := h.GetScheduledSearchV2(ctx, client, hss)
+	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			return nil
+		}
+		return err
+	}
+
+	_, err = humiographql.DeleteScheduledSearchByIDV2(
 		ctx,
 		client,
 		hss.Spec.ViewName,
@@ -2196,6 +2342,15 @@ func (h *ClientConfig) ValidateActionsForFilterAlert(ctx context.Context, client
 }
 
 func (h *ClientConfig) ValidateActionsForScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
+	for _, actionNameForScheduledSearch := range hss.Spec.Actions {
+		if err := h.getAndValidateAction(ctx, client, actionNameForScheduledSearch, hss.Spec.ViewName); err != nil {
+			return fmt.Errorf("problem getting action for scheduled search %s: %w", hss.Spec.Name, err)
+		}
+	}
+	return nil
+}
+
+func (h *ClientConfig) ValidateActionsForScheduledSearchV2(ctx context.Context, client *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) error {
 	for _, actionNameForScheduledSearch := range hss.Spec.Actions {
 		if err := h.getAndValidateAction(ctx, client, actionNameForScheduledSearch, hss.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for scheduled search %s: %w", hss.Spec.Name, err)

@@ -50,6 +50,9 @@ if [[ $use_certmanager == "true" ]]; then
 fi
 
 $kubectl apply --server-side=true -k config/crd/
-$kubectl run test-pod --env="GINKGO_NODES=$ginkgo_nodes" --env="DOCKER_USERNAME=$docker_username" --env="DOCKER_PASSWORD=$docker_password" --env="USE_CERTMANAGER=$use_certmanager" --env="PRESERVE_KIND_CLUSTER=$preserve_kind_cluster" --restart=Never --image=testcontainer --image-pull-policy=Never -- sleep 86400
+$kubectl run test-pod --env="GINKGO_NODES=$ginkgo_nodes" --env="DOCKER_USERNAME=$docker_username" \
+  --env="DOCKER_PASSWORD=$docker_password" --env="USE_CERTMANAGER=$use_certmanager" --env="PRESERVE_KIND_CLUSTER=$preserve_kind_cluster" --env="SUITE=$SUITE" \
+  --labels="app=humio-operator,app.kubernetes.io/instance=humio-operator,app.kubernetes.io/component=webhook" \
+  --restart=Never --image=testcontainer --image-pull-policy=Never -- sleep 86400
 while [[ $($kubectl get pods test-pod -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" ; $kubectl describe pod test-pod ; sleep 1 ; done
 $kubectl exec test-pod -- hack/run-e2e-within-kind-test-pod-dummy.sh

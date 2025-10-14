@@ -122,6 +122,15 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: false
+  domain: humio.com
+  group: core
+  kind: HumioScheduledSearch
+  path: github.com/humio/humio-operator/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
   controller: true
   domain: humio.com
   group: core

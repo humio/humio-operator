@@ -42,8 +42,9 @@ start_kind_cluster() {
 
 cleanup_kind_cluster() {
   if [[ $preserve_kind_cluster == "true" ]]; then
-    $kubectl delete --grace-period=1 pod test-pod
-    $kubectl delete -k config/crd/
+    $kubectl delete --grace-period=1 pod test-pod --ignore-not-found=true
+    $kubectl delete -k config/crd/ --ignore-not-found=true
+    $kubectl delete -k config/rbac/ --ignore-not-found=true
   else
     $kind delete cluster --name kind
   fi

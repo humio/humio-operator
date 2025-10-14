@@ -19,6 +19,22 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+# Detect platform
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_S),Darwin)
+    PLATFORM := darwin
+endif
+ifeq ($(UNAME_S),Linux)
+    PLATFORM := linux
+endif
+ifeq ($(UNAME_M),x86_64)
+    ARCH := x86_64
+endif
+ifeq ($(UNAME_M),arm64)
+    ARCH := arm64
+endif
+
 .PHONY: all
 all: build
 
@@ -95,8 +111,9 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
+build: manifests generate fmt vet ## Build manager + webhook binary.
 	go build -o bin/manager cmd/main.go
+	go build -o bin/webhook-operator cmd/webhook-operator/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -236,11 +253,17 @@ update-schema:
 	go run github.com/suessflorian/gqlfetch/gqlfetch@607d6757018016bba0ba7fd1cb9fed6aefa853b5 --endpoint ${SCHEMA_CLUSTER}/graphql --header "Authorization=Bearer ${SCHEMA_CLUSTER_API_TOKEN}" > internal/api/humiographql/schema/_schema.graphql
 	printf "# Fetched from version %s" $$(curl --silent --location '${SCHEMA_CLUSTER}/api/v1/status' | jq -r ".version") >> internal/api/humiographql/schema/_schema.graphql
 
+# run tests without e2e tests
 .PHONY: test
-test: manifests generate fmt vet setup-envtest ginkgo ## Run tests.
+test: ginkgo
+	$(GINKGO) run -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m --skip-package="./internal/controller/suite" ./...
+
+# run e2e tests
+.PHONY: run-e2e-tests
+run-e2e-tests: manifests generate fmt vet setup-envtest ginkgo
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=3 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./...
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
 
 .PHONY: run-e2e-tests-local-kind
 run-e2e-tests-local-kind: manifests generate fmt vet ## Run tests.
@@ -254,7 +277,12 @@ fmt-simple:
 # Build the operator docker image
 .PHONY: docker-build-operator
 docker-build-operator:
-	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} .
+	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.operator .
+
+# Build the webhook operator docker image
+.PHONY: docker-build-operator-webhook
+docker-build-operator-webhook:
+	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.webhook .
 
 # Build the helper docker image
 .PHONY: docker-build-helper
@@ -306,7 +334,8 @@ ifeq (,$(shell PATH=$$PATH:$(GOBIN) which crdoc))
 	set -ex ;\
 	which go ;\
 	go version ;\
-	go install fybrik.io/crdoc@6247ceaefc6bdb5d1a038278477feeda509e4e0c ;\
+	curl -L https://github.com/fybrik/crdoc/releases/download/v0.6.4/crdoc_$(PLATFORM)_$(ARCH).tar.gz | tar -xz -C $(GOBIN) crdoc;\
+	chmod +x $(GOBIN)/crdoc;\
 	crdoc --version ;\
 	}
 endif

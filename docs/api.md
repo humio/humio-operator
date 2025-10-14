@@ -3,6 +3,7 @@
 Packages:
 
 - [core.humio.com/v1alpha1](#corehumiocomv1alpha1)
+- [core.humio.com/v1beta1](#corehumiocomv1beta1)
 
 # core.humio.com/v1alpha1
 
@@ -47882,6 +47883,8 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
         <td>integer</td>
         <td>
           BackfillLimit is the user-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown.<br/>
+          <br/>
+            <i>Default</i>: 0<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -49030,6 +49033,252 @@ HumioViewTokenStatus defines the observed state of HumioViewToken.
         <td>string</td>
         <td>
           State reflects the current state of the HumioToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+# core.humio.com/v1beta1
+
+Resource Types:
+
+- [HumioScheduledSearch](#humioscheduledsearch)
+
+
+
+
+## HumioScheduledSearch
+<sup><sup>[↩ Parent](#corehumiocomv1beta1 )</sup></sup>
+
+
+
+
+
+
+HumioScheduledSearch is the Schema for the humioscheduledsearches API.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1beta1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioScheduledSearch</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioscheduledsearchspec-1">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>self.queryTimestampType != 'IngestTimestamp' || (has(self.maxWaitTimeSeconds) && self.maxWaitTimeSeconds >= 0): maxWaitTimeSeconds is required when QueryTimestampType is IngestTimestamp</li><li>self.queryTimestampType != 'EventTimestamp' || (has(self.backfillLimit) && self.backfillLimit >= 0): backfillLimit is required when QueryTimestampType is EventTimestamp</li><li>self.queryTimestampType != 'IngestTimestamp' || !has(self.backfillLimit): backfillLimit is accepted only when queryTimestampType is set to 'EventTimestamp'</li><li>self.queryTimestampType != 'EventTimestamp' || (has(self.searchIntervalOffsetSeconds) && self.searchIntervalOffsetSeconds >= 0): SearchIntervalOffsetSeconds is required when QueryTimestampType is EventTimestamp</li><li>self.queryTimestampType != 'IngestTimestamp' || !has(self.searchIntervalOffsetSeconds): searchIntervalOffsetSeconds is accepted only when queryTimestampType is set to 'EventTimestamp'</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioscheduledsearchstatus-1">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioScheduledSearch.spec
+<sup><sup>[↩ Parent](#humioscheduledsearch-1)</sup></sup>
+
+
+
+HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>actions</b></td>
+        <td>[]string</td>
+        <td>
+          Actions is the list of Humio Actions by name that will be triggered by this scheduled search<br/>
+          <br/>
+            <i>Validations</i>:<li>self.all(action, size(action) > 0): Actions cannot contain empty strings</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the scheduled search inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>queryString</b></td>
+        <td>string</td>
+        <td>
+          QueryString defines the desired Humio query string<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>queryTimestampType</b></td>
+        <td>enum</td>
+        <td>
+          QueryTimestampType Possible values: EventTimestamp or IngestTimestamp, decides what field is used for timestamp for the query<br/>
+          <br/>
+            <i>Enum</i>: EventTimestamp, IngestTimestamp<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>schedule</b></td>
+        <td>string</td>
+        <td>
+          Schedule is the cron pattern describing the schedule to execute the query on.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.matches(r'^\s*([0-9,\-\*\/]+)\s+([0-9,\-\*\/]+)\s+([0-9,\-\*\/]+)\s+([0-9,\-\*\/]+)\s+([0-9,\-\*\/]+)\s*$'): schedule must be a valid cron expression with 5 fields (minute hour day month weekday)</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>searchIntervalSeconds</b></td>
+        <td>integer</td>
+        <td>
+          SearchIntervalSeconds is the search interval in seconds.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>timeZone</b></td>
+        <td>string</td>
+        <td>
+          TimeZone is the time zone of the schedule. Currently, this field only supports UTC offsets like 'UTC', 'UTC-01' or 'UTC+12:45'.<br/>
+          <br/>
+            <i>Validations</i>:<li>self == 'UTC' || self.matches(r'^UTC[+-]([01]?[0-9]|2[0-3])(:[0-5][0-9])?$'): timeZone must be 'UTC' or a UTC offset like 'UTC-01', 'UTC+12:45'</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>viewName</b></td>
+        <td>string</td>
+        <td>
+          ViewName is the name of the Humio View under which the scheduled search will be managed. This can also be a Repository<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>backfillLimit</b></td>
+        <td>integer</td>
+        <td>
+          BackfillLimit is the user-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. Only allowed when queryTimestamp is EventTimestamp<br/>
+          <br/>
+            <i>Default</i>: 0<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>description</b></td>
+        <td>string</td>
+        <td>
+          Description is the description of the scheduled search<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled will set the ScheduledSearch to enabled when set to true<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>[]string</td>
+        <td>
+          Labels are a set of labels on the scheduled search<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxWaitTimeSeconds</b></td>
+        <td>integer</td>
+        <td>
+          MaxWaitTimeSeconds The maximum number of seconds to wait for ingest delay and query warnings. Only allowed when 'queryTimestamp' is IngestTimestamp<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>searchIntervalOffsetSeconds</b></td>
+        <td>integer</td>
+        <td>
+          SearchIntervalOffsetSeconds Offset of the search interval in seconds. Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioScheduledSearch.status
+<sup><sup>[↩ Parent](#humioscheduledsearch-1)</sup></sup>
+
+
+
+HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioScheduledSearch<br/>
         </td>
         <td>false</td>
       </tr></tbody>

@@ -18,8 +18,11 @@ package resources
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -32,27 +35,32 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-
-	"github.com/humio/humio-operator/internal/controller/suite"
-	ginkgotypes "github.com/onsi/ginkgo/v2/types"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	"github.com/humio/humio-operator/internal/controller/suite"
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	corev1beta1 "github.com/humio/humio-operator/api/v1beta1"
+	webhooks "github.com/humio/humio-operator/internal/controller/webhooks"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -64,7 +72,8 @@ var ctx context.Context
 var testScheme *runtime.Scheme
 var k8sClient client.Client
 var testEnv *envtest.Environment
-var k8sManager ctrl.Manager
+var k8sOperatorManager ctrl.Manager
+var k8sWebhookManager ctrl.Manager
 var humioClient humio.Client
 var testTimeout time.Duration
 var testNamespace corev1.Namespace
@@ -76,15 +85,32 @@ var clusterKey types.NamespacedName
 var cluster = &corev1alpha1.HumioCluster{}
 var sharedCluster helpers.ClusterInterface
 var err error
+var webhookCertGenerator *helpers.WebhookCertGenerator
+var webhookListenHost string = "127.0.0.1"
+var webhookServiceHost string = "127.0.0.1"
+var webhookNamespace string = "e2e-resources-1"
+var webhookSetupReconciler *controller.WebhookSetupReconciler
+var webhookCertWatcher *certwatcher.CertWatcher
+
+const (
+	webhookPort     int           = 9443
+	webhookCertPath string        = "/tmp/k8s-webhook-server/serving-certs"
+	webhookCertName               = "tls.crt"
+	webhookCertKey                = "tls.key"
+	requeuePeriod   time.Duration = time.Second * 15
+)
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-
 	RunSpecs(t, "HumioResources Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = SynchronizedBeforeSuite(func() {
+	// running just once on process 1 - setup webhook server
 	var log logr.Logger
+	var cfg *rest.Config
+	var err error
+
 	zapLog, _ := helpers.NewLogger()
 	defer func(zapLog *uberzap.Logger) {
 		_ = zapLog.Sync()
@@ -92,17 +118,28 @@ var _ = BeforeSuite(func() {
 	log = zapr.NewLogger(zapLog).WithSink(GinkgoLogr.GetSink())
 	logf.SetLogger(log)
 
-	By("bootstrapping test environment")
 	useExistingCluster := true
+	processID := GinkgoParallelProcess()
+
 	clusterKey = types.NamespacedName{
-		Name:      fmt.Sprintf("humiocluster-shared-%d", GinkgoParallelProcess()),
-		Namespace: fmt.Sprintf("e2e-resources-%d", GinkgoParallelProcess()),
+		Name:      fmt.Sprintf("humiocluster-shared-%d", processID),
+		Namespace: fmt.Sprintf("e2e-resources-%d", processID),
 	}
 
+	// register schemes
+	testScheme = runtime.NewScheme()
+	registerSchemes(testScheme)
+
+	// initiatialize testenv and humioClient
 	if !helpers.UseEnvtest() {
-		testTimeout = time.Second * 300
+		testTimeout = time.Second * 240
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
+			CRDInstallOptions: envtest.CRDInstallOptions{
+				Scheme: testScheme,
+			},
+			ControlPlaneStartTimeout: 10 * time.Second,
+			ControlPlaneStopTimeout:  10 * time.Second,
 		}
 		if helpers.UseDummyImage() {
 			humioClient = humio.NewMockClient()
@@ -111,337 +148,306 @@ var _ = BeforeSuite(func() {
 			By("Verifying we have a valid license, as tests will require starting up real LogScale containers")
 			Expect(helpers.GetE2ELicenseFromEnvVar()).NotTo(BeEmpty())
 		}
-
 	} else {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
-			// TODO: If we want to add support for TLS-functionality, we need to install cert-manager's CRD's
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
+			CRDInstallOptions: envtest.CRDInstallOptions{
+				Scheme: testScheme,
+			},
+			ControlPlaneStartTimeout: 10 * time.Second,
+			ControlPlaneStopTimeout:  10 * time.Second,
 		}
 		humioClient = humio.NewMockClient()
 	}
 
-	var cfg *rest.Config
-
+	// Setup k8s client config
 	Eventually(func() error {
-		// testEnv.Start() sporadically fails with "unable to grab random port for serving webhooks on", so let's
-		// retry a couple of times
 		cfg, err = testEnv.Start()
 		return err
 	}, 30*time.Second, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
 
-	if helpers.UseCertManager() {
-		err = cmapi.AddToScheme(scheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
+	var tlsOpts []func(*tls.Config)
+	tlsVersion := func(c *tls.Config) {
+		c.MinVersion = tls.VersionTLS12
+	}
+	tlsOpts = append(tlsOpts, tlsVersion)
+
+	var webhookServer webhook.Server
+
+	// Generate locally stored TLS certificate; shared across processes when running in envTest
+	if !helpers.UseEnvtest() {
+		webhookListenHost = "0.0.0.0"
+		webhookServiceHost = helpers.GetOperatorWebhookServiceName()
+		webhookNamespace = "default"
 	}
 
-	err = corev1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	webhookCertGenerator = helpers.NewCertGenerator(webhookCertPath, webhookCertName, webhookCertKey,
+		webhookServiceHost, helpers.GetOperatorNamespace(),
+	)
+	utilruntime.Must(webhookCertGenerator.GenerateIfNotExists())
 
-	// +kubebuilder:scaffold:scheme
+	ctrl.Log.Info("Initializing webhook certificate watcher using provided certificates",
+		"webhook-cert-path", webhookCertPath, "webhook-cert-name", webhookCertName, "webhook-cert-key", webhookCertKey)
+	webhookCertWatcher, err = certwatcher.New(
+		filepath.Join(webhookCertPath, webhookCertName),
+		filepath.Join(webhookCertPath, webhookCertKey),
+	)
+	if err != nil {
+		ctrl.Log.Error(err, "Failed to initialize webhook certificate watcher")
+		os.Exit(1)
+	}
 
-	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:  scheme.Scheme,
+	webhookTLSOpts := append(tlsOpts, func(config *tls.Config) {
+		config.GetCertificate = webhookCertWatcher.GetCertificate
+	})
+
+	webhookServer = webhook.NewServer(webhook.Options{
+		TLSOpts: webhookTLSOpts,
+		Port:    webhookPort,
+		Host:    webhookListenHost,
+	})
+
+	// Initiate k8s Operator Manager
+	k8sOperatorManager, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:  testScheme,
 		Metrics: metricsserver.Options{BindAddress: "0"},
 		Logger:  log,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	requeuePeriod := time.Second * 15
-
-	err = (&controller.HumioActionReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
+	// Initiate k8s Webhook Manager
+	k8sWebhookManager, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:        testScheme,
+		WebhookServer: webhookServer,
+		Metrics:       metricsserver.Options{BindAddress: "0"},
+		Logger:        log,
+	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&controller.HumioAggregateAlertReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
+	// Setup webhooks and controllers
+	registerWebhooks(k8sWebhookManager, log)
 
-	err = (&controller.HumioAlertReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
+	if webhookCertWatcher != nil {
+		utilruntime.Must(k8sWebhookManager.Add(webhookCertWatcher))
+	}
 
-	err = (&controller.HumioBootstrapTokenReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		BaseLogger: log,
-		Namespace:  clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
+	// register controllers
+	registerControllers(k8sOperatorManager, log)
 
-	err = (&controller.HumioClusterReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioExternalClusterReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioFilterAlertReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioFeatureFlagReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioIngestTokenReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioOrganizationPermissionRoleReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioParserReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioRepositoryReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioScheduledSearchReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioSystemPermissionRoleReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioViewReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioUserReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioViewPermissionRoleReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioGroupReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioPdfRenderServiceReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		BaseLogger: log,
-		Namespace:  clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioMultiClusterSearchViewReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioIPFilterReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioViewTokenReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod:              requeuePeriod,
-			CriticalErrorRequeuePeriod: time.Second * 5, // Short requeue for tests
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioSystemTokenReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod:              requeuePeriod,
-			CriticalErrorRequeuePeriod: time.Second * 5, // Short requeue for tests
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controller.HumioOrganizationTokenReconciler{
-		Client: k8sManager.GetClient(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod:              requeuePeriod,
-			CriticalErrorRequeuePeriod: time.Second * 5, // Short requeue for tests
-		},
-		HumioClient: humioClient,
-		BaseLogger:  log,
-		Namespace:   clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
+	// start Operator Manager
 	ctx, cancel = context.WithCancel(context.TODO())
-
 	go func() {
-		err = k8sManager.Start(ctx)
-		Expect(err).NotTo(HaveOccurred())
+		managerErr := k8sOperatorManager.Start(ctx)
+		Expect(managerErr).NotTo(HaveOccurred())
 	}()
 
-	testScheme = k8sManager.GetScheme()
-	k8sClient = k8sManager.GetClient()
+	// Wait for the manager to be ready before getting the client
+	Eventually(func() bool {
+		return k8sOperatorManager.GetCache().WaitForCacheSync(ctx)
+	}, 30*time.Second, time.Second).Should(BeTrue())
+
+	// wait for namespace to be created
+	testNamespace = corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterKey.Namespace,
+		},
+	}
+
+	k8sClient = k8sOperatorManager.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 
+	err = k8sClient.Create(context.TODO(), &testNamespace)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	// wait until namespace is confirmed
+	Eventually(func() string {
+		ns := &corev1.Namespace{}
+		_ = k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterKey.Namespace}, ns)
+		return ns.Name
+	}, 30*time.Second, 1*time.Second).Should(Equal(testNamespace.Name))
+
+	// start Webhook Manager
+	go func() {
+		webhookErr := k8sWebhookManager.Start(ctx)
+		Expect(webhookErr).NotTo(HaveOccurred())
+	}()
+
+	// Wait for webhook server to be ready
+	if helpers.UseEnvtest() {
+		Eventually(func() error {
+			conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", webhookListenHost, webhookPort), time.Second)
+			if err != nil {
+				return err
+			}
+			_ = conn.Close()
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		fmt.Printf("DEBUG: Webhook server is now listening on %s:%d\n", webhookListenHost, webhookPort)
+	} else {
+		Eventually(func() error {
+			conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s.default.svc:%d", helpers.GetOperatorWebhookServiceName(), 443), time.Second)
+			if err != nil {
+				return err
+			}
+			_ = conn.Close()
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		fmt.Printf("DEBUG: Webhook server is now listening on %s.default.svc:%d\n", helpers.GetOperatorWebhookServiceName(), 443)
+	}
+
+}, func() {
+	var log logr.Logger
+	var err error
+
+	zapLog, _ := helpers.NewLogger()
+	defer func(zapLog *uberzap.Logger) {
+		_ = zapLog.Sync()
+	}(zapLog)
+	log = zapr.NewLogger(zapLog).WithSink(GinkgoLogr.GetSink())
+	logf.SetLogger(log)
+
+	By("bootstrapping test environment for all processes")
+	useExistingCluster := true
+	processID := GinkgoParallelProcess()
+
+	if processID > 1 {
+		clusterKey = types.NamespacedName{
+			Name:      fmt.Sprintf("humiocluster-shared-%d", processID),
+			Namespace: fmt.Sprintf("e2e-resources-%d", processID),
+		}
+		// register schemes
+		testScheme = runtime.NewScheme()
+		registerSchemes(testScheme)
+
+		// initiatialize testenv and humioClient
+		if !helpers.UseEnvtest() {
+			testTimeout = time.Second * 300
+			testEnv = &envtest.Environment{
+				UseExistingCluster: &useExistingCluster,
+			}
+			if helpers.UseDummyImage() {
+				humioClient = humio.NewMockClient()
+			} else {
+				humioClient = humio.NewClient(log, "")
+				By("Verifying we have a valid license, as tests will require starting up real LogScale containers")
+				Expect(helpers.GetE2ELicenseFromEnvVar()).NotTo(BeEmpty())
+			}
+		} else {
+			testTimeout = time.Second * 30
+			testEnv = &envtest.Environment{
+				CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "..", "config", "crd", "bases")},
+				ErrorIfCRDPathMissing: true,
+			}
+			humioClient = humio.NewMockClient()
+		}
+	}
+
+	// Setup k8s client configuration
+	var cfg *rest.Config
+	if processID > 1 {
+		Eventually(func() error {
+			cfg, err = testEnv.Start()
+			return err
+		}, 30*time.Second, 5*time.Second).Should(Succeed())
+	} else {
+		cfg = k8sOperatorManager.GetConfig()
+		// Initialize k8sClient for process 1 if not already set
+		if k8sClient == nil {
+			k8sClient = k8sOperatorManager.GetClient()
+			Expect(k8sClient).NotTo(BeNil())
+		}
+	}
+	Expect(cfg).NotTo(BeNil())
+
+	// when running locally we need to use local CABundle except process 1 that already has it
+	if helpers.UseEnvtest() && processID > 1 {
+		webhookCertGenerator = helpers.NewCertGenerator(webhookCertPath, webhookCertName, webhookCertKey,
+			webhookServiceHost, clusterKey.Namespace,
+		)
+	}
+
+	if processID > 1 {
+		k8sOperatorManager, err = ctrl.NewManager(cfg, ctrl.Options{
+			Scheme:  testScheme,
+			Metrics: metricsserver.Options{BindAddress: "0"},
+			Logger:  log,
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		k8sClient = k8sOperatorManager.GetClient()
+		Expect(k8sClient).NotTo(BeNil())
+	}
+
+	// we want to sync local CABundle to k8s only if running locally or in process 1
+	// for 1 it is already set and started
+	if processID > 1 {
+		// register controllers
+		registerControllers(k8sOperatorManager, log)
+
+		if helpers.UseEnvtest() {
+			// register webhook reconciler
+			webhookSetupReconciler = controller.NewTestWebhookSetupReconciler(
+				k8sOperatorManager.GetClient(),
+				k8sOperatorManager.GetCache(),
+				log,
+				webhookCertGenerator,
+				helpers.GetOperatorWebhookServiceName(),
+				webhookNamespace,
+				requeuePeriod,
+				webhookPort,
+				"127.0.0.1",
+			)
+			utilruntime.Must(k8sOperatorManager.Add(webhookSetupReconciler))
+
+			if webhookCertWatcher != nil {
+				utilruntime.Must(k8sOperatorManager.Add(webhookCertWatcher))
+			}
+		}
+	}
+
+	// Start manager
+	if processID > 1 {
+		ctx, cancel = context.WithCancel(context.TODO())
+		go func() {
+			err = k8sOperatorManager.Start(ctx)
+			Expect(err).NotTo(HaveOccurred())
+		}()
+	}
+
+	// Start testing
 	By(fmt.Sprintf("Creating test namespace: %s", clusterKey.Namespace))
 	testNamespace = corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: clusterKey.Namespace,
 		},
 	}
-	Expect(k8sClient.Create(context.TODO(), &testNamespace)).ToNot(HaveOccurred())
+	err = k8sClient.Create(context.TODO(), &testNamespace)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		Expect(err).NotTo(HaveOccurred())
+	}
 
 	suite.CreateDockerRegredSecret(context.TODO(), testNamespace, k8sClient)
-
 	suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioCluster: Creating shared test cluster in namespace %s", clusterKey.Namespace))
 	cluster = suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
 	suite.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
 
+	// Update cluster status version
+	if helpers.UseEnvtest() || helpers.UseDummyImage() {
+		Eventually(func() error {
+			if err := k8sClient.Get(context.TODO(), clusterKey, cluster); err != nil {
+				return err
+			}
+			cluster.Status.Version = humio.WebhookHumioVersion
+			return k8sClient.Status().Update(context.TODO(), cluster)
+		}, testTimeout, suite.TestInterval).Should(Succeed())
+	}
+
+	// Start some basic initial tests
 	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true, false)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(sharedCluster).ToNot(BeNil())
@@ -535,6 +541,7 @@ var _ = AfterSuite(func() {
 				)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		}
+
 		if testService1.Name != "" {
 			Expect(k8sClient.Delete(context.TODO(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -579,10 +586,14 @@ var _ = AfterSuite(func() {
 		}
 	}
 
-	cancel()
+	if cancel != nil {
+		cancel()
+	}
 	By("Tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	if testEnv != nil {
+		err := testEnv.Stop()
+		Expect(err).NotTo(HaveOccurred())
+	}
 })
 
 var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkgotypes.Report) {
@@ -627,3 +638,338 @@ var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
 	u, _ := json.Marshal(specReport)
 	fmt.Println(string(u))
 })
+
+func registerSchemes(scheme *runtime.Scheme) {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
+	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(corev1beta1.AddToScheme(scheme))
+	if helpers.UseCertManager() {
+		utilruntime.Must(cmapi.AddToScheme(scheme))
+	}
+}
+
+func registerControllers(k8sOperatorManager ctrl.Manager, log logr.Logger) {
+	err = (&controller.HumioActionReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioAggregateAlertReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioAlertReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioBootstrapTokenReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		BaseLogger: log,
+		Namespace:  clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioClusterReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioExternalClusterReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioFilterAlertReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioFeatureFlagReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioIngestTokenReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioOrganizationPermissionRoleReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioParserReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioRepositoryReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioScheduledSearchReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioSystemPermissionRoleReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioViewReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioUserReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioViewPermissionRoleReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioGroupReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioPdfRenderServiceReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		Scheme: k8sOperatorManager.GetScheme(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		BaseLogger: log,
+		Namespace:  clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioMultiClusterSearchViewReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioIPFilterReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioViewTokenReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioSystemTokenReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioOrganizationTokenReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	// we create the namespace as other resources depend on it
+	testScheme = k8sOperatorManager.GetScheme()
+	k8sClient = k8sOperatorManager.GetClient()
+	Expect(k8sClient).NotTo(BeNil())
+}
+
+func registerWebhooks(k8sWebhookManager ctrl.Manager, log logr.Logger) {
+	if helpers.UseEnvtest() {
+		webhookSetupReconciler = controller.NewTestWebhookSetupReconciler(
+			k8sWebhookManager.GetClient(),
+			k8sWebhookManager.GetCache(),
+			log,
+			webhookCertGenerator,
+			helpers.GetOperatorWebhookServiceName(),
+			webhookNamespace,
+			requeuePeriod,
+			webhookPort,
+			"127.0.0.1",
+		)
+	} else {
+		webhookSetupReconciler = controller.NewProductionWebhookSetupReconciler(
+			k8sWebhookManager.GetClient(),
+			k8sWebhookManager.GetCache(),
+			log,
+			webhookCertGenerator,
+			helpers.GetOperatorName(),
+			helpers.GetOperatorNamespace(),
+			requeuePeriod,
+		)
+	}
+	utilruntime.Must(k8sWebhookManager.Add(webhookSetupReconciler))
+
+	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager).
+		For(&corev1alpha1.HumioScheduledSearch{}).
+		WithValidator(&webhooks.HumioScheduledSearchValidator{
+			BaseLogger:  log,
+			Client:      k8sWebhookManager.GetClient(),
+			HumioClient: humioClient,
+		}).
+		WithDefaulter(nil).
+		Complete(); err != nil {
+		ctrl.Log.Error(err, "unable to create conversion webhook for corev1alpha1.HumioScheduledSearch", "webhook", "HumioScheduledSearch")
+		os.Exit(1)
+	}
+	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager).
+		For(&corev1beta1.HumioScheduledSearch{}).
+		WithValidator(&webhooks.HumioScheduledSearchValidator{
+			BaseLogger:  log,
+			Client:      k8sWebhookManager.GetClient(),
+			HumioClient: humioClient,
+		}).
+		WithDefaulter(nil).
+		Complete(); err != nil {
+		ctrl.Log.Error(err, "unable to create conversion webhook for corev1beta1.HumioScheduledSearch", "webhook", "HumioScheduledSearch")
+		os.Exit(1)
+	}
+}

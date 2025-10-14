@@ -79,7 +79,9 @@ const (
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=core,resources=pods/exec,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=services,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=services/finalizers,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=endpoints,verbs=create;delete;get;list;patch;update;watch
@@ -89,7 +91,10 @@ const (
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;get;list;patch;update;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

@@ -38,6 +38,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -46,15 +47,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	corev1beta1 "github.com/humio/humio-operator/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
 	scheme = runtime.NewScheme()
-
 	// We override these using ldflags when running "go build"
 	commit  = "none"
 	date    = "unknown"
@@ -63,15 +63,16 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
 	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(corev1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
-	var webhookCertPath, webhookCertName, webhookCertKey string
 	var enableLeaderElection bool
 	var probeAddr string
 	var secureMetrics bool
@@ -87,9 +88,6 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true,
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
-	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
-	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
-	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
 	flag.StringVar(&metricsCertPath, "metrics-cert-path", "",
 		"The directory that contains the metrics server certificate.")
 	flag.StringVar(&metricsCertName, "metrics-cert-name", "tls.crt", "The name of the metrics server certificate file.")
@@ -124,33 +122,8 @@ func main() {
 	}
 
 	// Create watchers for metrics and webhooks certificates
-	var metricsCertWatcher, webhookCertWatcher *certwatcher.CertWatcher
-
-	// Initial webhook TLS options
-	webhookTLSOpts := tlsOpts
-
-	if len(webhookCertPath) > 0 {
-		ctrl.Log.Info("Initializing webhook certificate watcher using provided certificates",
-			"webhook-cert-path", webhookCertPath, "webhook-cert-name", webhookCertName, "webhook-cert-key", webhookCertKey)
-
-		var err error
-		webhookCertWatcher, err = certwatcher.New(
-			filepath.Join(webhookCertPath, webhookCertName),
-			filepath.Join(webhookCertPath, webhookCertKey),
-		)
-		if err != nil {
-			ctrl.Log.Error(err, "Failed to initialize webhook certificate watcher")
-			os.Exit(1)
-		}
-
-		webhookTLSOpts = append(webhookTLSOpts, func(config *tls.Config) {
-			config.GetCertificate = webhookCertWatcher.GetCertificate
-		})
-	}
-
-	webhookServer := webhook.NewServer(webhook.Options{
-		TLSOpts: webhookTLSOpts,
-	})
+	var metricsCertWatcher *certwatcher.CertWatcher
+	var err error
 
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
@@ -205,7 +178,7 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
+		WebhookServer:          nil,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d7845218.humio.com",
@@ -251,14 +224,6 @@ func main() {
 		ctrl.Log.Info("Adding metrics certificate watcher to manager")
 		if err := mgr.Add(metricsCertWatcher); err != nil {
 			ctrl.Log.Error(err, "unable to add metrics certificate watcher to manager")
-			os.Exit(1)
-		}
-	}
-
-	if webhookCertWatcher != nil {
-		ctrl.Log.Info("Adding webhook certificate watcher to manager")
-		if err := mgr.Add(webhookCertWatcher); err != nil {
-			ctrl.Log.Error(err, "unable to add webhook certificate watcher to manager")
 			os.Exit(1)
 		}
 	}
@@ -533,7 +498,6 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioOrganizationToken")
 		os.Exit(1)
 	}
-	// +kubebuilder:scaffold:builder
 	if err = (&controller.HumioPdfRenderServiceReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
@@ -545,4 +509,5 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
 		os.Exit(1)
 	}
+	// +kubebuilder:scaffold:builder
 }

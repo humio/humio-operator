@@ -1,0 +1,140 @@
+fragment ScheduledSearchDetailsV2 on ScheduledSearch {
+    id
+    name
+    description
+    queryString
+    searchIntervalSeconds
+    searchIntervalOffsetSeconds
+    maxWaitTimeSeconds
+    timeZone
+    schedule
+    backfillLimitV2
+    queryTimestampType
+    enabled
+    labels
+
+    # @genqlient(typename: "SharedActionNameType")
+    actionsV2 {
+        ...ActionName
+    }
+
+    # @genqlient(typename: "SharedQueryOwnershipType")
+    queryOwnership {
+        ...QueryOwnership
+    }
+}
+
+query ListScheduledSearchesV2(
+    $SearchDomainName: String!
+) {
+    searchDomain(
+        name: $SearchDomainName
+    ) {
+        scheduledSearches {
+            ...ScheduledSearchDetailsV2
+        }
+    }
+}
+
+mutation UpdateScheduledSearchV2(
+    $SearchDomainName: String!
+    $ID: String!
+    $Name: String!
+    $Description: String
+    $QueryString: String!
+    $SearchIntervalSeconds: Long!  
+    $SearchIntervalOffsetSeconds: Long
+    $MaxWaitTimeSeconds: Long
+    $QueryTimestampType: QueryTimestampType!
+    $Schedule: String!
+    $TimeZone: String!
+    $BackfillLimit: Int
+    $Enabled: Boolean!
+    $ActionIdsOrNames: [String!]!
+    $Labels: [String!]!
+    $QueryOwnershipType: QueryOwnershipType!
+) {
+    updateScheduledSearchV2(input: {
+        viewName: $SearchDomainName
+        id: $ID
+        name: $Name
+        description: $Description
+        queryString: $QueryString
+        searchIntervalSeconds: $SearchIntervalSeconds
+        searchIntervalOffsetSeconds: $SearchIntervalOffsetSeconds
+        maxWaitTimeSeconds: $MaxWaitTimeSeconds
+        queryTimestampType: $QueryTimestampType
+        schedule: $Schedule
+        timeZone: $TimeZone
+        backfillLimit: $BackfillLimit
+        enabled: $Enabled
+        actionIdsOrNames: $ActionIdsOrNames
+        labels: $Labels
+        queryOwnershipType: $QueryOwnershipType
+    }) {
+        ...ScheduledSearchDetailsV2
+    }
+}
+
+mutation CreateScheduledSearchV2(
+    $SearchDomainName: String!
+    $Name: String!
+    $Description: String
+    $QueryString: String!
+    $SearchIntervalSeconds: Long!
+    $SearchIntervalOffsetSeconds: Long
+    $MaxWaitTimeSeconds: Long
+    $QueryTimestampType: QueryTimestampType!
+    $Schedule: String!
+    $TimeZone: String!
+    $BackfillLimit: Int
+    $Enabled: Boolean!
+    $ActionIdsOrNames: [String!]!
+    $Labels: [String!]!
+    $QueryOwnershipType: QueryOwnershipType!
+) {
+    createScheduledSearchV2(input: {
+        viewName: $SearchDomainName
+        name: $Name
+        description: $Description
+        queryString: $QueryString
+        searchIntervalSeconds: $SearchIntervalSeconds
+        searchIntervalOffsetSeconds: $SearchIntervalOffsetSeconds
+        maxWaitTimeSeconds: $MaxWaitTimeSeconds
+        queryTimestampType: $QueryTimestampType
+        schedule: $Schedule
+        timeZone: $TimeZone
+        backfillLimit: $BackfillLimit
+        enabled: $Enabled
+        actionIdsOrNames: $ActionIdsOrNames
+        labels: $Labels
+        queryOwnershipType: $QueryOwnershipType
+    }) {
+        ...ScheduledSearchDetails
+    }
+}
+
+mutation DeleteScheduledSearchByIDV2(
+    $SearchDomainName: String!
+    $ScheduledSearchID: String!
+) {
+    deleteScheduledSearch(input: {
+        viewName: $SearchDomainName
+        id: $ScheduledSearchID
+    })
+}
+
+query GetScheduledSearchByIDV2(
+    $SearchDomainName: String!
+    $ScheduledSearchID: String!
+) {
+    searchDomain(
+        name: $SearchDomainName
+    ) {
+        scheduledSearch(
+            id: $ScheduledSearchID
+        ) {
+            ...ScheduledSearchDetailsV2
+        }
+    }
+}

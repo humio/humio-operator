@@ -44,7 +44,17 @@ operator:
             operator: In
             values:
             - linux
-
+webhook:
+  resources:
+    limits:
+      cpu: 250m
+      memory: 200Mi
+      ephemeral-storage: 10Mi
+    requests:
+      cpu: 250m
+      memory: 200Mi
+      ephemeral-storage: 10Mi
+  podAnnotations: {}
 certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""

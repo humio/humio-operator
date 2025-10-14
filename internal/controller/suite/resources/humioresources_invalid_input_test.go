@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	humiov1beta1 "github.com/humio/humio-operator/api/v1beta1"
+	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/helpers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -824,6 +827,402 @@ var _ = Describe("HumioIPFilterCRD", Label("envtest", "dummy", "real"), func() {
 					{Action: "reject", Address: "0.0.0"},
 					{Action: "allow", Address: "10.0.0.0/8"},
 					{Action: "allow", Address: "all"}},
+			},
+		}),
+	)
+})
+
+var _ = Describe("HumioScheduledSearchv1beta1", Label("envtest", "dummy", "real"), func() {
+	DescribeTable("invalid inputs should be rejected by the constraints in the CRD/API",
+		func(expectedOutput string, invalidInput humiov1beta1.HumioScheduledSearch) {
+			err := k8sClient.Create(context.TODO(), &invalidInput)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(expectedOutput))
+		},
+		// Each Entry has a name and the parameters for the function above
+		Entry("name not specified", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName: "test-cluster",
+				//Name:                        "",
+				ViewName:              "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit:               5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("name empty value", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "",
+				ViewName:              "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit:               5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("name too long", "spec.name: Too long: may not be more than 253 bytes", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  strings.Repeat("A", 255),
+				ViewName:              "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit:               5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("viewName not specified", "spec.viewName: Invalid value: \"\": spec.viewName in body should be at least 1 chars long", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName: "test-cluster",
+				Name:               "name",
+				//ViewName:                    "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("viewName empty value", "spec.viewName: Invalid value: \"\": spec.viewName in body should be at least 1 chars long", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "name",
+				ViewName:              "",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("viewName too long", "spec.viewName: Too long: may not be more than 253 bytes", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "name",
+				ViewName:              strings.Repeat("A", 255),
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("queryString not specified", "spec.queryString: Invalid value: \"\": spec.queryString in body should be at least 1 chars long", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName: "test-cluster",
+				Name:               "name",
+				ViewName:           "humio",
+				//QueryString:                 "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("queryString empty value", "spec.queryString: Invalid value: \"\": spec.queryString in body should be at least 1 chars long", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "name",
+				ViewName:              "humio",
+				QueryString:           "",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("maxWaitTimeSeconds empty value", "maxWaitTimeSeconds is required when QueryTimestampType is IngestTimestamp", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName: "test-cluster",
+				Name:               "name",
+				ViewName:           "humio",
+				QueryString:        "*",
+				Description:        "test description",
+				//MaxWaitTimeSeconds:          60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("searchIntervalOffsetSeconds present", "searchIntervalOffsetSeconds is accepted only when queryTimestampType is set to 'EventTimestamp'", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:          "test-cluster",
+				Name:                        "name",
+				ViewName:                    "humio",
+				QueryString:                 "*",
+				Description:                 "test description",
+				MaxWaitTimeSeconds:          60,
+				QueryTimestampType:          humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds:       120,
+				SearchIntervalOffsetSeconds: helpers.Int64Ptr(int64(60)), // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule:                    "30 * * * *",
+				TimeZone:                    "UTC",
+				//BackfillLimit:               5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("schedule invalid", "schedule must be a valid cron expression with 5 fields", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "name",
+				ViewName:              "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * *",
+				TimeZone: "UTC",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("timezone invalid", "timeZone must be 'UTC' or a UTC offset like 'UTC-01'", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "name",
+				ViewName:              "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC+A",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{"test-action"},
+				Labels:  []string{"test-label"},
+			},
+		}),
+		Entry("backfillLimit set wrongfully", "backfillLimit is accepted only when queryTimestampType is set to 'EventTimestamp'", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "name",
+				ViewName:              "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule:      "30 * * * *",
+				TimeZone:      "UTC+01",
+				BackfillLimit: helpers.IntPtr(int(5)), // Only allowed when queryTimestamp is EventTimestamp
+				Enabled:       true,
+				Actions:       []string{"test-action"},
+				Labels:        []string{"test-label"},
+			},
+		}),
+		Entry("actions not set", "spec.actions: Required value", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "name",
+				ViewName:              "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC+01",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				//Actions:       []string{"test-action"},
+				Labels: []string{"test-label"},
+			},
+		}),
+		Entry("actions set empty", "spec.actions: Invalid value", humiov1beta1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1beta1.HumioScheduledSearchSpec{
+				ManagedClusterName:    "test-cluster",
+				Name:                  "name",
+				ViewName:              "humio",
+				QueryString:           "*",
+				Description:           "test description",
+				MaxWaitTimeSeconds:    60,
+				QueryTimestampType:    humiographql.QueryTimestampTypeIngesttimestamp,
+				SearchIntervalSeconds: 120,
+				//SearchIntervalOffsetSeconds: 60, // Only allowed when 'queryTimestampType' is EventTimestamp where it is mandatory.
+				Schedule: "30 * * * *",
+				TimeZone: "UTC+01",
+				//BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled: true,
+				Actions: []string{""},
+				Labels:  []string{"test-label"},
+			},
+		}),
+	)
+})
+
+// since HumioScheduledSearchv1alpha1 automatically migrated to HumioScheduledSearchv1beta1 we expected the validation applied to be from humiov1beta1.HumioScheduledSearch
+var _ = Describe("HumioScheduledSearchv1alpha1", Label("envtest", "dummy", "real"), func() {
+	processID := GinkgoParallelProcess()
+	DescribeTable("invalid inputs should be rejected by the constraints in the CRD/API",
+		func(expectedOutput string, invalidInput humiov1alpha1.HumioScheduledSearch) {
+			err := k8sClient.Create(context.TODO(), &invalidInput)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(expectedOutput))
+		},
+		// Each Entry has a name and the parameters for the function above
+		Entry("name not specified", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1alpha1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
+			Spec: humiov1alpha1.HumioScheduledSearchSpec{
+				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
+				//Name:               "test-1",
+				ViewName:      "humio",
+				QueryString:   "*",
+				Description:   "test description",
+				QueryStart:    "1h",
+				QueryEnd:      "now",
+				Schedule:      "30 * * * *",
+				TimeZone:      "UTC",
+				BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled:       true,
+				Actions:       []string{"test-action"},
+				Labels:        []string{"test-label"},
+			},
+		}),
+		Entry("name empty value", "spec.name: Invalid value: \"\": spec.name in body should be at least 1 chars long", humiov1alpha1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
+			Spec: humiov1alpha1.HumioScheduledSearchSpec{
+				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
+				Name:               "",
+				ViewName:           "humio",
+				QueryString:        "*",
+				Description:        "test description",
+				QueryStart:         "1h",
+				QueryEnd:           "now",
+				Schedule:           "30 * * * *",
+				TimeZone:           "UTC",
+				BackfillLimit:      5, // Only allowed when queryTimestamp is EventTimestamp, default for humiov1alpha1.HumioScheduledSearch
+				Enabled:            true,
+				Actions:            []string{"test-action"},
+				Labels:             []string{"test-label"},
+			},
+		}),
+		Entry("viewName not specified", "spec.viewName: Invalid value: \"\": spec.viewName in body should be at least 1 chars long", humiov1alpha1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioScheduledSearchSpec{
+				ManagedClusterName: "test-cluster",
+				Name:               "name",
+				//ViewName:                    "humio",
+				QueryString:   "*",
+				Description:   "test description",
+				QueryStart:    "1h",
+				QueryEnd:      "now",
+				Schedule:      "30 * * * *",
+				TimeZone:      "UTC",
+				BackfillLimit: 5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled:       true,
+				Actions:       []string{"test-action"},
+				Labels:        []string{"test-label"},
+			},
+		}),
+		Entry("viewName empty value", "spec.viewName: Invalid value: \"\": spec.viewName in body should be at least 1 chars long", humiov1alpha1.HumioScheduledSearch{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-humioscheduledsearch", Namespace: defaultNamespace},
+			Spec: humiov1alpha1.HumioScheduledSearchSpec{
+				ManagedClusterName: "test-cluster",
+				Name:               "name",
+				ViewName:           "",
+				QueryString:        "*",
+				Description:        "test description",
+				QueryStart:         "1h",
+				QueryEnd:           "now",
+				Schedule:           "30 * * * *",
+				TimeZone:           "UTC",
+				BackfillLimit:      5, // Only allowed when queryTimestamp is EventTimestamp
+				Enabled:            true,
+				Actions:            []string{"test-action"},
+				Labels:             []string{"test-label"},
 			},
 		}),
 	)

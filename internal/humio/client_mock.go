@@ -26,12 +26,17 @@ import (
 	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	humiov1beta1 "github.com/humio/humio-operator/api/v1beta1"
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
+const (
+	WebhookHumioVersion string = "1.180.0"
 )
 
 var (
@@ -61,6 +66,7 @@ type ClientMock struct {
 	FeatureFlag            map[resourceKey]bool
 	AggregateAlert         map[resourceKey]humiographql.AggregateAlertDetails
 	ScheduledSearch        map[resourceKey]humiographql.ScheduledSearchDetails
+	ScheduledSearchV2      map[resourceKey]humiographql.ScheduledSearchDetailsV2
 	User                   map[resourceKey]humiographql.UserDetails
 	AdminUserID            map[resourceKey]string
 	Role                   map[resourceKey]humiographql.RoleDetails
@@ -90,6 +96,7 @@ func NewMockClient() *MockClientConfig {
 			FeatureFlag:            make(map[resourceKey]bool),
 			AggregateAlert:         make(map[resourceKey]humiographql.AggregateAlertDetails),
 			ScheduledSearch:        make(map[resourceKey]humiographql.ScheduledSearchDetails),
+			ScheduledSearchV2:      make(map[resourceKey]humiographql.ScheduledSearchDetailsV2),
 			User:                   make(map[resourceKey]humiographql.UserDetails),
 			AdminUserID:            make(map[resourceKey]string),
 			Role:                   make(map[resourceKey]humiographql.RoleDetails),
@@ -124,6 +131,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.FeatureFlag = make(map[resourceKey]bool)
 	h.apiClient.AggregateAlert = make(map[resourceKey]humiographql.AggregateAlertDetails)
 	h.apiClient.ScheduledSearch = make(map[resourceKey]humiographql.ScheduledSearchDetails)
+	h.apiClient.ScheduledSearchV2 = make(map[resourceKey]humiographql.ScheduledSearchDetailsV2)
 	h.apiClient.User = make(map[resourceKey]humiographql.UserDetails)
 	h.apiClient.AdminUserID = make(map[resourceKey]string)
 	h.apiClient.IPFilter = make(map[resourceKey]humiographql.IPFilterDetails)
@@ -133,7 +141,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client) (*humioapi.StatusResponse, error) {
 	return &humioapi.StatusResponse{
-		Version: "x.y.z",
+		Version: WebhookHumioVersion,
 	}, nil
 }
 
@@ -1493,6 +1501,50 @@ func (h *MockClientConfig) AddScheduledSearch(_ context.Context, _ *humioapi.Cli
 	return nil
 }
 
+func (h *MockClientConfig) AddScheduledSearchV2(_ context.Context, _ *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hss.Spec.ViewName) {
+		return fmt.Errorf("search domain name does not exist")
+	}
+
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hss.Spec.ViewName,
+		resourceName:     hss.Spec.Name,
+	}
+
+	if _, found := h.apiClient.ScheduledSearchV2[key]; found {
+		return fmt.Errorf("scheduled search already exists with name %s", hss.Spec.Name)
+	}
+
+	h.apiClient.ScheduledSearchV2[key] = humiographql.ScheduledSearchDetailsV2{
+		Id:                          kubernetes.RandomString(),
+		Name:                        hss.Spec.Name,
+		Description:                 &hss.Spec.Description,
+		QueryString:                 hss.Spec.QueryString,
+		SearchIntervalSeconds:       hss.Spec.SearchIntervalSeconds,
+		SearchIntervalOffsetSeconds: hss.Spec.SearchIntervalOffsetSeconds,
+		MaxWaitTimeSeconds:          helpers.Int64Ptr(hss.Spec.MaxWaitTimeSeconds),
+		TimeZone:                    hss.Spec.TimeZone,
+		Schedule:                    hss.Spec.Schedule,
+		BackfillLimitV2:             hss.Spec.BackfillLimit,
+		Enabled:                     hss.Spec.Enabled,
+		Labels:                      hss.Spec.Labels,
+		QueryOwnership: &humiographql.SharedQueryOwnershipTypeOrganizationOwnership{
+			Typename: helpers.StringPtr("OrganizationOwnership"),
+			QueryOwnershipOrganizationOwnership: humiographql.QueryOwnershipOrganizationOwnership{
+				Typename: helpers.StringPtr("OrganizationOwnership"),
+			},
+		},
+		ActionsV2:          humioapi.ActionNamesToEmailActions(hss.Spec.Actions),
+		QueryTimestampType: hss.Spec.QueryTimestampType,
+	}
+	return nil
+}
+
 func (h *MockClientConfig) GetScheduledSearch(_ context.Context, _ *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
@@ -1503,6 +1555,22 @@ func (h *MockClientConfig) GetScheduledSearch(_ context.Context, _ *humioapi.Cli
 		resourceName:     hss.Spec.Name,
 	}
 	if value, found := h.apiClient.ScheduledSearch[key]; found {
+		return &value, nil
+
+	}
+	return nil, fmt.Errorf("could not find scheduled search in view %q with name %q, err=%w", hss.Spec.ViewName, hss.Spec.Name, humioapi.EntityNotFound{})
+}
+
+func (h *MockClientConfig) GetScheduledSearchV2(_ context.Context, _ *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetailsV2, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName),
+		searchDomainName: hss.Spec.ViewName,
+		resourceName:     hss.Spec.Name,
+	}
+	if value, found := h.apiClient.ScheduledSearchV2[key]; found {
 		return &value, nil
 
 	}
@@ -1548,6 +1616,47 @@ func (h *MockClientConfig) UpdateScheduledSearch(_ context.Context, _ *humioapi.
 	return nil
 }
 
+func (h *MockClientConfig) UpdateScheduledSearchV2(_ context.Context, _ *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName),
+		searchDomainName: hss.Spec.ViewName,
+		resourceName:     hss.Spec.Name,
+	}
+
+	currentScheduledSearch, found := h.apiClient.ScheduledSearchV2[key]
+
+	if !found {
+		return fmt.Errorf("could not find scheduled search in view %q with name %q, err=%w", hss.Spec.ViewName, hss.Spec.Name, humioapi.EntityNotFound{})
+	}
+
+	h.apiClient.ScheduledSearchV2[key] = humiographql.ScheduledSearchDetailsV2{
+		Id:                          currentScheduledSearch.GetId(),
+		Name:                        hss.Spec.Name,
+		Description:                 &hss.Spec.Description,
+		QueryString:                 hss.Spec.QueryString,
+		SearchIntervalSeconds:       hss.Spec.SearchIntervalSeconds,
+		SearchIntervalOffsetSeconds: hss.Spec.SearchIntervalOffsetSeconds,
+		MaxWaitTimeSeconds:          helpers.Int64Ptr(hss.Spec.MaxWaitTimeSeconds),
+		TimeZone:                    hss.Spec.TimeZone,
+		Schedule:                    hss.Spec.Schedule,
+		BackfillLimitV2:             hss.Spec.BackfillLimit,
+		Enabled:                     hss.Spec.Enabled,
+		Labels:                      hss.Spec.Labels,
+		QueryOwnership: &humiographql.SharedQueryOwnershipTypeOrganizationOwnership{
+			Typename: helpers.StringPtr("OrganizationOwnership"),
+			QueryOwnershipOrganizationOwnership: humiographql.QueryOwnershipOrganizationOwnership{
+				Typename: helpers.StringPtr("OrganizationOwnership"),
+			},
+		},
+		ActionsV2:          humioapi.ActionNamesToEmailActions(hss.Spec.Actions),
+		QueryTimestampType: hss.Spec.QueryTimestampType,
+	}
+	return nil
+}
+
 func (h *MockClientConfig) DeleteScheduledSearch(_ context.Context, _ *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
@@ -1562,7 +1671,25 @@ func (h *MockClientConfig) DeleteScheduledSearch(_ context.Context, _ *humioapi.
 	return nil
 }
 
+func (h *MockClientConfig) DeleteScheduledSearchV2(_ context.Context, _ *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName),
+		searchDomainName: hss.Spec.ViewName,
+		resourceName:     hss.Spec.Name,
+	}
+
+	delete(h.apiClient.ScheduledSearchV2, key)
+	return nil
+}
+
 func (h *MockClientConfig) ValidateActionsForScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error {
+	return nil
+}
+
+func (h *MockClientConfig) ValidateActionsForScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error {
 	return nil
 }
 

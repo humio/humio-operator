@@ -3205,13 +3205,205 @@ func (v *CreateScheduledSearchCreateScheduledSearch) __premarshalJSON() (*__prem
 // CreateScheduledSearchResponse is returned by CreateScheduledSearch on success.
 type CreateScheduledSearchResponse struct {
 	// Create a scheduled search.
-	// Stability: Long-term
 	CreateScheduledSearch CreateScheduledSearchCreateScheduledSearch `json:"createScheduledSearch"`
 }
 
 // GetCreateScheduledSearch returns CreateScheduledSearchResponse.CreateScheduledSearch, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchResponse) GetCreateScheduledSearch() CreateScheduledSearchCreateScheduledSearch {
 	return v.CreateScheduledSearch
+}
+
+// CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch includes the requested fields of the GraphQL type ScheduledSearch.
+// The GraphQL type's documentation follows.
+//
+// Information about a scheduled search
+type CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch struct {
+	ScheduledSearchDetails `json:"-"`
+}
+
+// GetId returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Id, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetId() string {
+	return v.ScheduledSearchDetails.Id
+}
+
+// GetName returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Name, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetName() string {
+	return v.ScheduledSearchDetails.Name
+}
+
+// GetDescription returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Description, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetDescription() *string {
+	return v.ScheduledSearchDetails.Description
+}
+
+// GetQueryString returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.QueryString, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetQueryString() string {
+	return v.ScheduledSearchDetails.QueryString
+}
+
+// GetStart returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Start, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetStart() string {
+	return v.ScheduledSearchDetails.Start
+}
+
+// GetEnd returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.End, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetEnd() string {
+	return v.ScheduledSearchDetails.End
+}
+
+// GetTimeZone returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.TimeZone, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetTimeZone() string {
+	return v.ScheduledSearchDetails.TimeZone
+}
+
+// GetSchedule returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Schedule, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetSchedule() string {
+	return v.ScheduledSearchDetails.Schedule
+}
+
+// GetBackfillLimit returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.BackfillLimit, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetBackfillLimit() int {
+	return v.ScheduledSearchDetails.BackfillLimit
+}
+
+// GetEnabled returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetEnabled() bool {
+	return v.ScheduledSearchDetails.Enabled
+}
+
+// GetLabels returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Labels, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetLabels() []string {
+	return v.ScheduledSearchDetails.Labels
+}
+
+// GetActionsV2 returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.ActionsV2, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetActionsV2() []SharedActionNameType {
+	return v.ScheduledSearchDetails.ActionsV2
+}
+
+// GetQueryOwnership returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.QueryOwnership, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetQueryOwnership() SharedQueryOwnershipType {
+	return v.ScheduledSearchDetails.QueryOwnership
+}
+
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScheduledSearchDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	QueryString string `json:"queryString"`
+
+	Start string `json:"start"`
+
+	End string `json:"end"`
+
+	TimeZone string `json:"timeZone"`
+
+	Schedule string `json:"schedule"`
+
+	BackfillLimit int `json:"backfillLimit"`
+
+	Enabled bool `json:"enabled"`
+
+	Labels []string `json:"labels"`
+
+	ActionsV2 []json.RawMessage `json:"actionsV2"`
+
+	QueryOwnership json.RawMessage `json:"queryOwnership"`
+}
+
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) __premarshalJSON() (*__premarshalCreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch, error) {
+	var retval __premarshalCreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch
+
+	retval.Id = v.ScheduledSearchDetails.Id
+	retval.Name = v.ScheduledSearchDetails.Name
+	retval.Description = v.ScheduledSearchDetails.Description
+	retval.QueryString = v.ScheduledSearchDetails.QueryString
+	retval.Start = v.ScheduledSearchDetails.Start
+	retval.End = v.ScheduledSearchDetails.End
+	retval.TimeZone = v.ScheduledSearchDetails.TimeZone
+	retval.Schedule = v.ScheduledSearchDetails.Schedule
+	retval.BackfillLimit = v.ScheduledSearchDetails.BackfillLimit
+	retval.Enabled = v.ScheduledSearchDetails.Enabled
+	retval.Labels = v.ScheduledSearchDetails.Labels
+	{
+
+		dst := &retval.ActionsV2
+		src := v.ScheduledSearchDetails.ActionsV2
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalSharedActionNameType(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.ScheduledSearchDetails.ActionsV2: %w", err)
+			}
+		}
+	}
+	{
+
+		dst := &retval.QueryOwnership
+		src := v.ScheduledSearchDetails.QueryOwnership
+		var err error
+		*dst, err = __marshalSharedQueryOwnershipType(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.ScheduledSearchDetails.QueryOwnership: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// CreateScheduledSearchV2Response is returned by CreateScheduledSearchV2 on success.
+type CreateScheduledSearchV2Response struct {
+	// Create a scheduled search.
+	// Stability: Long-term
+	CreateScheduledSearchV2 CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch `json:"createScheduledSearchV2"`
+}
+
+// GetCreateScheduledSearchV2 returns CreateScheduledSearchV2Response.CreateScheduledSearchV2, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2Response) GetCreateScheduledSearchV2() CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch {
+	return v.CreateScheduledSearchV2
 }
 
 // CreateSlackActionCreateSlackAction includes the requested fields of the GraphQL type SlackAction.
@@ -3562,6 +3754,18 @@ func (v *DeleteScheduledSearchByIDResponse) GetDeleteScheduledSearch() bool {
 	return v.DeleteScheduledSearch
 }
 
+// DeleteScheduledSearchByIDV2Response is returned by DeleteScheduledSearchByIDV2 on success.
+type DeleteScheduledSearchByIDV2Response struct {
+	// Delete a scheduled search.
+	// Stability: Long-term
+	DeleteScheduledSearch bool `json:"deleteScheduledSearch"`
+}
+
+// GetDeleteScheduledSearch returns DeleteScheduledSearchByIDV2Response.DeleteScheduledSearch, and is useful for accessing the field via an interface.
+func (v *DeleteScheduledSearchByIDV2Response) GetDeleteScheduledSearch() bool {
+	return v.DeleteScheduledSearch
+}
+
 // DeleteSearchDomainDeleteSearchDomainBooleanResultType includes the requested fields of the GraphQL type BooleanResultType.
 type DeleteSearchDomainDeleteSearchDomainBooleanResultType struct {
 	Typename *string `json:"__typename"`
@@ -3668,21 +3872,9 @@ const (
 	// Enable repeating queries. Can be used instead of live queries for functions having limitations around live queries.
 	// Stability: Preview
 	FeatureFlagRepeatingqueries FeatureFlag = "RepeatingQueries"
-	// Enable custom ingest tokens not generated by LogScale.
-	// Stability: Preview
-	FeatureFlagCustomingesttokens FeatureFlag = "CustomIngestTokens"
-	// Enable permission tokens.
-	// Stability: Preview
-	FeatureFlagPermissiontokens FeatureFlag = "PermissionTokens"
-	// Assign default roles for groups.
-	// Stability: Preview
-	FeatureFlagDefaultrolesforgroups FeatureFlag = "DefaultRolesForGroups"
 	// Use new organization limits.
 	// Stability: Preview
 	FeatureFlagNeworganizationlimits FeatureFlag = "NewOrganizationLimits"
-	// Authenticate cookies server-side.
-	// Stability: Preview
-	FeatureFlagCookieauthserverside FeatureFlag = "CookieAuthServerSide"
 	// Enable ArrayFunctions in query language.
 	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
@@ -3726,15 +3918,9 @@ const (
 	// Enables download of macos installer for logcollector through fleet management
 	// Stability: Preview
 	FeatureFlagMacosinstallerforlogcollector FeatureFlag = "MacosInstallerForLogCollector"
-	// Enables UsageJob to log average usage as part of usage log
-	// Stability: Preview
-	FeatureFlagLogaverageusage FeatureFlag = "LogAverageUsage"
 	// Enables ephemeral hosts support for fleet management
 	// Stability: Preview
 	FeatureFlagFleetephemeralhosts FeatureFlag = "FleetEphemeralHosts"
-	// Prevents the archiving logic from splitting segments into multiple archived files based on their tag groups
-	// Stability: Preview
-	FeatureFlagDontsplitsegmentsforarchiving FeatureFlag = "DontSplitSegmentsForArchiving"
 	// Enables fleet management collector metrics
 	// Stability: Preview
 	FeatureFlagFleetcollectormetrics FeatureFlag = "FleetCollectorMetrics"
@@ -3744,12 +3930,6 @@ const (
 	// Force a refresh of ClusterManagementStats cache before calculating UnregisterNodeBlockers in clusterUnregisterNode mutation
 	// Stability: Preview
 	FeatureFlagRefreshclustermanagementstatsinunregisternode FeatureFlag = "RefreshClusterManagementStatsInUnregisterNode"
-	// Pre-merge mini-segments
-	// Stability: Preview
-	FeatureFlagPremergeminisegments FeatureFlag = "PreMergeMiniSegments"
-	// Use new store for Autosharding rules
-	// Stability: Preview
-	FeatureFlagNewautoshardrulestore FeatureFlag = "NewAutoshardRuleStore"
 	// Use a new segment file format on write - not readable by older versions
 	// Stability: Preview
 	FeatureFlagWritenewsegmentfileformat FeatureFlag = "WriteNewSegmentFileFormat"
@@ -3760,49 +3940,55 @@ const (
 	// Enables fleet management collector debug logging
 	// Stability: Preview
 	FeatureFlagFleetcollectordebuglogging FeatureFlag = "FleetCollectorDebugLogging"
-	// Resolve field names during codegen rather than for every event
-	// Stability: Preview
-	FeatureFlagResolvefieldscodegen FeatureFlag = "ResolveFieldsCodeGen"
 	// Enables LogScale Collector remote updates
 	// Stability: Preview
 	FeatureFlagFleetremoteupdates FeatureFlag = "FleetRemoteUpdates"
-	// Enables alternate query merge target handling
-	// Stability: Preview
-	FeatureFlagAlternatequerymergetargethandling FeatureFlag = "AlternateQueryMergeTargetHandling"
-	// Allow digesters to start without having all the minis for the current merge target. Requires the AlternateQueryMergeTargetHandling feature flag to be enabled
-	// Stability: Preview
-	FeatureFlagDigestersdontneedmergetargetminis FeatureFlag = "DigestersDontNeedMergeTargetMinis"
 	// Enables labels for fleet management
-	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
 	FeatureFlagFleetlabels FeatureFlag = "FleetLabels"
-	// Segment rebalancer handles mini segments. Can only take effect when the AlternateQueryMergeTargetHandling and DigestersDontNeedMergeTargetMinis feature flags are also enabled
-	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
-	// Stability: Preview
-	FeatureFlagSegmentrebalancerhandlesminis FeatureFlag = "SegmentRebalancerHandlesMinis"
 	// Enables dashboards on fleet overview page
-	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
 	FeatureFlagFleetoverviewdashboards FeatureFlag = "FleetOverviewDashboards"
+	// Enables fleet management dashboards page
+	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+	// Stability: Preview
+	FeatureFlagFleetdashboardspage FeatureFlag = "FleetDashboardsPage"
+	// Enables archiving for Google Cloud Storage
+	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+	// Stability: Preview
+	FeatureFlagGooglecloudarchiving FeatureFlag = "GoogleCloudArchiving"
+	// Enables TablePage UI on fleet management pages.
+	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+	// Stability: Preview
+	FeatureFlagFleettablepageui FeatureFlag = "FleetTablePageUI"
+	// Lets the cluster know that non-evicted nodes undergoing a graceful shutdown should be considered alive for 5 minutes with regards to segment rebalancing
+	// Stability: Preview
+	FeatureFlagSetconsideredaliveuntilongracefulshutdown FeatureFlag = "SetConsideredAliveUntilOnGracefulShutdown"
+	// Enables migration of fleet metrics
+	// Stability: Preview
+	FeatureFlagFleetmetricsmigration FeatureFlag = "FleetMetricsMigration"
+	// Enables a locking mechanism to prevent segment races
+	// Stability: Preview
+	FeatureFlagLockingmechanismforsegmentraces FeatureFlag = "LockingMechanismForSegmentRaces"
+	// Will add an additional header value to kafka messages containing derived tags
+	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+	// Stability: Preview
+	FeatureFlagAddderivedtagstokafkaheaders FeatureFlag = "AddDerivedTagsToKafkaHeaders"
 	// Enables Field Aliasing
 	// Stability: Preview
 	FeatureFlagFieldaliasing FeatureFlag = "FieldAliasing"
 	// External Functions
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
 	// Stability: Preview
 	FeatureFlagExternalfunctions FeatureFlag = "ExternalFunctions"
 	// Enable the LogScale Query Assistant
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
 	// Stability: Preview
 	FeatureFlagQueryassistant FeatureFlag = "QueryAssistant"
 	// Enable Flight Control support in cluster
 	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
 	FeatureFlagFlightcontrol FeatureFlag = "FlightControl"
-	// Enable organization level security policies. For instance the ability to only enable certain action types.
-	// Stability: Preview
-	FeatureFlagOrganizationsecuritypolicies FeatureFlag = "OrganizationSecurityPolicies"
-	// Enables a limit on query backtracking
-	// Stability: Preview
-	FeatureFlagQuerybacktrackinglimit FeatureFlag = "QueryBacktrackingLimit"
 	// Adds a derived #repo.cid tag when searching in views or dataspaces within an organization with an associated CID
 	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
@@ -3811,15 +3997,17 @@ const (
 	// Stability: Preview
 	FeatureFlagLivetables FeatureFlag = "LiveTables"
 	// Enables graph queries
-	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
 	FeatureFlagGraphqueries FeatureFlag = "GraphQueries"
+	// Enables aggregations for correlate
+	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+	// Stability: Preview
+	FeatureFlagCorrelateaggregations FeatureFlag = "CorrelateAggregations"
 	// Enables the MITRE Detection Annotation function
 	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
 	FeatureFlagMitredetectionannotation FeatureFlag = "MitreDetectionAnnotation"
 	// Enables having multiple role bindings for a single view in the same group. This feature can only be enabled when min version is at least 1.150.0
-	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
 	FeatureFlagMultipleviewrolebindings FeatureFlag = "MultipleViewRoleBindings"
 	// When enabled, queries exceeding the AggregatorOutputRowLimit will get cancelled. When disabled, queries will continue to run, but a log is produced whenever the limit is exceeded.
@@ -3836,26 +4024,62 @@ const (
 	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
 	FeatureFlagLlmparsergeneration FeatureFlag = "LlmParserGeneration"
-	// Enables sequence-functions in the query language
+	// Enables enriched parsers and handling enrichment headers in the HEC endpointThis flag has higher precedence than TestOnlyForceEnableXEnrichment flags
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagEnrichedparsers FeatureFlag = "EnrichedParsers"
+	// TO BE USED IN TEST ENVIRONMENTS ONLY: Enables HostEnrichment for all requests to the HEC Ingest endpoint,regardless of whether it was included in requested enrichmentsThis flag has lower precedence than EnrichedParsers flag
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagTestonlyforceenablehostenrichment FeatureFlag = "TestOnlyForceEnableHostEnrichment"
+	// TO BE USED IN TEST ENVIRONMENTS ONLY: Enables MitreEnrichment for all requests to the HEC Ingest endpoint,regardless of whether it was included in requested enrichmentsThis flag has lower precedence than EnrichedParsers flag
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagTestonlyforceenablemitreenrichment FeatureFlag = "TestOnlyForceEnableMitreEnrichment"
+	// TO BE USED IN TEST ENVIRONMENTS ONLY: Enables UserEnrichment for all requests to the HEC Ingest endpoint,regardless of whether it was included in requested enrichmentsThis flag has lower precedence than EnrichedParsers flag
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagTestonlyforceenableuserenrichment FeatureFlag = "TestOnlyForceEnableUserEnrichment"
+	// Enables the external data source sync job to sync entity data
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagExternaldatasourcesyncforentity FeatureFlag = "ExternalDataSourceSyncForEntity"
+	// Enables the external data source sync job to sync identity data
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagExternaldatasourcesyncforidentity FeatureFlag = "ExternalDataSourceSyncForIdentity"
+	// Use the new sort, head, tail, and table datastructure
+	// Stability: Preview
+	FeatureFlagSortnewdatastructure FeatureFlag = "SortNewDatastructure"
+	// Enables integration with LogScale Assets Resolution Service (LARS)
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagLogscaleassetsresolutionservice FeatureFlag = "LogScaleAssetsResolutionService"
+	// Attaches a header to Ingest Queue records to indicate that the message can be forwarded by Kafka Egress Service
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagKafkaegresseventforwardingenabled FeatureFlag = "KafkaEgressEventForwardingEnabled"
+	// Skips LogScale event forwarding for records that will instead be forwarded by Kafka Egress Service
+	// THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+	// Stability: Preview
+	FeatureFlagLogscaleeventforwardingdisabled FeatureFlag = "LogScaleEventForwardingDisabled"
+	// Applies access scope from from JWT claim
+	// Stability: Preview
+	FeatureFlagJwtaccessscope FeatureFlag = "JWTAccessScope"
+	// Allows LogScale to fetch lookup tables from a remote source
 	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
-	FeatureFlagSequencefunctions FeatureFlag = "SequenceFunctions"
-	// Enables the external data source sync job and related endpoints
+	FeatureFlagRemotetable FeatureFlag = "RemoteTable"
+	// Enforce user query capacity limits
+	// THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 	// Stability: Preview
-	FeatureFlagExternaldatasourcesync FeatureFlag = "ExternalDataSourceSync"
-	// Use the new query coordination partition logic.
-	// Stability: Preview
-	FeatureFlagUsenewquerycoordinationpartitions FeatureFlag = "UseNewQueryCoordinationPartitions"
+	FeatureFlagEnforceuserquerycapacity FeatureFlag = "EnforceUserQueryCapacity"
 )
 
 var AllFeatureFlag = []FeatureFlag{
 	FeatureFlagExporttobucket,
 	FeatureFlagRepeatingqueries,
-	FeatureFlagCustomingesttokens,
-	FeatureFlagPermissiontokens,
-	FeatureFlagDefaultrolesforgroups,
 	FeatureFlagNeworganizationlimits,
-	FeatureFlagCookieauthserverside,
 	FeatureFlagArrayfunctions,
 	FeatureFlagGeographyfunctions,
 	FeatureFlagCachepolicies,
@@ -3868,42 +4092,50 @@ var AllFeatureFlag = []FeatureFlag{
 	FeatureFlagSleepfunction,
 	FeatureFlagLoginbridge,
 	FeatureFlagMacosinstallerforlogcollector,
-	FeatureFlagLogaverageusage,
 	FeatureFlagFleetephemeralhosts,
-	FeatureFlagDontsplitsegmentsforarchiving,
 	FeatureFlagFleetcollectormetrics,
 	FeatureFlagNocurrentsforbucketsegments,
 	FeatureFlagRefreshclustermanagementstatsinunregisternode,
-	FeatureFlagPremergeminisegments,
-	FeatureFlagNewautoshardrulestore,
 	FeatureFlagWritenewsegmentfileformat,
 	FeatureFlagMeasurenewsegmentfileformat,
 	FeatureFlagFleetcollectordebuglogging,
-	FeatureFlagResolvefieldscodegen,
 	FeatureFlagFleetremoteupdates,
-	FeatureFlagAlternatequerymergetargethandling,
-	FeatureFlagDigestersdontneedmergetargetminis,
 	FeatureFlagFleetlabels,
-	FeatureFlagSegmentrebalancerhandlesminis,
 	FeatureFlagFleetoverviewdashboards,
+	FeatureFlagFleetdashboardspage,
+	FeatureFlagGooglecloudarchiving,
+	FeatureFlagFleettablepageui,
+	FeatureFlagSetconsideredaliveuntilongracefulshutdown,
+	FeatureFlagFleetmetricsmigration,
+	FeatureFlagLockingmechanismforsegmentraces,
+	FeatureFlagAddderivedtagstokafkaheaders,
 	FeatureFlagFieldaliasing,
 	FeatureFlagExternalfunctions,
 	FeatureFlagQueryassistant,
 	FeatureFlagFlightcontrol,
-	FeatureFlagOrganizationsecuritypolicies,
-	FeatureFlagQuerybacktrackinglimit,
 	FeatureFlagDerivedcidtag,
 	FeatureFlagLivetables,
 	FeatureFlagGraphqueries,
+	FeatureFlagCorrelateaggregations,
 	FeatureFlagMitredetectionannotation,
 	FeatureFlagMultipleviewrolebindings,
 	FeatureFlagCancelqueriesexceedingaggregateoutputrowlimit,
 	FeatureFlagOnetomanygroupsynchronization,
 	FeatureFlagTimeintervalinquery,
 	FeatureFlagLlmparsergeneration,
-	FeatureFlagSequencefunctions,
-	FeatureFlagExternaldatasourcesync,
-	FeatureFlagUsenewquerycoordinationpartitions,
+	FeatureFlagEnrichedparsers,
+	FeatureFlagTestonlyforceenablehostenrichment,
+	FeatureFlagTestonlyforceenablemitreenrichment,
+	FeatureFlagTestonlyforceenableuserenrichment,
+	FeatureFlagExternaldatasourcesyncforentity,
+	FeatureFlagExternaldatasourcesyncforidentity,
+	FeatureFlagSortnewdatastructure,
+	FeatureFlagLogscaleassetsresolutionservice,
+	FeatureFlagKafkaegresseventforwardingenabled,
+	FeatureFlagLogscaleeventforwardingdisabled,
+	FeatureFlagJwtaccessscope,
+	FeatureFlagRemotetable,
+	FeatureFlagEnforceuserquerycapacity,
 }
 
 // Asserts that a given field has an expected value after having been parsed.
@@ -7902,7 +8134,7 @@ func (v *GetOrganizationTokenTokensTokenQueryResultSetResultsViewPermissionsToke
 //
 // A repository stores ingested data, configures parsers and data retention policies.
 type GetParserByIDRepository struct {
-	// A parser on the repository.
+	// A parser on the repository. Supply either 'id' or 'name'.
 	// Stability: Long-term
 	Parser *GetParserByIDRepositoryParser `json:"parser"`
 }
@@ -8495,6 +8727,394 @@ func (v *GetScheduledSearchByIDSearchDomainView) GetTypename() *string { return 
 
 // GetScheduledSearch returns GetScheduledSearchByIDSearchDomainView.ScheduledSearch, and is useful for accessing the field via an interface.
 func (v *GetScheduledSearchByIDSearchDomainView) GetScheduledSearch() GetScheduledSearchByIDSearchDomainScheduledSearch {
+	return v.ScheduledSearch
+}
+
+// GetScheduledSearchByIDV2Response is returned by GetScheduledSearchByIDV2 on success.
+type GetScheduledSearchByIDV2Response struct {
+	// Stability: Long-term
+	SearchDomain GetScheduledSearchByIDV2SearchDomain `json:"-"`
+}
+
+// GetSearchDomain returns GetScheduledSearchByIDV2Response.SearchDomain, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2Response) GetSearchDomain() GetScheduledSearchByIDV2SearchDomain {
+	return v.SearchDomain
+}
+
+func (v *GetScheduledSearchByIDV2Response) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetScheduledSearchByIDV2Response
+		SearchDomain json.RawMessage `json:"searchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetScheduledSearchByIDV2Response = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomain
+		src := firstPass.SearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalGetScheduledSearchByIDV2SearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GetScheduledSearchByIDV2Response.SearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetScheduledSearchByIDV2Response struct {
+	SearchDomain json.RawMessage `json:"searchDomain"`
+}
+
+func (v *GetScheduledSearchByIDV2Response) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetScheduledSearchByIDV2Response) __premarshalJSON() (*__premarshalGetScheduledSearchByIDV2Response, error) {
+	var retval __premarshalGetScheduledSearchByIDV2Response
+
+	{
+
+		dst := &retval.SearchDomain
+		src := v.SearchDomain
+		var err error
+		*dst, err = __marshalGetScheduledSearchByIDV2SearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetScheduledSearchByIDV2Response.SearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GetScheduledSearchByIDV2SearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// GetScheduledSearchByIDV2SearchDomain is implemented by the following types:
+// GetScheduledSearchByIDV2SearchDomainRepository
+// GetScheduledSearchByIDV2SearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type GetScheduledSearchByIDV2SearchDomain interface {
+	implementsGraphQLInterfaceGetScheduledSearchByIDV2SearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetScheduledSearch returns the interface-field "scheduledSearch" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetScheduledSearch() GetScheduledSearchByIDV2SearchDomainScheduledSearch
+}
+
+func (v *GetScheduledSearchByIDV2SearchDomainRepository) implementsGraphQLInterfaceGetScheduledSearchByIDV2SearchDomain() {
+}
+func (v *GetScheduledSearchByIDV2SearchDomainView) implementsGraphQLInterfaceGetScheduledSearchByIDV2SearchDomain() {
+}
+
+func __unmarshalGetScheduledSearchByIDV2SearchDomain(b []byte, v *GetScheduledSearchByIDV2SearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(GetScheduledSearchByIDV2SearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(GetScheduledSearchByIDV2SearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetScheduledSearchByIDV2SearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetScheduledSearchByIDV2SearchDomain(v *GetScheduledSearchByIDV2SearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetScheduledSearchByIDV2SearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetScheduledSearchByIDV2SearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetScheduledSearchByIDV2SearchDomainView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetScheduledSearchByIDV2SearchDomainView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetScheduledSearchByIDV2SearchDomain: "%T"`, v)
+	}
+}
+
+// GetScheduledSearchByIDV2SearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type GetScheduledSearchByIDV2SearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	ScheduledSearch GetScheduledSearchByIDV2SearchDomainScheduledSearch `json:"scheduledSearch"`
+}
+
+// GetTypename returns GetScheduledSearchByIDV2SearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainRepository) GetTypename() *string { return v.Typename }
+
+// GetScheduledSearch returns GetScheduledSearchByIDV2SearchDomainRepository.ScheduledSearch, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainRepository) GetScheduledSearch() GetScheduledSearchByIDV2SearchDomainScheduledSearch {
+	return v.ScheduledSearch
+}
+
+// GetScheduledSearchByIDV2SearchDomainScheduledSearch includes the requested fields of the GraphQL type ScheduledSearch.
+// The GraphQL type's documentation follows.
+//
+// Information about a scheduled search
+type GetScheduledSearchByIDV2SearchDomainScheduledSearch struct {
+	ScheduledSearchDetailsV2 `json:"-"`
+}
+
+// GetId returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.Id, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetId() string {
+	return v.ScheduledSearchDetailsV2.Id
+}
+
+// GetName returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.Name, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetName() string {
+	return v.ScheduledSearchDetailsV2.Name
+}
+
+// GetDescription returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.Description, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetDescription() *string {
+	return v.ScheduledSearchDetailsV2.Description
+}
+
+// GetQueryString returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.QueryString, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetQueryString() string {
+	return v.ScheduledSearchDetailsV2.QueryString
+}
+
+// GetSearchIntervalSeconds returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.SearchIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetSearchIntervalSeconds() int64 {
+	return v.ScheduledSearchDetailsV2.SearchIntervalSeconds
+}
+
+// GetSearchIntervalOffsetSeconds returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.SearchIntervalOffsetSeconds, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetSearchIntervalOffsetSeconds() *int64 {
+	return v.ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds
+}
+
+// GetMaxWaitTimeSeconds returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.MaxWaitTimeSeconds, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetMaxWaitTimeSeconds() *int64 {
+	return v.ScheduledSearchDetailsV2.MaxWaitTimeSeconds
+}
+
+// GetTimeZone returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.TimeZone, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetTimeZone() string {
+	return v.ScheduledSearchDetailsV2.TimeZone
+}
+
+// GetSchedule returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.Schedule, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetSchedule() string {
+	return v.ScheduledSearchDetailsV2.Schedule
+}
+
+// GetBackfillLimitV2 returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.BackfillLimitV2, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetBackfillLimitV2() *int {
+	return v.ScheduledSearchDetailsV2.BackfillLimitV2
+}
+
+// GetQueryTimestampType returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.QueryTimestampType, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetQueryTimestampType() QueryTimestampType {
+	return v.ScheduledSearchDetailsV2.QueryTimestampType
+}
+
+// GetEnabled returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.Enabled, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetEnabled() bool {
+	return v.ScheduledSearchDetailsV2.Enabled
+}
+
+// GetLabels returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.Labels, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetLabels() []string {
+	return v.ScheduledSearchDetailsV2.Labels
+}
+
+// GetActionsV2 returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.ActionsV2, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetActionsV2() []SharedActionNameType {
+	return v.ScheduledSearchDetailsV2.ActionsV2
+}
+
+// GetQueryOwnership returns GetScheduledSearchByIDV2SearchDomainScheduledSearch.QueryOwnership, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) GetQueryOwnership() SharedQueryOwnershipType {
+	return v.ScheduledSearchDetailsV2.QueryOwnership
+}
+
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetScheduledSearchByIDV2SearchDomainScheduledSearch
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetScheduledSearchByIDV2SearchDomainScheduledSearch = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScheduledSearchDetailsV2)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetScheduledSearchByIDV2SearchDomainScheduledSearch struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	QueryString string `json:"queryString"`
+
+	SearchIntervalSeconds int64 `json:"searchIntervalSeconds"`
+
+	SearchIntervalOffsetSeconds *int64 `json:"searchIntervalOffsetSeconds"`
+
+	MaxWaitTimeSeconds *int64 `json:"maxWaitTimeSeconds"`
+
+	TimeZone string `json:"timeZone"`
+
+	Schedule string `json:"schedule"`
+
+	BackfillLimitV2 *int `json:"backfillLimitV2"`
+
+	QueryTimestampType QueryTimestampType `json:"queryTimestampType"`
+
+	Enabled bool `json:"enabled"`
+
+	Labels []string `json:"labels"`
+
+	ActionsV2 []json.RawMessage `json:"actionsV2"`
+
+	QueryOwnership json.RawMessage `json:"queryOwnership"`
+}
+
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetScheduledSearchByIDV2SearchDomainScheduledSearch) __premarshalJSON() (*__premarshalGetScheduledSearchByIDV2SearchDomainScheduledSearch, error) {
+	var retval __premarshalGetScheduledSearchByIDV2SearchDomainScheduledSearch
+
+	retval.Id = v.ScheduledSearchDetailsV2.Id
+	retval.Name = v.ScheduledSearchDetailsV2.Name
+	retval.Description = v.ScheduledSearchDetailsV2.Description
+	retval.QueryString = v.ScheduledSearchDetailsV2.QueryString
+	retval.SearchIntervalSeconds = v.ScheduledSearchDetailsV2.SearchIntervalSeconds
+	retval.SearchIntervalOffsetSeconds = v.ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds
+	retval.MaxWaitTimeSeconds = v.ScheduledSearchDetailsV2.MaxWaitTimeSeconds
+	retval.TimeZone = v.ScheduledSearchDetailsV2.TimeZone
+	retval.Schedule = v.ScheduledSearchDetailsV2.Schedule
+	retval.BackfillLimitV2 = v.ScheduledSearchDetailsV2.BackfillLimitV2
+	retval.QueryTimestampType = v.ScheduledSearchDetailsV2.QueryTimestampType
+	retval.Enabled = v.ScheduledSearchDetailsV2.Enabled
+	retval.Labels = v.ScheduledSearchDetailsV2.Labels
+	{
+
+		dst := &retval.ActionsV2
+		src := v.ScheduledSearchDetailsV2.ActionsV2
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalSharedActionNameType(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal GetScheduledSearchByIDV2SearchDomainScheduledSearch.ScheduledSearchDetailsV2.ActionsV2: %w", err)
+			}
+		}
+	}
+	{
+
+		dst := &retval.QueryOwnership
+		src := v.ScheduledSearchDetailsV2.QueryOwnership
+		var err error
+		*dst, err = __marshalSharedQueryOwnershipType(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetScheduledSearchByIDV2SearchDomainScheduledSearch.ScheduledSearchDetailsV2.QueryOwnership: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GetScheduledSearchByIDV2SearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type GetScheduledSearchByIDV2SearchDomainView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	ScheduledSearch GetScheduledSearchByIDV2SearchDomainScheduledSearch `json:"scheduledSearch"`
+}
+
+// GetTypename returns GetScheduledSearchByIDV2SearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainView) GetTypename() *string { return v.Typename }
+
+// GetScheduledSearch returns GetScheduledSearchByIDV2SearchDomainView.ScheduledSearch, and is useful for accessing the field via an interface.
+func (v *GetScheduledSearchByIDV2SearchDomainView) GetScheduledSearch() GetScheduledSearchByIDV2SearchDomainScheduledSearch {
 	return v.ScheduledSearch
 }
 
@@ -13353,6 +13973,394 @@ func (v *ListScheduledSearchesSearchDomainView) GetScheduledSearches() []ListSch
 	return v.ScheduledSearches
 }
 
+// ListScheduledSearchesV2Response is returned by ListScheduledSearchesV2 on success.
+type ListScheduledSearchesV2Response struct {
+	// Stability: Long-term
+	SearchDomain ListScheduledSearchesV2SearchDomain `json:"-"`
+}
+
+// GetSearchDomain returns ListScheduledSearchesV2Response.SearchDomain, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2Response) GetSearchDomain() ListScheduledSearchesV2SearchDomain {
+	return v.SearchDomain
+}
+
+func (v *ListScheduledSearchesV2Response) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListScheduledSearchesV2Response
+		SearchDomain json.RawMessage `json:"searchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListScheduledSearchesV2Response = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomain
+		src := firstPass.SearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalListScheduledSearchesV2SearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal ListScheduledSearchesV2Response.SearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalListScheduledSearchesV2Response struct {
+	SearchDomain json.RawMessage `json:"searchDomain"`
+}
+
+func (v *ListScheduledSearchesV2Response) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListScheduledSearchesV2Response) __premarshalJSON() (*__premarshalListScheduledSearchesV2Response, error) {
+	var retval __premarshalListScheduledSearchesV2Response
+
+	{
+
+		dst := &retval.SearchDomain
+		src := v.SearchDomain
+		var err error
+		*dst, err = __marshalListScheduledSearchesV2SearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal ListScheduledSearchesV2Response.SearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// ListScheduledSearchesV2SearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// ListScheduledSearchesV2SearchDomain is implemented by the following types:
+// ListScheduledSearchesV2SearchDomainRepository
+// ListScheduledSearchesV2SearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type ListScheduledSearchesV2SearchDomain interface {
+	implementsGraphQLInterfaceListScheduledSearchesV2SearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetScheduledSearches returns the interface-field "scheduledSearches" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetScheduledSearches() []ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch
+}
+
+func (v *ListScheduledSearchesV2SearchDomainRepository) implementsGraphQLInterfaceListScheduledSearchesV2SearchDomain() {
+}
+func (v *ListScheduledSearchesV2SearchDomainView) implementsGraphQLInterfaceListScheduledSearchesV2SearchDomain() {
+}
+
+func __unmarshalListScheduledSearchesV2SearchDomain(b []byte, v *ListScheduledSearchesV2SearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(ListScheduledSearchesV2SearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(ListScheduledSearchesV2SearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for ListScheduledSearchesV2SearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalListScheduledSearchesV2SearchDomain(v *ListScheduledSearchesV2SearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *ListScheduledSearchesV2SearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListScheduledSearchesV2SearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *ListScheduledSearchesV2SearchDomainView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListScheduledSearchesV2SearchDomainView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for ListScheduledSearchesV2SearchDomain: "%T"`, v)
+	}
+}
+
+// ListScheduledSearchesV2SearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListScheduledSearchesV2SearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	ScheduledSearches []ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch `json:"scheduledSearches"`
+}
+
+// GetTypename returns ListScheduledSearchesV2SearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainRepository) GetTypename() *string { return v.Typename }
+
+// GetScheduledSearches returns ListScheduledSearchesV2SearchDomainRepository.ScheduledSearches, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainRepository) GetScheduledSearches() []ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch {
+	return v.ScheduledSearches
+}
+
+// ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch includes the requested fields of the GraphQL type ScheduledSearch.
+// The GraphQL type's documentation follows.
+//
+// Information about a scheduled search
+type ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch struct {
+	ScheduledSearchDetailsV2 `json:"-"`
+}
+
+// GetId returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.Id, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetId() string {
+	return v.ScheduledSearchDetailsV2.Id
+}
+
+// GetName returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.Name, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetName() string {
+	return v.ScheduledSearchDetailsV2.Name
+}
+
+// GetDescription returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.Description, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetDescription() *string {
+	return v.ScheduledSearchDetailsV2.Description
+}
+
+// GetQueryString returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.QueryString, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetQueryString() string {
+	return v.ScheduledSearchDetailsV2.QueryString
+}
+
+// GetSearchIntervalSeconds returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.SearchIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetSearchIntervalSeconds() int64 {
+	return v.ScheduledSearchDetailsV2.SearchIntervalSeconds
+}
+
+// GetSearchIntervalOffsetSeconds returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.SearchIntervalOffsetSeconds, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetSearchIntervalOffsetSeconds() *int64 {
+	return v.ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds
+}
+
+// GetMaxWaitTimeSeconds returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.MaxWaitTimeSeconds, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetMaxWaitTimeSeconds() *int64 {
+	return v.ScheduledSearchDetailsV2.MaxWaitTimeSeconds
+}
+
+// GetTimeZone returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.TimeZone, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetTimeZone() string {
+	return v.ScheduledSearchDetailsV2.TimeZone
+}
+
+// GetSchedule returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.Schedule, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetSchedule() string {
+	return v.ScheduledSearchDetailsV2.Schedule
+}
+
+// GetBackfillLimitV2 returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.BackfillLimitV2, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetBackfillLimitV2() *int {
+	return v.ScheduledSearchDetailsV2.BackfillLimitV2
+}
+
+// GetQueryTimestampType returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.QueryTimestampType, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetQueryTimestampType() QueryTimestampType {
+	return v.ScheduledSearchDetailsV2.QueryTimestampType
+}
+
+// GetEnabled returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.Enabled, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetEnabled() bool {
+	return v.ScheduledSearchDetailsV2.Enabled
+}
+
+// GetLabels returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.Labels, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetLabels() []string {
+	return v.ScheduledSearchDetailsV2.Labels
+}
+
+// GetActionsV2 returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.ActionsV2, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetActionsV2() []SharedActionNameType {
+	return v.ScheduledSearchDetailsV2.ActionsV2
+}
+
+// GetQueryOwnership returns ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.QueryOwnership, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) GetQueryOwnership() SharedQueryOwnershipType {
+	return v.ScheduledSearchDetailsV2.QueryOwnership
+}
+
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScheduledSearchDetailsV2)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	QueryString string `json:"queryString"`
+
+	SearchIntervalSeconds int64 `json:"searchIntervalSeconds"`
+
+	SearchIntervalOffsetSeconds *int64 `json:"searchIntervalOffsetSeconds"`
+
+	MaxWaitTimeSeconds *int64 `json:"maxWaitTimeSeconds"`
+
+	TimeZone string `json:"timeZone"`
+
+	Schedule string `json:"schedule"`
+
+	BackfillLimitV2 *int `json:"backfillLimitV2"`
+
+	QueryTimestampType QueryTimestampType `json:"queryTimestampType"`
+
+	Enabled bool `json:"enabled"`
+
+	Labels []string `json:"labels"`
+
+	ActionsV2 []json.RawMessage `json:"actionsV2"`
+
+	QueryOwnership json.RawMessage `json:"queryOwnership"`
+}
+
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch) __premarshalJSON() (*__premarshalListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch, error) {
+	var retval __premarshalListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch
+
+	retval.Id = v.ScheduledSearchDetailsV2.Id
+	retval.Name = v.ScheduledSearchDetailsV2.Name
+	retval.Description = v.ScheduledSearchDetailsV2.Description
+	retval.QueryString = v.ScheduledSearchDetailsV2.QueryString
+	retval.SearchIntervalSeconds = v.ScheduledSearchDetailsV2.SearchIntervalSeconds
+	retval.SearchIntervalOffsetSeconds = v.ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds
+	retval.MaxWaitTimeSeconds = v.ScheduledSearchDetailsV2.MaxWaitTimeSeconds
+	retval.TimeZone = v.ScheduledSearchDetailsV2.TimeZone
+	retval.Schedule = v.ScheduledSearchDetailsV2.Schedule
+	retval.BackfillLimitV2 = v.ScheduledSearchDetailsV2.BackfillLimitV2
+	retval.QueryTimestampType = v.ScheduledSearchDetailsV2.QueryTimestampType
+	retval.Enabled = v.ScheduledSearchDetailsV2.Enabled
+	retval.Labels = v.ScheduledSearchDetailsV2.Labels
+	{
+
+		dst := &retval.ActionsV2
+		src := v.ScheduledSearchDetailsV2.ActionsV2
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalSharedActionNameType(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.ScheduledSearchDetailsV2.ActionsV2: %w", err)
+			}
+		}
+	}
+	{
+
+		dst := &retval.QueryOwnership
+		src := v.ScheduledSearchDetailsV2.QueryOwnership
+		var err error
+		*dst, err = __marshalSharedQueryOwnershipType(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch.ScheduledSearchDetailsV2.QueryOwnership: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// ListScheduledSearchesV2SearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type ListScheduledSearchesV2SearchDomainView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	ScheduledSearches []ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch `json:"scheduledSearches"`
+}
+
+// GetTypename returns ListScheduledSearchesV2SearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainView) GetTypename() *string { return v.Typename }
+
+// GetScheduledSearches returns ListScheduledSearchesV2SearchDomainView.ScheduledSearches, and is useful for accessing the field via an interface.
+func (v *ListScheduledSearchesV2SearchDomainView) GetScheduledSearches() []ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch {
+	return v.ScheduledSearches
+}
+
 // ListSearchDomainsResponse is returned by ListSearchDomains on success.
 type ListSearchDomainsResponse struct {
 	// Stability: Long-term
@@ -14230,8 +15238,6 @@ type Permission string
 
 const (
 	PermissionChangeuseraccess Permission = "ChangeUserAccess"
-	// Permission to administer alerts, scheduled searches and actions
-	PermissionChangetriggersandactions Permission = "ChangeTriggersAndActions"
 	// Permission to administer alerts and scheduled searches
 	PermissionChangetriggers Permission = "ChangeTriggers"
 	PermissionCreatetriggers Permission = "CreateTriggers"
@@ -14258,6 +15264,7 @@ const (
 	PermissionUpdatesavedqueries                Permission = "UpdateSavedQueries"
 	PermissionDeletesavedqueries                Permission = "DeleteSavedQueries"
 	PermissionConnectview                       Permission = "ConnectView"
+	PermissionChangearchivingsettings           Permission = "ChangeArchivingSettings"
 	PermissionChangedatadeletionpermissions     Permission = "ChangeDataDeletionPermissions"
 	PermissionChangeretention                   Permission = "ChangeRetention"
 	PermissionChangedefaultsearchsettings       Permission = "ChangeDefaultSearchSettings"
@@ -14286,7 +15293,6 @@ const (
 
 var AllPermission = []Permission{
 	PermissionChangeuseraccess,
-	PermissionChangetriggersandactions,
 	PermissionChangetriggers,
 	PermissionCreatetriggers,
 	PermissionUpdatetriggers,
@@ -14311,6 +15317,7 @@ var AllPermission = []Permission{
 	PermissionUpdatesavedqueries,
 	PermissionDeletesavedqueries,
 	PermissionConnectview,
+	PermissionChangearchivingsettings,
 	PermissionChangedatadeletionpermissions,
 	PermissionChangeretention,
 	PermissionChangedefaultsearchsettings,
@@ -15053,7 +16060,7 @@ type RotateTokenResponse struct {
 // GetRotateToken returns RotateTokenResponse.RotateToken, and is useful for accessing the field via an interface.
 func (v *RotateTokenResponse) GetRotateToken() string { return v.RotateToken }
 
-// The format to store archived segments in on AWS S3.
+// The format to store archived segments in AWS S3.
 type S3ArchivingFormat string
 
 const (
@@ -15084,10 +16091,8 @@ type ScheduledSearchDetails struct {
 	// Stability: Long-term
 	QueryString string `json:"queryString"`
 	// Start of the relative time interval for the query.
-	// Stability: Long-term
 	Start string `json:"start"`
 	// End of the relative time interval for the query.
-	// Stability: Long-term
 	End string `json:"end"`
 	// Time zone of the schedule. Currently this field only supports UTC offsets like 'UTC', 'UTC-01' or 'UTC+12:45'.
 	// Stability: Long-term
@@ -15095,8 +16100,7 @@ type ScheduledSearchDetails struct {
 	// Cron pattern describing the schedule to execute the query on.
 	// Stability: Long-term
 	Schedule string `json:"schedule"`
-	// User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown.
-	// Stability: Long-term
+	// User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. If the 'queryTimestampType' is IngestTimestamp this field is not used, but due to backwards compatibility a value of 0 is returned.
 	BackfillLimit int `json:"backfillLimit"`
 	// Flag indicating whether the scheduled search is enabled.
 	// Stability: Long-term
@@ -15284,6 +16288,251 @@ func (v *ScheduledSearchDetails) __premarshalJSON() (*__premarshalScheduledSearc
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal ScheduledSearchDetails.QueryOwnership: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// ScheduledSearchDetailsV2 includes the GraphQL fields of ScheduledSearch requested by the fragment ScheduledSearchDetailsV2.
+// The GraphQL type's documentation follows.
+//
+// Information about a scheduled search
+type ScheduledSearchDetailsV2 struct {
+	// Id of the scheduled search.
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Name of the scheduled search.
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Description of the scheduled search.
+	// Stability: Long-term
+	Description *string `json:"description"`
+	// LogScale query to execute.
+	// Stability: Long-term
+	QueryString string `json:"queryString"`
+	// Search interval in seconds.
+	// Stability: Long-term
+	SearchIntervalSeconds int64 `json:"searchIntervalSeconds"`
+	// Offset of the search interval in seconds. Only present when 'queryTimestampType' is EventTimestamp.
+	// Stability: Long-term
+	SearchIntervalOffsetSeconds *int64 `json:"searchIntervalOffsetSeconds"`
+	// Maximum number of seconds to wait for ingest delay. Only present when 'queryTimestampType' is IngestTimestamp.
+	// Stability: Long-term
+	MaxWaitTimeSeconds *int64 `json:"maxWaitTimeSeconds"`
+	// Time zone of the schedule. Currently this field only supports UTC offsets like 'UTC', 'UTC-01' or 'UTC+12:45'.
+	// Stability: Long-term
+	TimeZone string `json:"timeZone"`
+	// Cron pattern describing the schedule to execute the query on.
+	// Stability: Long-term
+	Schedule string `json:"schedule"`
+	// User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. Only present when 'queryTimestampType' is EventTimestamp.
+	// Stability: Long-term
+	BackfillLimitV2 *int `json:"backfillLimitV2"`
+	// Timestamp type to use for the query.
+	// Stability: Long-term
+	QueryTimestampType QueryTimestampType `json:"queryTimestampType"`
+	// Flag indicating whether the scheduled search is enabled.
+	// Stability: Long-term
+	Enabled bool `json:"enabled"`
+	// Labels added to the scheduled search.
+	// Stability: Long-term
+	Labels []string `json:"labels"`
+	// List of actions to fire on query result.
+	// Stability: Long-term
+	ActionsV2 []SharedActionNameType `json:"-"`
+	// Ownership of the query run by this scheduled search
+	// Stability: Long-term
+	QueryOwnership SharedQueryOwnershipType `json:"-"`
+}
+
+// GetId returns ScheduledSearchDetailsV2.Id, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetId() string { return v.Id }
+
+// GetName returns ScheduledSearchDetailsV2.Name, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetName() string { return v.Name }
+
+// GetDescription returns ScheduledSearchDetailsV2.Description, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetDescription() *string { return v.Description }
+
+// GetQueryString returns ScheduledSearchDetailsV2.QueryString, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetQueryString() string { return v.QueryString }
+
+// GetSearchIntervalSeconds returns ScheduledSearchDetailsV2.SearchIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetSearchIntervalSeconds() int64 { return v.SearchIntervalSeconds }
+
+// GetSearchIntervalOffsetSeconds returns ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetSearchIntervalOffsetSeconds() *int64 {
+	return v.SearchIntervalOffsetSeconds
+}
+
+// GetMaxWaitTimeSeconds returns ScheduledSearchDetailsV2.MaxWaitTimeSeconds, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetMaxWaitTimeSeconds() *int64 { return v.MaxWaitTimeSeconds }
+
+// GetTimeZone returns ScheduledSearchDetailsV2.TimeZone, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetTimeZone() string { return v.TimeZone }
+
+// GetSchedule returns ScheduledSearchDetailsV2.Schedule, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetSchedule() string { return v.Schedule }
+
+// GetBackfillLimitV2 returns ScheduledSearchDetailsV2.BackfillLimitV2, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetBackfillLimitV2() *int { return v.BackfillLimitV2 }
+
+// GetQueryTimestampType returns ScheduledSearchDetailsV2.QueryTimestampType, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetQueryTimestampType() QueryTimestampType {
+	return v.QueryTimestampType
+}
+
+// GetEnabled returns ScheduledSearchDetailsV2.Enabled, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetEnabled() bool { return v.Enabled }
+
+// GetLabels returns ScheduledSearchDetailsV2.Labels, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetLabels() []string { return v.Labels }
+
+// GetActionsV2 returns ScheduledSearchDetailsV2.ActionsV2, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetActionsV2() []SharedActionNameType { return v.ActionsV2 }
+
+// GetQueryOwnership returns ScheduledSearchDetailsV2.QueryOwnership, and is useful for accessing the field via an interface.
+func (v *ScheduledSearchDetailsV2) GetQueryOwnership() SharedQueryOwnershipType {
+	return v.QueryOwnership
+}
+
+func (v *ScheduledSearchDetailsV2) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ScheduledSearchDetailsV2
+		ActionsV2      []json.RawMessage `json:"actionsV2"`
+		QueryOwnership json.RawMessage   `json:"queryOwnership"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ScheduledSearchDetailsV2 = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.ActionsV2
+		src := firstPass.ActionsV2
+		*dst = make(
+			[]SharedActionNameType,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = __unmarshalSharedActionNameType(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal ScheduledSearchDetailsV2.ActionsV2: %w", err)
+				}
+			}
+		}
+	}
+
+	{
+		dst := &v.QueryOwnership
+		src := firstPass.QueryOwnership
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalSharedQueryOwnershipType(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal ScheduledSearchDetailsV2.QueryOwnership: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalScheduledSearchDetailsV2 struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	QueryString string `json:"queryString"`
+
+	SearchIntervalSeconds int64 `json:"searchIntervalSeconds"`
+
+	SearchIntervalOffsetSeconds *int64 `json:"searchIntervalOffsetSeconds"`
+
+	MaxWaitTimeSeconds *int64 `json:"maxWaitTimeSeconds"`
+
+	TimeZone string `json:"timeZone"`
+
+	Schedule string `json:"schedule"`
+
+	BackfillLimitV2 *int `json:"backfillLimitV2"`
+
+	QueryTimestampType QueryTimestampType `json:"queryTimestampType"`
+
+	Enabled bool `json:"enabled"`
+
+	Labels []string `json:"labels"`
+
+	ActionsV2 []json.RawMessage `json:"actionsV2"`
+
+	QueryOwnership json.RawMessage `json:"queryOwnership"`
+}
+
+func (v *ScheduledSearchDetailsV2) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ScheduledSearchDetailsV2) __premarshalJSON() (*__premarshalScheduledSearchDetailsV2, error) {
+	var retval __premarshalScheduledSearchDetailsV2
+
+	retval.Id = v.Id
+	retval.Name = v.Name
+	retval.Description = v.Description
+	retval.QueryString = v.QueryString
+	retval.SearchIntervalSeconds = v.SearchIntervalSeconds
+	retval.SearchIntervalOffsetSeconds = v.SearchIntervalOffsetSeconds
+	retval.MaxWaitTimeSeconds = v.MaxWaitTimeSeconds
+	retval.TimeZone = v.TimeZone
+	retval.Schedule = v.Schedule
+	retval.BackfillLimitV2 = v.BackfillLimitV2
+	retval.QueryTimestampType = v.QueryTimestampType
+	retval.Enabled = v.Enabled
+	retval.Labels = v.Labels
+	{
+
+		dst := &retval.ActionsV2
+		src := v.ActionsV2
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalSharedActionNameType(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal ScheduledSearchDetailsV2.ActionsV2: %w", err)
+			}
+		}
+	}
+	{
+
+		dst := &retval.QueryOwnership
+		src := v.QueryOwnership
+		var err error
+		*dst, err = __marshalSharedQueryOwnershipType(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal ScheduledSearchDetailsV2.QueryOwnership: %w", err)
 		}
 	}
 	return &retval, nil
@@ -18385,7 +19634,6 @@ func (v *UpdateS3ArchivingConfigurationS3ConfigureArchivingBooleanResultType) Ge
 // UpdateScheduledSearchResponse is returned by UpdateScheduledSearch on success.
 type UpdateScheduledSearchResponse struct {
 	// Update a scheduled search.
-	// Stability: Long-term
 	UpdateScheduledSearch UpdateScheduledSearchUpdateScheduledSearch `json:"updateScheduledSearch"`
 }
 
@@ -18570,6 +19818,214 @@ func (v *UpdateScheduledSearchUpdateScheduledSearch) __premarshalJSON() (*__prem
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal UpdateScheduledSearchUpdateScheduledSearch.ScheduledSearchDetails.QueryOwnership: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// UpdateScheduledSearchV2Response is returned by UpdateScheduledSearchV2 on success.
+type UpdateScheduledSearchV2Response struct {
+	// Update a scheduled search.
+	UpdateScheduledSearchV2 UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch `json:"updateScheduledSearchV2"`
+}
+
+// GetUpdateScheduledSearchV2 returns UpdateScheduledSearchV2Response.UpdateScheduledSearchV2, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2Response) GetUpdateScheduledSearchV2() UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch {
+	return v.UpdateScheduledSearchV2
+}
+
+// UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch includes the requested fields of the GraphQL type ScheduledSearch.
+// The GraphQL type's documentation follows.
+//
+// Information about a scheduled search
+type UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch struct {
+	ScheduledSearchDetailsV2 `json:"-"`
+}
+
+// GetId returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.Id, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetId() string {
+	return v.ScheduledSearchDetailsV2.Id
+}
+
+// GetName returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.Name, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetName() string {
+	return v.ScheduledSearchDetailsV2.Name
+}
+
+// GetDescription returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.Description, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetDescription() *string {
+	return v.ScheduledSearchDetailsV2.Description
+}
+
+// GetQueryString returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.QueryString, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetQueryString() string {
+	return v.ScheduledSearchDetailsV2.QueryString
+}
+
+// GetSearchIntervalSeconds returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.SearchIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetSearchIntervalSeconds() int64 {
+	return v.ScheduledSearchDetailsV2.SearchIntervalSeconds
+}
+
+// GetSearchIntervalOffsetSeconds returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.SearchIntervalOffsetSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetSearchIntervalOffsetSeconds() *int64 {
+	return v.ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds
+}
+
+// GetMaxWaitTimeSeconds returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.MaxWaitTimeSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetMaxWaitTimeSeconds() *int64 {
+	return v.ScheduledSearchDetailsV2.MaxWaitTimeSeconds
+}
+
+// GetTimeZone returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.TimeZone, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetTimeZone() string {
+	return v.ScheduledSearchDetailsV2.TimeZone
+}
+
+// GetSchedule returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.Schedule, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetSchedule() string {
+	return v.ScheduledSearchDetailsV2.Schedule
+}
+
+// GetBackfillLimitV2 returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.BackfillLimitV2, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetBackfillLimitV2() *int {
+	return v.ScheduledSearchDetailsV2.BackfillLimitV2
+}
+
+// GetQueryTimestampType returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.QueryTimestampType, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetQueryTimestampType() QueryTimestampType {
+	return v.ScheduledSearchDetailsV2.QueryTimestampType
+}
+
+// GetEnabled returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetEnabled() bool {
+	return v.ScheduledSearchDetailsV2.Enabled
+}
+
+// GetLabels returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.Labels, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetLabels() []string {
+	return v.ScheduledSearchDetailsV2.Labels
+}
+
+// GetActionsV2 returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.ActionsV2, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetActionsV2() []SharedActionNameType {
+	return v.ScheduledSearchDetailsV2.ActionsV2
+}
+
+// GetQueryOwnership returns UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.QueryOwnership, and is useful for accessing the field via an interface.
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) GetQueryOwnership() SharedQueryOwnershipType {
+	return v.ScheduledSearchDetailsV2.QueryOwnership
+}
+
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScheduledSearchDetailsV2)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	QueryString string `json:"queryString"`
+
+	SearchIntervalSeconds int64 `json:"searchIntervalSeconds"`
+
+	SearchIntervalOffsetSeconds *int64 `json:"searchIntervalOffsetSeconds"`
+
+	MaxWaitTimeSeconds *int64 `json:"maxWaitTimeSeconds"`
+
+	TimeZone string `json:"timeZone"`
+
+	Schedule string `json:"schedule"`
+
+	BackfillLimitV2 *int `json:"backfillLimitV2"`
+
+	QueryTimestampType QueryTimestampType `json:"queryTimestampType"`
+
+	Enabled bool `json:"enabled"`
+
+	Labels []string `json:"labels"`
+
+	ActionsV2 []json.RawMessage `json:"actionsV2"`
+
+	QueryOwnership json.RawMessage `json:"queryOwnership"`
+}
+
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch) __premarshalJSON() (*__premarshalUpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch, error) {
+	var retval __premarshalUpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch
+
+	retval.Id = v.ScheduledSearchDetailsV2.Id
+	retval.Name = v.ScheduledSearchDetailsV2.Name
+	retval.Description = v.ScheduledSearchDetailsV2.Description
+	retval.QueryString = v.ScheduledSearchDetailsV2.QueryString
+	retval.SearchIntervalSeconds = v.ScheduledSearchDetailsV2.SearchIntervalSeconds
+	retval.SearchIntervalOffsetSeconds = v.ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds
+	retval.MaxWaitTimeSeconds = v.ScheduledSearchDetailsV2.MaxWaitTimeSeconds
+	retval.TimeZone = v.ScheduledSearchDetailsV2.TimeZone
+	retval.Schedule = v.ScheduledSearchDetailsV2.Schedule
+	retval.BackfillLimitV2 = v.ScheduledSearchDetailsV2.BackfillLimitV2
+	retval.QueryTimestampType = v.ScheduledSearchDetailsV2.QueryTimestampType
+	retval.Enabled = v.ScheduledSearchDetailsV2.Enabled
+	retval.Labels = v.ScheduledSearchDetailsV2.Labels
+	{
+
+		dst := &retval.ActionsV2
+		src := v.ScheduledSearchDetailsV2.ActionsV2
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalSharedActionNameType(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.ScheduledSearchDetailsV2.ActionsV2: %w", err)
+			}
+		}
+	}
+	{
+
+		dst := &retval.QueryOwnership
+		src := v.ScheduledSearchDetailsV2.QueryOwnership
+		var err error
+		*dst, err = __marshalSharedQueryOwnershipType(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal UpdateScheduledSearchV2UpdateScheduledSearchV2ScheduledSearch.ScheduledSearchDetailsV2.QueryOwnership: %w", err)
 		}
 	}
 	return &retval, nil
@@ -20140,6 +21596,78 @@ func (v *__CreateScheduledSearchInput) GetQueryOwnershipType() *QueryOwnershipTy
 	return v.QueryOwnershipType
 }
 
+// __CreateScheduledSearchV2Input is used internally by genqlient
+type __CreateScheduledSearchV2Input struct {
+	SearchDomainName            string             `json:"SearchDomainName"`
+	Name                        string             `json:"Name"`
+	Description                 *string            `json:"Description"`
+	QueryString                 string             `json:"QueryString"`
+	SearchIntervalSeconds       int64              `json:"SearchIntervalSeconds"`
+	SearchIntervalOffsetSeconds *int64             `json:"SearchIntervalOffsetSeconds"`
+	MaxWaitTimeSeconds          *int64             `json:"MaxWaitTimeSeconds"`
+	QueryTimestampType          QueryTimestampType `json:"QueryTimestampType"`
+	Schedule                    string             `json:"Schedule"`
+	TimeZone                    string             `json:"TimeZone"`
+	BackfillLimit               *int               `json:"BackfillLimit"`
+	Enabled                     bool               `json:"Enabled"`
+	ActionIdsOrNames            []string           `json:"ActionIdsOrNames"`
+	Labels                      []string           `json:"Labels"`
+	QueryOwnershipType          QueryOwnershipType `json:"QueryOwnershipType"`
+}
+
+// GetSearchDomainName returns __CreateScheduledSearchV2Input.SearchDomainName, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetSearchDomainName() string { return v.SearchDomainName }
+
+// GetName returns __CreateScheduledSearchV2Input.Name, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetName() string { return v.Name }
+
+// GetDescription returns __CreateScheduledSearchV2Input.Description, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetDescription() *string { return v.Description }
+
+// GetQueryString returns __CreateScheduledSearchV2Input.QueryString, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetQueryString() string { return v.QueryString }
+
+// GetSearchIntervalSeconds returns __CreateScheduledSearchV2Input.SearchIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetSearchIntervalSeconds() int64 {
+	return v.SearchIntervalSeconds
+}
+
+// GetSearchIntervalOffsetSeconds returns __CreateScheduledSearchV2Input.SearchIntervalOffsetSeconds, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetSearchIntervalOffsetSeconds() *int64 {
+	return v.SearchIntervalOffsetSeconds
+}
+
+// GetMaxWaitTimeSeconds returns __CreateScheduledSearchV2Input.MaxWaitTimeSeconds, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetMaxWaitTimeSeconds() *int64 { return v.MaxWaitTimeSeconds }
+
+// GetQueryTimestampType returns __CreateScheduledSearchV2Input.QueryTimestampType, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetQueryTimestampType() QueryTimestampType {
+	return v.QueryTimestampType
+}
+
+// GetSchedule returns __CreateScheduledSearchV2Input.Schedule, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetSchedule() string { return v.Schedule }
+
+// GetTimeZone returns __CreateScheduledSearchV2Input.TimeZone, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetTimeZone() string { return v.TimeZone }
+
+// GetBackfillLimit returns __CreateScheduledSearchV2Input.BackfillLimit, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetBackfillLimit() *int { return v.BackfillLimit }
+
+// GetEnabled returns __CreateScheduledSearchV2Input.Enabled, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetEnabled() bool { return v.Enabled }
+
+// GetActionIdsOrNames returns __CreateScheduledSearchV2Input.ActionIdsOrNames, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetActionIdsOrNames() []string { return v.ActionIdsOrNames }
+
+// GetLabels returns __CreateScheduledSearchV2Input.Labels, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetLabels() []string { return v.Labels }
+
+// GetQueryOwnershipType returns __CreateScheduledSearchV2Input.QueryOwnershipType, and is useful for accessing the field via an interface.
+func (v *__CreateScheduledSearchV2Input) GetQueryOwnershipType() QueryOwnershipType {
+	return v.QueryOwnershipType
+}
+
 // __CreateSlackActionInput is used internally by genqlient
 type __CreateSlackActionInput struct {
 	SearchDomainName string                 `json:"SearchDomainName"`
@@ -20424,6 +21952,20 @@ func (v *__DeleteScheduledSearchByIDInput) GetSearchDomainName() string { return
 // GetScheduledSearchID returns __DeleteScheduledSearchByIDInput.ScheduledSearchID, and is useful for accessing the field via an interface.
 func (v *__DeleteScheduledSearchByIDInput) GetScheduledSearchID() string { return v.ScheduledSearchID }
 
+// __DeleteScheduledSearchByIDV2Input is used internally by genqlient
+type __DeleteScheduledSearchByIDV2Input struct {
+	SearchDomainName  string `json:"SearchDomainName"`
+	ScheduledSearchID string `json:"ScheduledSearchID"`
+}
+
+// GetSearchDomainName returns __DeleteScheduledSearchByIDV2Input.SearchDomainName, and is useful for accessing the field via an interface.
+func (v *__DeleteScheduledSearchByIDV2Input) GetSearchDomainName() string { return v.SearchDomainName }
+
+// GetScheduledSearchID returns __DeleteScheduledSearchByIDV2Input.ScheduledSearchID, and is useful for accessing the field via an interface.
+func (v *__DeleteScheduledSearchByIDV2Input) GetScheduledSearchID() string {
+	return v.ScheduledSearchID
+}
+
 // __DeleteSearchDomainInput is used internally by genqlient
 type __DeleteSearchDomainInput struct {
 	SearchDomainName string `json:"SearchDomainName"`
@@ -20568,6 +22110,18 @@ func (v *__GetScheduledSearchByIDInput) GetSearchDomainName() string { return v.
 // GetScheduledSearchID returns __GetScheduledSearchByIDInput.ScheduledSearchID, and is useful for accessing the field via an interface.
 func (v *__GetScheduledSearchByIDInput) GetScheduledSearchID() string { return v.ScheduledSearchID }
 
+// __GetScheduledSearchByIDV2Input is used internally by genqlient
+type __GetScheduledSearchByIDV2Input struct {
+	SearchDomainName  string `json:"SearchDomainName"`
+	ScheduledSearchID string `json:"ScheduledSearchID"`
+}
+
+// GetSearchDomainName returns __GetScheduledSearchByIDV2Input.SearchDomainName, and is useful for accessing the field via an interface.
+func (v *__GetScheduledSearchByIDV2Input) GetSearchDomainName() string { return v.SearchDomainName }
+
+// GetScheduledSearchID returns __GetScheduledSearchByIDV2Input.ScheduledSearchID, and is useful for accessing the field via an interface.
+func (v *__GetScheduledSearchByIDV2Input) GetScheduledSearchID() string { return v.ScheduledSearchID }
+
 // __GetSearchDomainInput is used internally by genqlient
 type __GetSearchDomainInput struct {
 	SearchDomainName string `json:"SearchDomainName"`
@@ -20663,6 +22217,14 @@ type __ListScheduledSearchesInput struct {
 
 // GetSearchDomainName returns __ListScheduledSearchesInput.SearchDomainName, and is useful for accessing the field via an interface.
 func (v *__ListScheduledSearchesInput) GetSearchDomainName() string { return v.SearchDomainName }
+
+// __ListScheduledSearchesV2Input is used internally by genqlient
+type __ListScheduledSearchesV2Input struct {
+	SearchDomainName string `json:"SearchDomainName"`
+}
+
+// GetSearchDomainName returns __ListScheduledSearchesV2Input.SearchDomainName, and is useful for accessing the field via an interface.
+func (v *__ListScheduledSearchesV2Input) GetSearchDomainName() string { return v.SearchDomainName }
 
 // __RefreshClusterManagementStatsInput is used internally by genqlient
 type __RefreshClusterManagementStatsInput struct {
@@ -21329,6 +22891,82 @@ func (v *__UpdateScheduledSearchInput) GetLabels() []string { return v.Labels }
 
 // GetQueryOwnershipType returns __UpdateScheduledSearchInput.QueryOwnershipType, and is useful for accessing the field via an interface.
 func (v *__UpdateScheduledSearchInput) GetQueryOwnershipType() *QueryOwnershipType {
+	return v.QueryOwnershipType
+}
+
+// __UpdateScheduledSearchV2Input is used internally by genqlient
+type __UpdateScheduledSearchV2Input struct {
+	SearchDomainName            string             `json:"SearchDomainName"`
+	ID                          string             `json:"ID"`
+	Name                        string             `json:"Name"`
+	Description                 *string            `json:"Description"`
+	QueryString                 string             `json:"QueryString"`
+	SearchIntervalSeconds       int64              `json:"SearchIntervalSeconds"`
+	SearchIntervalOffsetSeconds *int64             `json:"SearchIntervalOffsetSeconds"`
+	MaxWaitTimeSeconds          *int64             `json:"MaxWaitTimeSeconds"`
+	QueryTimestampType          QueryTimestampType `json:"QueryTimestampType"`
+	Schedule                    string             `json:"Schedule"`
+	TimeZone                    string             `json:"TimeZone"`
+	BackfillLimit               *int               `json:"BackfillLimit"`
+	Enabled                     bool               `json:"Enabled"`
+	ActionIdsOrNames            []string           `json:"ActionIdsOrNames"`
+	Labels                      []string           `json:"Labels"`
+	QueryOwnershipType          QueryOwnershipType `json:"QueryOwnershipType"`
+}
+
+// GetSearchDomainName returns __UpdateScheduledSearchV2Input.SearchDomainName, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetSearchDomainName() string { return v.SearchDomainName }
+
+// GetID returns __UpdateScheduledSearchV2Input.ID, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetID() string { return v.ID }
+
+// GetName returns __UpdateScheduledSearchV2Input.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetName() string { return v.Name }
+
+// GetDescription returns __UpdateScheduledSearchV2Input.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetDescription() *string { return v.Description }
+
+// GetQueryString returns __UpdateScheduledSearchV2Input.QueryString, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetQueryString() string { return v.QueryString }
+
+// GetSearchIntervalSeconds returns __UpdateScheduledSearchV2Input.SearchIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetSearchIntervalSeconds() int64 {
+	return v.SearchIntervalSeconds
+}
+
+// GetSearchIntervalOffsetSeconds returns __UpdateScheduledSearchV2Input.SearchIntervalOffsetSeconds, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetSearchIntervalOffsetSeconds() *int64 {
+	return v.SearchIntervalOffsetSeconds
+}
+
+// GetMaxWaitTimeSeconds returns __UpdateScheduledSearchV2Input.MaxWaitTimeSeconds, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetMaxWaitTimeSeconds() *int64 { return v.MaxWaitTimeSeconds }
+
+// GetQueryTimestampType returns __UpdateScheduledSearchV2Input.QueryTimestampType, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetQueryTimestampType() QueryTimestampType {
+	return v.QueryTimestampType
+}
+
+// GetSchedule returns __UpdateScheduledSearchV2Input.Schedule, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetSchedule() string { return v.Schedule }
+
+// GetTimeZone returns __UpdateScheduledSearchV2Input.TimeZone, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetTimeZone() string { return v.TimeZone }
+
+// GetBackfillLimit returns __UpdateScheduledSearchV2Input.BackfillLimit, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetBackfillLimit() *int { return v.BackfillLimit }
+
+// GetEnabled returns __UpdateScheduledSearchV2Input.Enabled, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetEnabled() bool { return v.Enabled }
+
+// GetActionIdsOrNames returns __UpdateScheduledSearchV2Input.ActionIdsOrNames, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetActionIdsOrNames() []string { return v.ActionIdsOrNames }
+
+// GetLabels returns __UpdateScheduledSearchV2Input.Labels, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetLabels() []string { return v.Labels }
+
+// GetQueryOwnershipType returns __UpdateScheduledSearchV2Input.QueryOwnershipType, and is useful for accessing the field via an interface.
+func (v *__UpdateScheduledSearchV2Input) GetQueryOwnershipType() QueryOwnershipType {
 	return v.QueryOwnershipType
 }
 
@@ -22780,6 +24418,95 @@ func CreateScheduledSearch(
 	return data_, err_
 }
 
+// The mutation executed by CreateScheduledSearchV2.
+const CreateScheduledSearchV2_Operation = `
+mutation CreateScheduledSearchV2 ($SearchDomainName: String!, $Name: String!, $Description: String, $QueryString: String!, $SearchIntervalSeconds: Long!, $SearchIntervalOffsetSeconds: Long, $MaxWaitTimeSeconds: Long, $QueryTimestampType: QueryTimestampType!, $Schedule: String!, $TimeZone: String!, $BackfillLimit: Int, $Enabled: Boolean!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $QueryOwnershipType: QueryOwnershipType!) {
+	createScheduledSearchV2(input: {viewName:$SearchDomainName,name:$Name,description:$Description,queryString:$QueryString,searchIntervalSeconds:$SearchIntervalSeconds,searchIntervalOffsetSeconds:$SearchIntervalOffsetSeconds,maxWaitTimeSeconds:$MaxWaitTimeSeconds,queryTimestampType:$QueryTimestampType,schedule:$Schedule,timeZone:$TimeZone,backfillLimit:$BackfillLimit,enabled:$Enabled,actionIdsOrNames:$ActionIdsOrNames,labels:$Labels,queryOwnershipType:$QueryOwnershipType}) {
+		... ScheduledSearchDetails
+	}
+}
+fragment ScheduledSearchDetails on ScheduledSearch {
+	id
+	name
+	description
+	queryString
+	start
+	end
+	timeZone
+	schedule
+	backfillLimit
+	enabled
+	labels
+	actionsV2 {
+		__typename
+		... ActionName
+	}
+	queryOwnership {
+		__typename
+		... QueryOwnership
+	}
+}
+fragment ActionName on Action {
+	name
+}
+fragment QueryOwnership on QueryOwnership {
+	__typename
+}
+`
+
+func CreateScheduledSearchV2(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	SearchDomainName string,
+	Name string,
+	Description *string,
+	QueryString string,
+	SearchIntervalSeconds int64,
+	SearchIntervalOffsetSeconds *int64,
+	MaxWaitTimeSeconds *int64,
+	QueryTimestampType QueryTimestampType,
+	Schedule string,
+	TimeZone string,
+	BackfillLimit *int,
+	Enabled bool,
+	ActionIdsOrNames []string,
+	Labels []string,
+	QueryOwnershipType QueryOwnershipType,
+) (data_ *CreateScheduledSearchV2Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateScheduledSearchV2",
+		Query:  CreateScheduledSearchV2_Operation,
+		Variables: &__CreateScheduledSearchV2Input{
+			SearchDomainName:            SearchDomainName,
+			Name:                        Name,
+			Description:                 Description,
+			QueryString:                 QueryString,
+			SearchIntervalSeconds:       SearchIntervalSeconds,
+			SearchIntervalOffsetSeconds: SearchIntervalOffsetSeconds,
+			MaxWaitTimeSeconds:          MaxWaitTimeSeconds,
+			QueryTimestampType:          QueryTimestampType,
+			Schedule:                    Schedule,
+			TimeZone:                    TimeZone,
+			BackfillLimit:               BackfillLimit,
+			Enabled:                     Enabled,
+			ActionIdsOrNames:            ActionIdsOrNames,
+			Labels:                      Labels,
+			QueryOwnershipType:          QueryOwnershipType,
+		},
+	}
+
+	data_ = &CreateScheduledSearchV2Response{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateSlackAction.
 const CreateSlackAction_Operation = `
 mutation CreateSlackAction ($SearchDomainName: String!, $ActionName: String!, $Fields: [SlackFieldEntryInput!]!, $Url: String!, $UseProxy: Boolean!) {
@@ -23408,6 +25135,40 @@ func DeleteScheduledSearchByID(
 	}
 
 	data_ = &DeleteScheduledSearchByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteScheduledSearchByIDV2.
+const DeleteScheduledSearchByIDV2_Operation = `
+mutation DeleteScheduledSearchByIDV2 ($SearchDomainName: String!, $ScheduledSearchID: String!) {
+	deleteScheduledSearch(input: {viewName:$SearchDomainName,id:$ScheduledSearchID})
+}
+`
+
+func DeleteScheduledSearchByIDV2(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	SearchDomainName string,
+	ScheduledSearchID string,
+) (data_ *DeleteScheduledSearchByIDV2Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteScheduledSearchByIDV2",
+		Query:  DeleteScheduledSearchByIDV2_Operation,
+		Variables: &__DeleteScheduledSearchByIDV2Input{
+			SearchDomainName:  SearchDomainName,
+			ScheduledSearchID: ScheduledSearchID,
+		},
+	}
+
+	data_ = &DeleteScheduledSearchByIDV2Response{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -24332,6 +26093,74 @@ func GetScheduledSearchByID(
 	return data_, err_
 }
 
+// The query executed by GetScheduledSearchByIDV2.
+const GetScheduledSearchByIDV2_Operation = `
+query GetScheduledSearchByIDV2 ($SearchDomainName: String!, $ScheduledSearchID: String!) {
+	searchDomain(name: $SearchDomainName) {
+		__typename
+		scheduledSearch(id: $ScheduledSearchID) {
+			... ScheduledSearchDetailsV2
+		}
+	}
+}
+fragment ScheduledSearchDetailsV2 on ScheduledSearch {
+	id
+	name
+	description
+	queryString
+	searchIntervalSeconds
+	searchIntervalOffsetSeconds
+	maxWaitTimeSeconds
+	timeZone
+	schedule
+	backfillLimitV2
+	queryTimestampType
+	enabled
+	labels
+	actionsV2 {
+		__typename
+		... ActionName
+	}
+	queryOwnership {
+		__typename
+		... QueryOwnership
+	}
+}
+fragment ActionName on Action {
+	name
+}
+fragment QueryOwnership on QueryOwnership {
+	__typename
+}
+`
+
+func GetScheduledSearchByIDV2(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	SearchDomainName string,
+	ScheduledSearchID string,
+) (data_ *GetScheduledSearchByIDV2Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetScheduledSearchByIDV2",
+		Query:  GetScheduledSearchByIDV2_Operation,
+		Variables: &__GetScheduledSearchByIDV2Input{
+			SearchDomainName:  SearchDomainName,
+			ScheduledSearchID: ScheduledSearchID,
+		},
+	}
+
+	data_ = &GetScheduledSearchByIDV2Response{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetSearchDomain.
 const GetSearchDomain_Operation = `
 query GetSearchDomain ($SearchDomainName: String!) {
@@ -25087,6 +26916,72 @@ func ListScheduledSearches(
 	}
 
 	data_ = &ListScheduledSearchesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListScheduledSearchesV2.
+const ListScheduledSearchesV2_Operation = `
+query ListScheduledSearchesV2 ($SearchDomainName: String!) {
+	searchDomain(name: $SearchDomainName) {
+		__typename
+		scheduledSearches {
+			... ScheduledSearchDetailsV2
+		}
+	}
+}
+fragment ScheduledSearchDetailsV2 on ScheduledSearch {
+	id
+	name
+	description
+	queryString
+	searchIntervalSeconds
+	searchIntervalOffsetSeconds
+	maxWaitTimeSeconds
+	timeZone
+	schedule
+	backfillLimitV2
+	queryTimestampType
+	enabled
+	labels
+	actionsV2 {
+		__typename
+		... ActionName
+	}
+	queryOwnership {
+		__typename
+		... QueryOwnership
+	}
+}
+fragment ActionName on Action {
+	name
+}
+fragment QueryOwnership on QueryOwnership {
+	__typename
+}
+`
+
+func ListScheduledSearchesV2(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	SearchDomainName string,
+) (data_ *ListScheduledSearchesV2Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListScheduledSearchesV2",
+		Query:  ListScheduledSearchesV2_Operation,
+		Variables: &__ListScheduledSearchesV2Input{
+			SearchDomainName: SearchDomainName,
+		},
+	}
+
+	data_ = &ListScheduledSearchesV2Response{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -26482,6 +28377,99 @@ func UpdateScheduledSearch(
 	}
 
 	data_ = &UpdateScheduledSearchResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateScheduledSearchV2.
+const UpdateScheduledSearchV2_Operation = `
+mutation UpdateScheduledSearchV2 ($SearchDomainName: String!, $ID: String!, $Name: String!, $Description: String, $QueryString: String!, $SearchIntervalSeconds: Long!, $SearchIntervalOffsetSeconds: Long, $MaxWaitTimeSeconds: Long, $QueryTimestampType: QueryTimestampType!, $Schedule: String!, $TimeZone: String!, $BackfillLimit: Int, $Enabled: Boolean!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $QueryOwnershipType: QueryOwnershipType!) {
+	updateScheduledSearchV2(input: {viewName:$SearchDomainName,id:$ID,name:$Name,description:$Description,queryString:$QueryString,searchIntervalSeconds:$SearchIntervalSeconds,searchIntervalOffsetSeconds:$SearchIntervalOffsetSeconds,maxWaitTimeSeconds:$MaxWaitTimeSeconds,queryTimestampType:$QueryTimestampType,schedule:$Schedule,timeZone:$TimeZone,backfillLimit:$BackfillLimit,enabled:$Enabled,actionIdsOrNames:$ActionIdsOrNames,labels:$Labels,queryOwnershipType:$QueryOwnershipType}) {
+		... ScheduledSearchDetailsV2
+	}
+}
+fragment ScheduledSearchDetailsV2 on ScheduledSearch {
+	id
+	name
+	description
+	queryString
+	searchIntervalSeconds
+	searchIntervalOffsetSeconds
+	maxWaitTimeSeconds
+	timeZone
+	schedule
+	backfillLimitV2
+	queryTimestampType
+	enabled
+	labels
+	actionsV2 {
+		__typename
+		... ActionName
+	}
+	queryOwnership {
+		__typename
+		... QueryOwnership
+	}
+}
+fragment ActionName on Action {
+	name
+}
+fragment QueryOwnership on QueryOwnership {
+	__typename
+}
+`
+
+func UpdateScheduledSearchV2(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	SearchDomainName string,
+	ID string,
+	Name string,
+	Description *string,
+	QueryString string,
+	SearchIntervalSeconds int64,
+	SearchIntervalOffsetSeconds *int64,
+	MaxWaitTimeSeconds *int64,
+	QueryTimestampType QueryTimestampType,
+	Schedule string,
+	TimeZone string,
+	BackfillLimit *int,
+	Enabled bool,
+	ActionIdsOrNames []string,
+	Labels []string,
+	QueryOwnershipType QueryOwnershipType,
+) (data_ *UpdateScheduledSearchV2Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateScheduledSearchV2",
+		Query:  UpdateScheduledSearchV2_Operation,
+		Variables: &__UpdateScheduledSearchV2Input{
+			SearchDomainName:            SearchDomainName,
+			ID:                          ID,
+			Name:                        Name,
+			Description:                 Description,
+			QueryString:                 QueryString,
+			SearchIntervalSeconds:       SearchIntervalSeconds,
+			SearchIntervalOffsetSeconds: SearchIntervalOffsetSeconds,
+			MaxWaitTimeSeconds:          MaxWaitTimeSeconds,
+			QueryTimestampType:          QueryTimestampType,
+			Schedule:                    Schedule,
+			TimeZone:                    TimeZone,
+			BackfillLimit:               BackfillLimit,
+			Enabled:                     Enabled,
+			ActionIdsOrNames:            ActionIdsOrNames,
+			Labels:                      Labels,
+			QueryOwnershipType:          QueryOwnershipType,
+		},
+	}
+
+	data_ = &UpdateScheduledSearchV2Response{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

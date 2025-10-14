@@ -20,7 +20,12 @@ spec:
     singular: humioscheduledsearch
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The state of the Scheduled Search
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: HumioScheduledSearch is the Schema for the humioscheduledsearches
@@ -53,6 +58,7 @@ spec:
                   type: string
                 type: array
               backfillLimit:
+                default: 0
                 description: BackfillLimit is the user-defined limit, which caps the
                   number of missed searches to backfill, e.g. in the event of a shutdown.
                 type: integer
@@ -128,6 +134,182 @@ spec:
             - message: Must specify exactly one of managedClusterName or externalClusterName
               rule: (has(self.managedClusterName) && self.managedClusterName != "")
                 != (has(self.externalClusterName) && self.externalClusterName != "")
+          status:
+            description: HumioScheduledSearchStatus defines the observed state of
+              HumioScheduledSearch.
+            properties:
+              state:
+                description: State reflects the current state of the HumioScheduledSearch
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: The state of the Scheduled Search
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: HumioScheduledSearch is the Schema for the humioscheduledsearches
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
+            properties:
+              actions:
+                description: Actions is the list of Humio Actions by name that will
+                  be triggered by this scheduled search
+                items:
+                  type: string
+                minItems: 1
+                type: array
+                x-kubernetes-validations:
+                - message: Actions cannot contain empty strings
+                  rule: self.all(action, size(action) > 0)
+              backfillLimit:
+                default: 0
+                description: BackfillLimit is the user-defined limit, which caps the
+                  number of missed searches to backfill, e.g. in the event of a shutdown.
+                  Only allowed when queryTimestamp is EventTimestamp
+                type: integer
+              description:
+                description: Description is the description of the scheduled search
+                type: string
+              enabled:
+                default: false
+                description: Enabled will set the ScheduledSearch to enabled when
+                  set to true
+                type: boolean
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
+                minLength: 1
+                type: string
+              labels:
+                description: Labels are a set of labels on the scheduled search
+                items:
+                  type: string
+                type: array
+              managedClusterName:
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
+                minLength: 1
+                type: string
+              maxWaitTimeSeconds:
+                description: MaxWaitTimeSeconds The maximum number of seconds to wait
+                  for ingest delay and query warnings. Only allowed when 'queryTimestamp'
+                  is IngestTimestamp
+                format: int64
+                type: integer
+              name:
+                description: Name is the name of the scheduled search inside Humio
+                maxLength: 253
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+              queryString:
+                description: QueryString defines the desired Humio query string
+                minLength: 1
+                type: string
+              queryTimestampType:
+                description: 'QueryTimestampType Possible values: EventTimestamp or
+                  IngestTimestamp, decides what field is used for timestamp for the
+                  query'
+                enum:
+                - EventTimestamp
+                - IngestTimestamp
+                type: string
+              schedule:
+                description: Schedule is the cron pattern describing the schedule
+                  to execute the query on.
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: schedule must be a valid cron expression with 5 fields
+                    (minute hour day month weekday)
+                  rule: self.matches(r'^\s*([0-9,\-\*\/]+)\s+([0-9,\-\*\/]+)\s+([0-9,\-\*\/]+)\s+([0-9,\-\*\/]+)\s+([0-9,\-\*\/]+)\s*$')
+              searchIntervalOffsetSeconds:
+                description: SearchIntervalOffsetSeconds Offset of the search interval
+                  in seconds. Only allowed when 'queryTimestampType' is EventTimestamp
+                  where it is mandatory.
+                format: int64
+                type: integer
+              searchIntervalSeconds:
+                description: SearchIntervalSeconds is the search interval in seconds.
+                format: int64
+                type: integer
+              timeZone:
+                description: TimeZone is the time zone of the schedule. Currently,
+                  this field only supports UTC offsets like 'UTC', 'UTC-01' or 'UTC+12:45'.
+                type: string
+                x-kubernetes-validations:
+                - message: timeZone must be 'UTC' or a UTC offset like 'UTC-01', 'UTC+12:45'
+                  rule: self == 'UTC' || self.matches(r'^UTC[+-]([01]?[0-9]|2[0-3])(:[0-5][0-9])?$')
+              viewName:
+                description: ViewName is the name of the Humio View under which the
+                  scheduled search will be managed. This can also be a Repository
+                maxLength: 253
+                minLength: 1
+                type: string
+            required:
+            - actions
+            - name
+            - queryString
+            - queryTimestampType
+            - schedule
+            - searchIntervalSeconds
+            - timeZone
+            - viewName
+            type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
+            - message: maxWaitTimeSeconds is required when QueryTimestampType is IngestTimestamp
+              rule: self.queryTimestampType != 'IngestTimestamp' || (has(self.maxWaitTimeSeconds)
+                && self.maxWaitTimeSeconds >= 0)
+            - message: backfillLimit is required when QueryTimestampType is EventTimestamp
+              rule: self.queryTimestampType != 'EventTimestamp' || (has(self.backfillLimit)
+                && self.backfillLimit >= 0)
+            - message: backfillLimit is accepted only when queryTimestampType is set
+                to 'EventTimestamp'
+              rule: self.queryTimestampType != 'IngestTimestamp' || !has(self.backfillLimit)
+            - message: SearchIntervalOffsetSeconds is required when QueryTimestampType
+                is EventTimestamp
+              rule: self.queryTimestampType != 'EventTimestamp' || (has(self.searchIntervalOffsetSeconds)
+                && self.searchIntervalOffsetSeconds >= 0)
+            - message: searchIntervalOffsetSeconds is accepted only when queryTimestampType
+                is set to 'EventTimestamp'
+              rule: self.queryTimestampType != 'IngestTimestamp' || !has(self.searchIntervalOffsetSeconds)
           status:
             description: HumioScheduledSearchStatus defines the observed state of
               HumioScheduledSearch.

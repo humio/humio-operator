@@ -1,0 +1,20 @@
+apiVersion: core.humio.com/v1beta1
+kind: HumioScheduledSearch
+metadata:
+  name: example-scheduledsearch
+spec:
+  managedClusterName: "humiocluster"
+  name: "example-scheduledsearch"
+  description: Error counts
+  viewName: "humio"
+  queryString: "#repo = humio | error = true | count() | _count > 0"
+  queryTimestampType: "IngestTimestamp"
+  searchIntervalSeconds: 3600
+  maxWaitTimeSeconds: 0
+  schedule: "0 * * * *"
+  timeZone: "UTC"
+  enabled: true
+  actions:
+    - "test-action"
+  labels:
+    - "test-label"

@@ -91,11 +91,30 @@ input ActorInput {
 }
 
 """
-The different types of actors that can be assigned permissions.
+Actor types that can be assigned permissions.
 """
 enum ActorType {
 	User
 	Group
+	Token
+}
+
+"""
+Data for adding a label to an aggregate alert.
+"""
+input AddAggregateAlertLabel {
+"""
+Data for adding a label to an aggregate alert.
+"""
+	viewName: RepoOrViewName!
+"""
+Data for adding a label to an aggregate alert.
+"""
+	id: String!
+"""
+Data for adding a label to an aggregate alert.
+"""
+	label: String!
 }
 
 """
@@ -133,6 +152,24 @@ Input object for field addFieldAliasMapping
 input AddCrossOrganizationViewConnectionFiltersInput {
 	name: String!
 	connections: [CrossOrganizationViewConnectionInputModel!]!
+}
+
+"""
+Data for adding a label to a filter alert.
+"""
+input AddFilterAlertLabel {
+"""
+Data for adding a label to a filter alert.
+"""
+	viewName: RepoOrViewName!
+"""
+Data for adding a label to a filter alert.
+"""
+	id: String!
+"""
+Data for adding a label to a filter alert.
+"""
+	label: String!
 }
 
 type AddGroupMutation {
@@ -494,6 +531,24 @@ input AnalyticsUserAgent {
 	os: AnalyticsOS!
 }
 
+"""
+Archiving types to reset. The default is RepoOnly
+"""
+enum ArchivalKind {
+"""
+Reset only the repo archiving
+"""
+	RepoOnly
+"""
+Reset only the cluster wide archiving
+"""
+	ClusterWideOnly
+"""
+Reset all the archiving types
+"""
+	All
+}
+
 input ArgumentInput {
 	key: String!
 	value: String!
@@ -505,12 +560,12 @@ A gap in th array. Null values represent missing bounds
 type ArrayGap {
 """
 Array gap starts at this index (inclusive)
-Stability: Preview
+Stability: Short-term
 """
 	startsAtIndex: Int!
 """
 Array gap ends at this index (exclusive)
-Stability: Preview
+Stability: Short-term
 """
 	endsAtIndex: Int!
 }
@@ -521,12 +576,12 @@ Array gaps identified for a given prefix
 type ArrayWithGap {
 """
 Prefix that represents a field up until the point at which a gap was identified. For instance, the field `a[0].b[1]` would give the prefix `a[0].b` as the gap occurs when indexing `b` with `1`. For `a[1].b[0]` we would get the prefix `a`.
-Stability: Preview
+Stability: Short-term
 """
 	lastValidPrefix: String!
 """
 Gaps identified for array prefix
-Stability: Preview
+Stability: Short-term
 """
 	gaps: [ArrayGap!]!
 }
@@ -545,6 +600,19 @@ Field being asserted on.
 Stability: Long-term
 """
 	fieldName: String!
+}
+
+enum AssetType {
+	Interaction
+	ScheduledSearch
+	Action
+	File
+	AggregateAlert
+	FilterAlert
+	Alert
+	Parser
+	SavedQuery
+	Dashboard
 }
 
 input AssignOrganizationManagementRoleToGroupInput {
@@ -649,6 +717,164 @@ Stability: Long-term
 }
 
 """
+Input for specifying the authentication. The kind field is used to select which optional input to use.
+"""
+input AzureEventHubsAuthenticationInput {
+"""
+Input for specifying the authentication. The kind field is used to select which optional input to use.
+"""
+	kind: AzureEventHubsAuthenticationKind!
+"""
+Input for specifying the authentication. The kind field is used to select which optional input to use.
+"""
+	clientSecretCredentials: AzureEventHubsAuthenticationclientSecretCredentialsInput
+}
+
+"""
+Kind of authentication to use.
+"""
+enum AzureEventHubsAuthenticationKind {
+"""
+Authentication method using a service principal with a secret. The secret is stored in a secrets manager.
+Stability: Preview
+"""
+	ClientSecretCredentials
+"""
+LogScale configuration authentication.
+Stability: Preview
+"""
+	LogScaleConfig
+}
+
+"""
+Input for specifying the authentication. The kind field is used to select which optional input to use.
+"""
+input AzureEventHubsAuthenticationUpdate {
+"""
+Input for specifying the authentication. The kind field is used to select which optional input to use.
+"""
+	kind: AzureEventHubsAuthenticationKind!
+"""
+Input for specifying the authentication. The kind field is used to select which optional input to use.
+"""
+	clientSecretCredentials: AzureEventHubsAuthenticationclientSecretCredentialsUpdate
+}
+
+input AzureEventHubsAuthenticationclientSecretCredentialsInput {
+	clientId: String!
+	clientSecret: String!
+	tenantId: String!
+	secretId: String!
+}
+
+input AzureEventHubsAuthenticationclientSecretCredentialsUpdate {
+	clientId: String
+	clientSecret: String
+	tenantId: String
+	secretId: String
+}
+
+input AzureEventHubsCheckpointHandlingBlobStorageInput {
+	blobStorageEndpoint: String!
+	containerName: String!
+}
+
+"""
+Input for specifying checkpoint handling. The kind field is used to select which optional input to use.
+"""
+input AzureEventHubsCheckpointHandlingInput {
+"""
+Input for specifying checkpoint handling. The kind field is used to select which optional input to use.
+"""
+	kind: AzureEventHubsCheckpointHandlingKind!
+"""
+Input for specifying checkpoint handling. The kind field is used to select which optional input to use.
+"""
+	blobStorage: AzureEventHubsCheckpointHandlingBlobStorageInput
+}
+
+"""
+Kind of checkpoint handling to use.
+"""
+enum AzureEventHubsCheckpointHandlingKind {
+"""
+Configuration for using blob storage for storing the checkpoint for the Event Hub.
+Stability: Preview
+"""
+	BlobStorage
+}
+
+"""
+Input for specifying a checkpoint. The kind field is used to select which optional input to use.
+"""
+input AzureEventHubsCheckpointInput {
+"""
+Input for specifying a checkpoint. The kind field is used to select which optional input to use.
+"""
+	kind: AzureEventHubsCheckpointKind!
+"""
+Input for specifying a checkpoint. The kind field is used to select which optional input to use.
+"""
+	point: AzureEventHubsCheckpointPointInput
+}
+
+"""
+Kind of checkpoint to use.
+"""
+enum AzureEventHubsCheckpointKind {
+"""
+Oldest available event in the Event Hub, ensuring no historical data is missed but potentially processing a large backlog.
+Stability: Preview
+"""
+	Earliest
+"""
+The most recent event in the Event Hub.
+Stability: Preview
+"""
+	Latest
+"""
+Specific event in the Event Hub, identified by its sequence number.
+Stability: Preview
+"""
+	Point
+}
+
+input AzureEventHubsCheckpointPointInput {
+	sequenceNumber: Long!
+}
+
+"""
+Input for specifying the preprocessing. The kind field is used to select which optional input to use.
+"""
+input AzureEventHubsPreprocessingInput {
+"""
+Input for specifying the preprocessing. The kind field is used to select which optional input to use.
+"""
+	kind: AzureEventHubsPreprocessingKind!
+}
+
+"""
+Kind of preprocessing to to use.
+"""
+enum AzureEventHubsPreprocessingKind {
+"""
+Interprets the event hub event as newline-delimited and emit each line as an event.
+Stability: Preview
+"""
+	SplitNewLine
+"""
+Interprets the event hub event Azure JSON record format and emit each record as an event.
+Stability: Preview
+"""
+	SplitAzureRecords
+"""
+Interprets the event hub event as one LogScale event.
+Stability: Preview
+"""
+	ReadWhole
+}
+
+"""
 Payload for specifying targets for batch updating query ownership
 """
 input BatchUpdateQueryOwnershipInput {
@@ -707,7 +933,7 @@ A cache policy can be set either on one of three levels (in order of precedence)
  - Globally
 
  When determining the cache policy for a repo we first check if there is a cache
- policy set on the repo. If none is set on the repo, we check the the org. If none
+ policy set on the repo. If none is set on the repo, we check the org. If none
  is set there either we check the global setting.
 
 """
@@ -729,11 +955,25 @@ A cache policy can be set either on one of three levels (in order of precedence)
  - Globally
 
  When determining the cache policy for a repo we first check if there is a cache
- policy set on the repo. If none is set on the repo, we check the the org. If none
+ policy set on the repo. If none is set on the repo, we check the org. If none
  is set there either we check the global setting.
 
 """
 	prioritizeMillis: Long
+}
+
+"""
+Input for canceling the deletion of a secret handle.
+"""
+input CancelDeleteSecretHandleInput {
+"""
+Input for canceling the deletion of a secret handle.
+"""
+	repositoryNameOrId: RepoOrViewName!
+"""
+Input for canceling the deletion of a secret handle.
+"""
+	id: String!
 }
 
 input CancelRedactEventsInput {
@@ -834,15 +1074,15 @@ Input data to clone an existing parser
 }
 
 """
-Whether a column has been added or removed at the given index
+Whether a column has been added or removed at a given index.
 """
 input ColumnChange {
 """
-Whether a column has been added or removed at the given index
+Whether a column has been added or removed at a given index.
 """
 	changeKind: ColumnChangeKind!
 """
-Whether a column has been added or removed at the given index
+Whether a column has been added or removed at a given index.
 """
 	index: Int!
 }
@@ -865,6 +1105,13 @@ Stability: Long-term
 	dashboard: Dashboard!
 }
 
+type CopySavedQueryMutation {
+"""
+Stability: Long-term
+"""
+	savedQuery: SavedQuery!
+}
+
 type CreateActionFromPackageTemplateMutation {
 """
 Stability: Long-term
@@ -883,7 +1130,7 @@ Data for creating an action from a yaml template
 """
 Data for creating an action from a yaml template
 """
-	name: String!
+	name: String
 """
 Data for creating an action from a yaml template
 """
@@ -1006,31 +1253,6 @@ Data for creating an alert
 	queryOwnershipType: QueryOwnershipType
 }
 
-type CreateAlertFromPackageTemplateMutation {
-"""
-Stability: Long-term
-"""
-	alert: Alert!
-}
-
-"""
-Data for creating an alert from a yaml template
-"""
-input CreateAlertFromTemplateInput {
-"""
-Data for creating an alert from a yaml template
-"""
-	viewName: RepoOrViewName!
-"""
-Data for creating an alert from a yaml template
-"""
-	name: String!
-"""
-Data for creating an alert from a yaml template
-"""
-	yamlTemplate: YAML!
-}
-
 """
 Data for creating an ingest feed that uses AWS S3 and SQS
 """
@@ -1077,6 +1299,60 @@ Data for creating an ingest feed that uses AWS S3 and SQS
 	compression: IngestFeedCompression!
 }
 
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+input CreateAzureEventHubIngestFeed {
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	repositoryName: RepoOrViewName!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	name: String!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	description: String
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	parser: String!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	enabled: Boolean!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	eventHubFullyQualifiedNamespace: String!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	eventHubName: String!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	consumerGroup: String!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	preprocessing: AzureEventHubsPreprocessingInput!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	authentication: AzureEventHubsAuthenticationInput!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	checkpointHandling: AzureEventHubsCheckpointHandlingInput!
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+	defaultCheckpoint: AzureEventHubsCheckpointInput!
+}
+
 input CreateCrossOrgViewInput {
 	name: String!
 	connections: [CrossOrganizationViewConnectionInputModel!]!
@@ -1105,7 +1381,7 @@ Data for creating a dashboard from a yaml specification.
 """
 Data for creating a dashboard from a yaml specification.
 """
-	name: String!
+	name: String
 """
 Data for creating a dashboard from a yaml specification.
 """
@@ -1171,6 +1447,10 @@ Data for creating an email action
 Data for creating an email action
 """
 	attachCsv: Boolean
+"""
+Data for creating an email action
+"""
+	labels: [String!]
 }
 
 """
@@ -1314,6 +1594,10 @@ Data for creating a LogScale repository action
 Data for creating a LogScale repository action
 """
 	ingestToken: String!
+"""
+Data for creating a LogScale repository action
+"""
+	labels: [String!]
 }
 
 """
@@ -1426,6 +1710,10 @@ Data for creating an OpsGenie action
 Data for creating an OpsGenie action
 """
 	useProxy: Boolean!
+"""
+Data for creating an OpsGenie action
+"""
+	labels: [String!]
 }
 
 """
@@ -1508,6 +1796,10 @@ Data for creating a PagerDuty action.
 Data for creating a PagerDuty action.
 """
 	useProxy: Boolean!
+"""
+Data for creating a PagerDuty action.
+"""
+	labels: [String!]
 }
 
 type CreateParserFromPackageTemplateMutation {
@@ -1528,21 +1820,11 @@ Data for creating a parser from a yaml template
 """
 Data for creating a parser from a yaml template
 """
-	name: String!
+	name: String
 """
 Data for creating a parser from a yaml template
 """
 	yamlTemplate: YAML!
-}
-
-input CreateParserInput {
-	name: String!
-	testData: [String!]!
-	sourceCode: String!
-	repositoryName: String!
-	tagFields: [String!]!
-	force: Boolean!
-	languageVersion: LanguageVersionEnum
 }
 
 """
@@ -1581,13 +1863,6 @@ Input for creating a parser.
 Input for creating a parser.
 """
 	languageVersion: LanguageVersionInputType
-}
-
-type CreateParserMutation {
-"""
-Stability: Long-term
-"""
-	parser: Parser!
 }
 
 input CreatePersonalUserTokenInput {
@@ -1639,6 +1914,10 @@ Data for creating a post message Slack action.
 Data for creating a post message Slack action.
 """
 	useProxy: Boolean!
+"""
+Data for creating a post message Slack action.
+"""
+	labels: [String!]
 }
 
 """
@@ -1681,8 +1960,27 @@ Stability: Long-term
 	savedQuery: SavedQuery!
 }
 
+"""
+Data for creating a saved query from a yaml template.
+"""
+input CreateSavedQueryFromTemplateInput {
+"""
+Data for creating a saved query from a yaml template.
+"""
+	viewName: RepoOrViewName!
+"""
+Data for creating a saved query from a yaml template.
+"""
+	name: String
+"""
+Data for creating a saved query from a yaml template.
+"""
+	yamlTemplate: YAML!
+}
+
 input CreateSavedQueryInput {
 	name: String!
+	description: String
 	viewName: String!
 	queryString: String!
 	start: String
@@ -1690,6 +1988,7 @@ input CreateSavedQueryInput {
 	isLive: Boolean
 	widgetType: String
 	options: String
+	labels: [String!]
 	dashboardLinkInteractions: [DashboardLinkInteractionInput!]
 	customLinkInteractions: [CustomLinkInteractionInput!]
 	searchLinkInteractions: [SearchLinkInteractionInput!]
@@ -1902,21 +2201,77 @@ Data for creating a scheduled search
 }
 
 """
-Data for creating a scheduled search from a yaml template.
+Data for creating a scheduled search
 """
-input CreateScheduledSearchFromTemplateInput {
+input CreateScheduledSearchV2 {
 """
-Data for creating a scheduled search from a yaml template.
+Data for creating a scheduled search
 """
-	viewName: RepoOrViewName!
+	viewName: String!
 """
-Data for creating a scheduled search from a yaml template.
+Data for creating a scheduled search
 """
 	name: String!
 """
-Data for creating a scheduled search from a yaml template.
+Data for creating a scheduled search
 """
-	yamlTemplate: YAML!
+	description: String
+"""
+Data for creating a scheduled search
+"""
+	queryString: String!
+"""
+Data for creating a scheduled search
+"""
+	searchIntervalSeconds: Long!
+"""
+Data for creating a scheduled search
+"""
+	searchIntervalOffsetSeconds: Long
+"""
+Data for creating a scheduled search
+"""
+	maxWaitTimeSeconds: Long
+"""
+Data for creating a scheduled search
+"""
+	schedule: String!
+"""
+Data for creating a scheduled search
+"""
+	timeZone: String!
+"""
+Data for creating a scheduled search
+"""
+	backfillLimit: Int
+"""
+Data for creating a scheduled search
+"""
+	enabled: Boolean
+"""
+Data for creating a scheduled search
+"""
+	triggerOnEmptyResult: Boolean
+"""
+Data for creating a scheduled search
+"""
+	actionIdsOrNames: [String!]!
+"""
+Data for creating a scheduled search
+"""
+	labels: [String!]
+"""
+Data for creating a scheduled search
+"""
+	runAsUserId: String
+"""
+Data for creating a scheduled search
+"""
+	queryOwnershipType: QueryOwnershipType!
+"""
+Data for creating a scheduled search
+"""
+	queryTimestampType: QueryTimestampType!
 }
 
 input CreateSearchLinkInteractionInput {
@@ -1948,6 +2303,10 @@ Data for creating a Slack action.
 Data for creating a Slack action.
 """
 	useProxy: Boolean!
+"""
+Data for creating a Slack action.
+"""
+	labels: [String!]
 }
 
 input CreateSystemPermissionTokenInput {
@@ -1996,6 +2355,10 @@ Data for creating an upload file action.
 Data for creating an upload file action.
 """
 	fileName: String!
+"""
+Data for creating an upload file action.
+"""
+	labels: [String!]
 }
 
 """
@@ -2022,6 +2385,10 @@ Data for creating a VictorOps action.
 Data for creating a VictorOps action.
 """
 	useProxy: Boolean!
+"""
+Data for creating a VictorOps action.
+"""
+	labels: [String!]
 }
 
 input CreateViewPermissionsTokenInput {
@@ -2093,6 +2460,10 @@ Data for creating a webhook action.
 Data for creating a webhook action.
 """
 	useProxy: Boolean!
+"""
+Data for creating a webhook action.
+"""
+	labels: [String!]
 }
 
 input CrossOrganizationViewConnectionInputModel {
@@ -2513,9 +2884,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 """
@@ -2677,22 +3067,6 @@ The name of the field
 Stability: Long-term
 """
 	fieldName: String!
-"""
-The value of the field
-Stability: Long-term
-"""
-	value: String!
-}
-
-"""
-A single field in an event with a key and a value
-"""
-type Field {
-"""
-The key of the field
-Stability: Long-term
-"""
-	key: String!
 """
 The value of the field
 Stability: Long-term
@@ -3065,9 +3439,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 input IPFilterIdInput {
@@ -3384,9 +3777,31 @@ input MigrateLimitsInput {
 }
 
 """
+Modified information missing
+"""
+type ModifiedInfoMissing implements ModifiedInfo{
+"""
+Timestamp of when the asset was last modified
+Stability: Long-term
+"""
+	modifiedAt: Long!
+}
+
+"""
 Modified by a supporter
 """
 type ModifiedInfoSupporter implements ModifiedInfo{
+"""
+Timestamp of when the asset was last modified
+Stability: Long-term
+"""
+	modifiedAt: Long!
+}
+
+"""
+Modified by the system
+"""
+type ModifiedInfoSystem implements ModifiedInfo{
 """
 Timestamp of when the asset was last modified
 Stability: Long-term
@@ -3492,6 +3907,16 @@ Optional phone number. Required for community mode.
 		utmParams: UtmParams
 	): Account!
 """
+Add a label to an aggregate alert.
+Stability: Long-term
+"""
+	addAggregateAlertLabel(
+"""
+Data for adding a label to an aggregate alert.
+"""
+		input: AddAggregateAlertLabel!
+	): Boolean!
+"""
 Add a label to an alert.
 Stability: Long-term
 """
@@ -3532,6 +3957,16 @@ Stability: Long-term
 	addFieldAliasMapping(
 		input: AddAliasMappingInput!
 	): String!
+"""
+Add a label to a filter alert.
+Stability: Long-term
+"""
+	addFilterAlertLabel(
+"""
+Data for adding a label to a filter alert.
+"""
+		input: AddFilterAlertLabel!
+	): Boolean!
 """
 Enable functions for use with specified language version.
 Stability: Preview
@@ -3587,6 +4022,11 @@ Stability: Short-term
 	addOrUpdateQueryQuotaUserSettings(
 		input: QueryQuotaUserSettingsInput!
 	): QueryQuotaUserSettings!
+"""
+Enable transfer of segments and files under an organization to be moved to its respective bucket.
+Stability: Long-term
+"""
+	addOrganizationForBucketTransfer: Boolean!
 """
 Adds a query to the list of recent queries. The query is a JSON encoded query and visualization structure produced by the UI.
 Stability: Long-term
@@ -3727,7 +4167,7 @@ Stability: Long-term
 	): IngestToken!
 """
 Assigns permissions to users or groups for resource.
-Stability: Preview
+Stability: Short-term
 """
 	assignPermissionsForResources(
 		input: [PermissionAssignmentInputType!]!
@@ -3762,7 +4202,7 @@ List of tasks to assign.
 	): [NodeTaskEnum!]!
 """
 Assigns roles for the user in the search domain. This mutation allows assigning multiple roles for the same view and is thus dependent on the MultipleViewRoleBindings feature being enabled.
-Stability: Preview
+Stability: Short-term
 """
 	assignUserRolesInSearchDomain(
 		input: AssignUserRolesInSearchDomainInput!
@@ -3789,6 +4229,16 @@ Stability: Long-term
 	blockIngestOnOrg(
 		input: BlockIngestOnOrgInput!
 	): Organization!
+"""
+Cancel deletion of a secret handle.
+Stability: Preview
+"""
+	cancelDeleteSecretHandle(
+"""
+Input for canceling the deletion of a secret handle.
+"""
+		input: CancelDeleteSecretHandleInput!
+	): Boolean!
 """
 Cancel a previously submitted redaction. Returns true if the redaction was cancelled, false otherwise. Cancellation is best effort. If some events have already been redacted, they are not restored.
 Stability: Long-term
@@ -3905,6 +4355,27 @@ The name the copied dashboard should have.
 		name: String!
 	): CopyDashboardMutation!
 """
+Create a clone of a saved query.
+Stability: Preview
+"""
+	copySavedQuery(
+		id: String!
+"""
+The name of the repository or view where the saved query to be copied to.
+"""
+		targetSearchDomainName: String
+"""
+The name of the repository or view where the saved query to be copied from.
+"""
+		sourceSearchDomainName: String!
+"""
+The name the copied saved query should have.
+If not provided, the original name will be used.
+If omitted and sourceSearchDomainName == targetSearchDomainName, the new name will the name of the original query with " (copied)" appended to the end.
+"""
+		name: String
+	): CopySavedQueryMutation!
+"""
 Create an action from a package action template.
 Stability: Long-term
 """
@@ -3957,36 +4428,6 @@ Data for creating an alert
 		input: CreateAlert!
 	): Alert!
 """
-Create an alert from a package alert template.
-"""
-	createAlertFromPackageTemplate(
-"""
-The name of the view or repo the package is installed in.
-"""
-		searchDomainName: String!
-"""
-The id of the package to fetch the alert template from.
-"""
-		packageId: VersionedPackageSpecifier!
-"""
-The name of the alert template in the package.
-"""
-		alertTemplateName: String!
-"""
-The name of the new alert to create.
-"""
-		alertName: String!
-	): CreateAlertFromPackageTemplateMutation!
-"""
-Create an alert from yaml template
-"""
-	createAlertFromTemplate(
-"""
-Data for creating an alert from a yaml template
-"""
-		input: CreateAlertFromTemplateInput!
-	): Alert!
-"""
 Create an ingest feed that uses AWS S3 and SQS
 Stability: Long-term
 """
@@ -3995,6 +4436,16 @@ Stability: Long-term
 Data for creating an ingest feed that uses AWS S3 and SQS
 """
 		input: CreateAwsS3SqsIngestFeed!
+	): IngestFeed!
+"""
+Create an ingest feed that uses Azure Event Hubs.
+Stability: Preview
+"""
+	createAzureEventHubIngestFeed(
+"""
+Data for creating an ingest feed that uses Azure Event Hubs.
+"""
+		input: CreateAzureEventHubIngestFeed!
 	): IngestFeed!
 """
 Stability: Preview
@@ -4272,12 +4723,6 @@ Data for creating a PagerDuty action.
 		input: CreatePagerDutyAction!
 	): PagerDutyAction!
 """
-Create a parser.
-"""
-	createParser(
-		input: CreateParserInput!
-	): CreateParserMutation!
-"""
 Create a parser from a package parser template.
 Stability: Long-term
 """
@@ -4409,6 +4854,16 @@ The name of the new saved query to create.
 		overrideName: String
 	): CreateSavedQueryFromPackageTemplateMutation!
 """
+Create a saved query from a YAML template.
+Stability: Preview
+"""
+	createSavedQueryFromTemplate(
+"""
+Data for creating a saved query from a yaml template.
+"""
+		input: CreateSavedQueryFromTemplateInput!
+	): SavedQuery!
+"""
 Create a scheduled report.
 Stability: Long-term
 """
@@ -4420,7 +4875,6 @@ Data for creating a scheduled report.
 	): ScheduledReport!
 """
 Create a scheduled search.
-Stability: Long-term
 """
 	createScheduledSearch(
 """
@@ -4429,34 +4883,14 @@ Data for creating a scheduled search
 		input: CreateScheduledSearch!
 	): ScheduledSearch!
 """
-Create a scheduled search from a package scheduled search template.
+Create a scheduled search.
+Stability: Long-term
 """
-	createScheduledSearchFromPackageTemplate(
+	createScheduledSearchV2(
 """
-The name of the view or repo the package is installed in.
+Data for creating a scheduled search
 """
-		searchDomainName: RepoOrViewName!
-"""
-The id of the package to fetch the scheduled search template from.
-"""
-		packageId: VersionedPackageSpecifier!
-"""
-The name of the scheduled search template in the package.
-"""
-		scheduledSearchTemplateName: String!
-"""
-The name of the new scheduled search to create.
-"""
-		scheduledSearchName: String!
-	): ScheduledSearch!
-"""
-Create a scheduled search from a yaml specification.
-"""
-	createScheduledSearchFromTemplate(
-"""
-Data for creating a scheduled search from a yaml template.
-"""
-		input: CreateScheduledSearchFromTemplateInput!
+		input: CreateScheduledSearchV2!
 	): ScheduledSearch!
 """
 Create a search link interaction.
@@ -4822,6 +5256,13 @@ Data for disabling an alert
 		input: DisableAlert!
 	): Boolean!
 """
+Disables the archiving job for the repository.
+Stability: Short-term
+"""
+	disableArchiving(
+		repositoryName: String!
+	): BooleanResultType!
+"""
 Removes demo view.
 Stability: Short-term
 """
@@ -4964,6 +5405,13 @@ Data for enabling an alert
 """
 		input: EnableAlert!
 	): Boolean!
+"""
+Enables the archiving job for the repository.
+Stability: Short-term
+"""
+	enableArchiving(
+		repositoryName: String!
+	): BooleanResultType!
 """
 Gets or create a new demo data view.
 Stability: Short-term
@@ -5111,6 +5559,17 @@ Stability: Long-term
 		organizationId: String!
 	): Int!
 """
+Configures GCS archiving for a repository. E.g. bucket.
+Stability: Preview
+"""
+	gcsConfigureArchiving(
+		repositoryName: String!
+		bucket: String!
+		format: ArchivingFormat!
+		tagOrderInName: [String!]
+		startFromDateTime: DateTime
+	): BooleanResultType!
+"""
 Installs a package in a specific view.
 Stability: Long-term
 """
@@ -5184,7 +5643,6 @@ Stability: Long-term
 	logoutOfSession: Boolean!
 """
 Set a limits deleted mark
-Stability: Long-term
 """
 	markLimitDeleted(
 		input: MarkLimitDeletedInput!
@@ -5216,6 +5674,7 @@ Stability: Long-term
 	newFile(
 		fileName: String!
 		name: String!
+		labels: [String!]
 	): UploadedFileSnapshot!
 """
 For setting up a new OIDC idp. Root operation.
@@ -5281,7 +5740,6 @@ Stability: Long-term
 	): Notification!
 """
 Override whether feature should be rolled out.
-Stability: Short-term
 """
 	overrideRolledOutFeatureFlag(
 		feature: FeatureFlag!
@@ -5332,6 +5790,16 @@ Refresh the list of regions
 Stability: Short-term
 """
 	refreshRegions: Boolean!
+"""
+Remove a label from an aggregate alert.
+Stability: Long-term
+"""
+	removeAggregateAlertLabel(
+"""
+Data for removing a label to an aggregate alert.
+"""
+		input: RemoveAggregateAlertLabel!
+	): Boolean!
 """
 Remove a label from an alert.
 Stability: Long-term
@@ -5387,6 +5855,16 @@ Stability: Long-term
 		name: String!
 	): BooleanResultType!
 """
+Remove a label from a filter alert.
+Stability: Long-term
+"""
+	removeFilterAlertLabel(
+"""
+Data for removing a label from a filter alert.
+"""
+		input: RemoveFilterAlertLabel!
+	): Boolean!
+"""
 Remove an item on the query blocklist.
 Stability: Long-term
 """
@@ -5438,10 +5916,16 @@ The name of the token to delete.
 	): BooleanResultType!
 """
 Remove a limit in the given organization
-Stability: Long-term
 """
 	removeLimit(
 		input: RemoveLimitInput!
+	): Boolean!
+"""
+Remove a limit with id in the given organization
+Stability: Short-term
+"""
+	removeLimitWithId(
+		limitId: String!
 	): Boolean!
 """
 Stability: Long-term
@@ -5471,11 +5955,10 @@ Stability: Long-term
 """
 	removeOrganizationBucketConfig: Organization!
 """
-Remove a parser.
+Cancel transfer of segments and files under an organization to be moved to its respective bucket.
+Stability: Long-term
 """
-	removeParser(
-		input: RemoveParserInput!
-	): RemoveParserMutation!
+	removeOrganizationForBucketTransfer: Boolean!
 """
 Stability: Short-term
 """
@@ -5657,6 +6140,14 @@ Stability: Short-term
 """
 	resetToFactorySettings: Account!
 """
+Mark all segment files as unarchived.
+Stability: Short-term
+"""
+	restartArchiving(
+		repositoryName: String!
+		archivalKind: ArchivalKind
+	): BooleanResultType!
+"""
 Restore a deleted search domain.
 Stability: Preview
 """
@@ -5721,6 +6212,7 @@ Stability: Short-term
 		format: S3ArchivingFormat!
 		tagOrderInName: [String!]
 		startFromDateTime: DateTime
+		roleArn: String
 	): BooleanResultType!
 """
 Disables the archiving job for the repository.
@@ -5742,7 +6234,18 @@ Stability: Short-term
 """
 	s3ResetArchiving(
 		repositoryName: String!
+		archivalKind: ArchivalKind
 	): BooleanResultType!
+"""
+Schedule deletion of a secret handle.
+Stability: Preview
+"""
+	scheduleDeleteSecretHandle(
+"""
+Input for scheduling the deletion of a secret handle. Warning this may break existing functionality.
+"""
+		input: ScheduleDeleteSecretHandleInput!
+	): Boolean!
 """
 Scheduled report result failed.
 Stability: Long-term
@@ -5793,34 +6296,6 @@ Stability: Short-term
 		cid: String!
 	): Organization!
 """
-Set a duration from now, until which this host will be considered alive by LogScale, even when it's offline.
-Stability: Short-term
-"""
-	setConsideredAliveFor(
-"""
-ID of the node to consider alive.
-"""
-		nodeID: Int!
-"""
-Amount of millis that the node will be considered alive for (from now).
-"""
-		aliveForMillis: Long
-	): DateTime
-"""
-Set a time in the future, until which this host will be considered alive by LogScale, even when it's offline.
-Stability: Short-term
-"""
-	setConsideredAliveUntil(
-"""
-ID of the node to consider alive.
-"""
-		nodeID: Int!
-"""
-Time in the future
-"""
-		aliveUntil: DateTime
-	): DateTime
-"""
 Mark a filter as the default for a dashboard. This filter will automatically be active when the dashboard is opened.
 Stability: Long-term
 """
@@ -5865,6 +6340,16 @@ Stability: Long-term
 """
 	setFieldConfiguration(
 		input: FieldConfigurationInput!
+	): Boolean!
+"""
+Force stop or resume an ingest feed
+Stability: Preview
+"""
+	setForceStopOnIngestFeed(
+"""
+Data for setting force stop state on an ingest feed
+"""
+		input: SetForceStopOnIngestFeed!
 	): Boolean!
 """
 Sets the global default cache policy. This policy will be applied to a repo if neither a repo or org cache policy is set.
@@ -6058,6 +6543,11 @@ Stability: Short-term
 		collectorIds: [String!]!
 	): FleetConfigurationTest!
 """
+Start the process of migrating from organization mode MultiV1 to MultiV2. This process will not preserve system logs in organizations
+Stability: Preview
+"""
+	startOrganizationMultiModeMigration: Boolean!
+"""
 Stops all running queries including streaming queries
 Stability: Short-term
 """
@@ -6104,6 +6594,16 @@ Data for testing an ingest feed that uses AWS S3 and SQS
 		input: TestAwsS3SqsIngestFeed!
 	): Boolean!
 """
+Tests whether the Azure Event Hubs and blob storage container is setup with the correct permissions.
+Stability: Long-term
+"""
+	testAzureEventHubIngestFeed(
+"""
+Data for testing an ingest feed that uses Azure Event Hubs.
+"""
+		input: TestAzureEventHubIngestFeed!
+	): Boolean!
+"""
 Test an email action
 Stability: Long-term
 """
@@ -6133,6 +6633,16 @@ Data for testing a Humio repo action
 """
 		input: TestHumioRepoAction!
 	): TestResult!
+"""
+Tests whether an already created ingest feed is setup with the correct permissions.
+Stability: Preview
+"""
+	testIngestFeedById(
+"""
+Data for testing an already created ingest feed.
+"""
+		input: TestIngestFeedById!
+	): Boolean!
 """
 Test that a Kafka event forwarder can connect to the specified Kafka server and topic.
 Note that this may create the topic on the broker if the Kafka broker is configured to automatically create
@@ -6165,12 +6675,6 @@ Data for testing a PagerDuty action.
 """
 		input: TestPagerDutyAction!
 	): TestResult!
-"""
-Test a parser on some test events. If the parser fails to run, an error is returned. Otherwise, a list of results, one for each test event, is returned.
-"""
-	testParser(
-		input: TestParserInputV2!
-	): TestParserResultV2!
 """
 Test a parser on some test cases.
 Stability: Long-term
@@ -6396,6 +6900,26 @@ Data for updating an ingest feed which uses AWS S3 with SQS. The update is a del
 		input: UpdateAwsS3SqsIngestFeed!
 	): IngestFeed!
 """
+Update an ingest feed that uses Azure Event Hubs.
+Stability: Preview
+"""
+	updateAzureEventHubIngestFeed(
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+		input: UpdateAzureEventHubIngestFeed!
+	): IngestFeed!
+"""
+Update credentials for an ingest feed that uses Azure Event Hubs.
+Stability: Preview
+"""
+	updateAzureEventHubIngestFeedCredentials(
+"""
+Data for updating the credentials for an ingest feed which uses Azure Event Hubs.
+"""
+		input: UpdateAzureEventHubIngestFeedCredentials!
+	): IngestFeed!
+"""
 Stability: Preview
 """
 	updateCrossOrgViewConnectionFilters(
@@ -6558,6 +7082,7 @@ Used to find when to stop replacing rows, by adding the limit to the offset. If 
 Starting index to replace the old rows with the updated ones. It does not take into account the header row.
 """
 		offset: Int
+		labels: [String!]
 	): UploadedFileSnapshot!
 """
 Update a filter alert.
@@ -6849,12 +7374,6 @@ Data for updating a PagerDuty action
 		input: UpdatePagerDutyAction!
 	): PagerDutyAction!
 """
-Update a parser.
-"""
-	updateParser(
-		input: UpdateParserInput!
-	): UpdateParserMutation!
-"""
 Update a parser. Only the provided fields are updated on the parser, and the remaining fields not provided are unchanged.
 Stability: Long-term
 """
@@ -7009,13 +7528,31 @@ Stability: Long-term
 	): ScheduledReport!
 """
 Update a scheduled search.
-Stability: Long-term
 """
 	updateScheduledSearch(
 """
 Data for updating a scheduled search
 """
 		input: UpdateScheduledSearch!
+	): ScheduledSearch!
+"""
+Update a scheduled search.
+"""
+	updateScheduledSearchV2(
+"""
+Data for updating a scheduled search
+"""
+		input: UpdateScheduledSearchV2!
+	): ScheduledSearch!
+"""
+Update a scheduled search.
+Stability: Long-term
+"""
+	updateScheduledSearchV3(
+"""
+Data for updating a scheduled search
+"""
+		input: UpdateScheduledSearchV3!
 	): ScheduledSearch!
 """
 Update a search link interaction.
@@ -7488,9 +8025,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 input OrganizationLimitsInput {
@@ -7671,9 +8227,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 input ParameterFilePropertiesInput {
@@ -7805,52 +8380,6 @@ The specification of a parameter
 }
 
 """
-The result of parsing a single test event
-"""
-type ParseEventResult {
-"""
-The status of parsing the test event
-"""
-	status: ParseEventStatus!
-"""
-A potential error message
-"""
-	errorMessage: String
-"""
-The parsed events. Can be empty if the test was dropped by the parser or contain one or more events
-"""
-	events: [ParsedEvent!]!
-}
-
-"""
-Staus of parsing a test event
-"""
-enum ParseEventStatus {
-"""
-The event was parsed successfully
-"""
-	success
-"""
-There was an error parsing the event
-"""
-	parseError
-"""
-There was an error extracting a timestamp from the event
-"""
-	timestampError
-}
-
-"""
-A parsed event
-"""
-type ParsedEvent {
-"""
-The fields of the event
-"""
-	fields: [Field!]!
-}
-
-"""
 Assertions on the shape of a given test case output event. It is a key-pair value, where the index of the output event is the key, and the assertions are the value.
 """
 input ParserTestCaseAssertionsForOutputInput {
@@ -7924,17 +8453,17 @@ Stability: Long-term
 	assertionFailuresOnFields: [AssertionFailureOnField!]!
 """
 Fields where the name begins with `#` even though they are not a tag. In LogScale, field names beginning with `#` are treated specially, and should only be constructed through the tagging mechanism. Fields which do begin with `#`, but are not proper tags, will be effectively unsearchable.
-Stability: Preview
+Stability: Short-term
 """
 	falselyTaggedFields: [String!]!
 """
 Any arrays with gaps in them. That is, if the fields `a[0]` and `a[2]` exist on an event, but not `a[1]`, we consider the array `a` to have a gap. This means LogScale will not include the `a[2]` field when doing array-based searches, since it considers `a[0]` to be the last element of the array.
-Stability: Preview
+Stability: Short-term
 """
 	arraysWithGaps: [ArrayWithGap!]!
 """
 Returns violations of a schema, given that a schema has been provided in the request.
-Stability: Preview
+Stability: Short-term
 """
 	schemaViolations: [SchemaViolation!]!
 }
@@ -8302,6 +8831,24 @@ Stability: Short-term
 }
 
 """
+Data for removing a label to an aggregate alert.
+"""
+input RemoveAggregateAlertLabel {
+"""
+Data for removing a label to an aggregate alert.
+"""
+	viewName: RepoOrViewName!
+"""
+Data for removing a label to an aggregate alert.
+"""
+	id: String!
+"""
+Data for removing a label to an aggregate alert.
+"""
+	label: String!
+}
+
+"""
 Data for removing a label from an alert
 """
 input RemoveAlertLabel {
@@ -8341,6 +8888,24 @@ input RemoveCrossOrgViewConnectionModel {
 input RemoveCrossOrgViewConnectionsInput {
 	name: String!
 	connectionsToRemove: [RemoveCrossOrgViewConnectionModel!]!
+}
+
+"""
+Data for removing a label from a filter alert.
+"""
+input RemoveFilterAlertLabel {
+"""
+Data for removing a label from a filter alert.
+"""
+	viewName: RepoOrViewName!
+"""
+Data for removing a label from a filter alert.
+"""
+	id: String!
+"""
+Data for removing a label from a filter alert.
+"""
+	label: String!
 }
 
 """
@@ -8385,18 +8950,6 @@ input RemoveLimitInput {
 input RemoveOrganizationRoleFromGroupInput {
 	groupId: String!
 	roleId: String!
-}
-
-input RemoveParserInput {
-	id: String!
-	repositoryName: String!
-}
-
-type RemoveParserMutation {
-"""
-Stability: Long-term
-"""
-	parser: Parser!
 }
 
 """
@@ -8605,6 +9158,20 @@ Stability: Long-term
 }
 
 """
+Input for scheduling the deletion of a secret handle. Warning this may break existing functionality.
+"""
+input ScheduleDeleteSecretHandleInput {
+"""
+Input for scheduling the deletion of a secret handle. Warning this may break existing functionality.
+"""
+	repositoryNameOrId: RepoOrViewName!
+"""
+Input for scheduling the deletion of a secret handle. Warning this may break existing functionality.
+"""
+	id: String!
+}
+
+"""
 Data for reporting a failed report generation attempt.
 """
 input ScheduledReportResultFailedInput {
@@ -8635,12 +9202,12 @@ Violations detected against the provided schema
 type SchemaViolation {
 """
 The name of the field on which the violation was detected
-Stability: Preview
+Stability: Short-term
 """
 	fieldName: String!
 """
 Error message for the violation
-Stability: Preview
+Stability: Short-term
 """
 	errorMessage: String!
 }
@@ -8692,6 +9259,24 @@ enum SessionRevocation__Type {
 input SetDefaultSavedQueryInput {
 	savedQueryId: String
 	viewName: String!
+}
+
+"""
+Data for setting force stop state on an ingest feed
+"""
+input SetForceStopOnIngestFeed {
+"""
+Data for setting force stop state on an ingest feed
+"""
+	repositoryName: RepoOrViewName!
+"""
+Data for setting force stop state on an ingest feed
+"""
+	id: String!
+"""
+Data for setting force stop state on an ingest feed
+"""
+	forceStopState: Boolean!
 }
 
 """
@@ -8849,9 +9434,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 """
@@ -8949,9 +9553,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 input SocialLoginSettingsInput {
@@ -8987,6 +9610,28 @@ This part of the API is long-term stable which means that breaking changes will 
 
 input StopQueriesInput {
 	clusterWide: Boolean
+}
+
+"""
+Committed by a supporter.
+"""
+type SupportUserCommitAuthor implements AssetCommitAuthor{
+"""
+A common string representation of an author
+Stability: Preview
+"""
+	displayString: String!
+}
+
+"""
+Committed by LogScale system.
+"""
+type SystemCommitAuthor implements AssetCommitAuthor{
+"""
+A common string representation of an author
+Stability: Preview
+"""
+	displayString: String!
 }
 
 """
@@ -9076,6 +9721,36 @@ Data for testing an ingest feed that uses AWS S3 and SQS
 Data for testing an ingest feed that uses AWS S3 and SQS
 """
 	region: String!
+}
+
+"""
+Data for testing an ingest feed that uses Azure Event Hubs.
+"""
+input TestAzureEventHubIngestFeed {
+"""
+Data for testing an ingest feed that uses Azure Event Hubs.
+"""
+	repositoryName: RepoOrViewName!
+"""
+Data for testing an ingest feed that uses Azure Event Hubs.
+"""
+	eventHubFullyQualifiedNamespace: String!
+"""
+Data for testing an ingest feed that uses Azure Event Hubs.
+"""
+	eventHubName: String!
+"""
+Data for testing an ingest feed that uses Azure Event Hubs.
+"""
+	consumerGroup: String!
+"""
+Data for testing an ingest feed that uses Azure Event Hubs.
+"""
+	checkpointHandling: AzureEventHubsCheckpointHandlingInput!
+"""
+Data for testing an ingest feed that uses Azure Event Hubs.
+"""
+	authentication: AzureEventHubsAuthenticationInput!
 }
 
 """
@@ -9236,6 +9911,20 @@ Data for testing a Humio repo action
 }
 
 """
+Data for testing an already created ingest feed.
+"""
+input TestIngestFeedById {
+"""
+Data for testing an already created ingest feed.
+"""
+	repositoryName: RepoOrViewName!
+"""
+Data for testing an already created ingest feed.
+"""
+	id: String!
+}
+
+"""
 Data for testing a Kafka event forwarder
 """
 input TestKafkaEventForwarder {
@@ -9327,57 +10016,6 @@ Data for testing a PagerDuty action.
 Data for testing a PagerDuty action.
 """
 	eventData: String!
-}
-
-"""
-An error occurred while running the parser and no events were parsed
-"""
-type TestParserErrorResult {
-"""
-An error message
-"""
-	errorMessage: String!
-}
-
-"""
-Input for testing a parser
-"""
-input TestParserInputV2 {
-"""
-Input for testing a parser
-"""
-	repositoryName: String!
-"""
-Input for testing a parser
-"""
-	parserId: String!
-"""
-Input for testing a parser
-"""
-	parserName: String!
-"""
-Input for testing a parser
-"""
-	parserScript: String!
-"""
-Input for testing a parser
-"""
-	testData: [String!]!
-}
-
-"""
-The result of running the parser on all the test events
-"""
-union TestParserResultV2 =TestParserSuccessResultV2 | TestParserErrorResult
-
-"""
-The parser produced results for each test event
-"""
-type TestParserSuccessResultV2 {
-"""
-The results of parsing the test events
-"""
-	results: [ParseEventResult!]!
 }
 
 """
@@ -9577,6 +10215,22 @@ Data for testing a webhook action.
 input TimeIntervalInput {
 	start: String!
 	end: String!
+}
+
+"""
+Committed using a token.
+"""
+type TokenCommitAuthor implements AssetCommitAuthor{
+"""
+Id of the token used for the commit.
+Stability: Preview
+"""
+	tokenId: String!
+"""
+A common string representation of an author
+Stability: Preview
+"""
+	displayString: String!
 }
 
 input TokenInput {
@@ -9954,6 +10608,78 @@ Data for updating an ingest feed which uses AWS S3 with SQS. The update is a del
 	compression: IngestFeedCompression
 }
 
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+input UpdateAzureEventHubIngestFeed {
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	repositoryName: RepoOrViewName!
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	id: String!
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	name: String
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	description: UpdateIngestFeedDescription
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	parser: String
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	enabled: Boolean
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	eventHubFullyQualifiedNamespace: String
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	eventHubName: String
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	consumerGroup: String
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	preprocessing: AzureEventHubsPreprocessingInput
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	checkpointHandling: AzureEventHubsCheckpointHandlingInput
+"""
+Data for updating an ingest feed which uses Azure Event Hubs. The update is a delta update.
+"""
+	defaultCheckpoint: AzureEventHubsCheckpointInput
+}
+
+"""
+Data for updating the credentials for an ingest feed which uses Azure Event Hubs.
+"""
+input UpdateAzureEventHubIngestFeedCredentials {
+"""
+Data for updating the credentials for an ingest feed which uses Azure Event Hubs.
+"""
+	repositoryName: RepoOrViewName!
+"""
+Data for updating the credentials for an ingest feed which uses Azure Event Hubs.
+"""
+	id: String!
+"""
+Data for updating the credentials for an ingest feed which uses Azure Event Hubs.
+"""
+	authentication: AzureEventHubsAuthenticationUpdate!
+}
+
 input UpdateCrossOrganizationViewConnectionFiltersInput {
 	name: String!
 	connectionsToUpdate: [CrossOrganizationViewConnectionInputModel!]!
@@ -10067,6 +10793,10 @@ Data for updating an email action.
 Data for updating an email action.
 """
 	attachCsv: Boolean
+"""
+Data for updating an email action.
+"""
+	labels: [String!]
 }
 
 """
@@ -10302,6 +11032,10 @@ Data for updating a LogScale repository action.
 Data for updating a LogScale repository action.
 """
 	ingestToken: String!
+"""
+Data for updating a LogScale repository action.
+"""
+	labels: [String!]
 }
 
 """
@@ -10506,6 +11240,10 @@ Data for updating an OpsGenie action
 Data for updating an OpsGenie action
 """
 	useProxy: Boolean!
+"""
+Data for updating an OpsGenie action
+"""
+	labels: [String!]
 }
 
 input UpdateOrganizationPermissionsTokenPermissionsInput {
@@ -10548,6 +11286,10 @@ Data for updating a PagerDuty action
 Data for updating a PagerDuty action
 """
 	useProxy: Boolean!
+"""
+Data for updating a PagerDuty action
+"""
+	labels: [String!]
 }
 
 input UpdateParametersInteractionInput {
@@ -10556,44 +11298,6 @@ input UpdateParametersInteractionInput {
 	arguments: [ArgumentInput!]!
 	useWidgetTimeWindow: Boolean!
 	fieldInteractionConditions: [FieldInteractionConditionInput!]
-}
-
-"""
-Input for updating a parser.
-"""
-input UpdateParserInput {
-"""
-Input for updating a parser.
-"""
-	repositoryName: String
-"""
-Input for updating a parser.
-"""
-	id: String
-"""
-Input for updating a parser.
-"""
-	name: String
-"""
-Input for updating a parser.
-"""
-	testData: [String!]
-"""
-Input for updating a parser.
-"""
-	sourceCode: String
-"""
-Input for updating a parser.
-"""
-	tagFields: [String!]
-"""
-Input for updating a parser.
-"""
-	fieldsToBeRemovedBeforeParsing: [String!]
-"""
-Input for updating a parser.
-"""
-	languageVersion: LanguageVersionEnum
 }
 
 """
@@ -10628,13 +11332,6 @@ Input for updating a parser.
 Input for updating a parser.
 """
 	fieldsToBeRemovedBeforeParsing: [String!]
-}
-
-type UpdateParserMutation {
-"""
-Stability: Long-term
-"""
-	parser: Parser!
 }
 
 """
@@ -10683,6 +11380,10 @@ Data for updating a post-message Slack action
 Data for updating a post-message Slack action
 """
 	useProxy: Boolean!
+"""
+Data for updating a post-message Slack action
+"""
+	labels: [String!]
 }
 
 input UpdateQueryPrefixInput {
@@ -10767,6 +11468,7 @@ Stability: Long-term
 input UpdateSavedQueryInput {
 	id: String!
 	name: String
+	description: String
 	viewName: String!
 	queryString: String
 	start: String
@@ -10774,6 +11476,7 @@ input UpdateSavedQueryInput {
 	isLive: Boolean
 	widgetType: String
 	options: String
+	labels: [String!]
 	dashboardLinkInteractions: [DashboardLinkInteractionInput!]
 	customLinkInteractions: [CustomLinkInteractionInput!]
 	searchLinkInteractions: [SearchLinkInteractionInput!]
@@ -10993,6 +11696,158 @@ Data for updating a scheduled search
 	queryOwnershipType: QueryOwnershipType
 }
 
+"""
+Data for updating a scheduled search
+"""
+input UpdateScheduledSearchV2 {
+"""
+Data for updating a scheduled search
+"""
+	viewName: String!
+"""
+Data for updating a scheduled search
+"""
+	id: String!
+"""
+Data for updating a scheduled search
+"""
+	name: String!
+"""
+Data for updating a scheduled search
+"""
+	description: String
+"""
+Data for updating a scheduled search
+"""
+	queryString: String!
+"""
+Data for updating a scheduled search
+"""
+	schedule: String!
+"""
+Data for updating a scheduled search
+"""
+	timeZone: String!
+"""
+Data for updating a scheduled search
+"""
+	searchIntervalSeconds: Long!
+"""
+Data for updating a scheduled search
+"""
+	searchIntervalOffsetSeconds: Long
+"""
+Data for updating a scheduled search
+"""
+	maxWaitTimeSeconds: Long
+"""
+Data for updating a scheduled search
+"""
+	queryTimestampType: QueryTimestampType!
+"""
+Data for updating a scheduled search
+"""
+	backfillLimit: Int
+"""
+Data for updating a scheduled search
+"""
+	enabled: Boolean!
+"""
+Data for updating a scheduled search
+"""
+	actionIdsOrNames: [String!]!
+"""
+Data for updating a scheduled search
+"""
+	labels: [String!]!
+"""
+Data for updating a scheduled search
+"""
+	runAsUserId: String
+"""
+Data for updating a scheduled search
+"""
+	queryOwnershipType: QueryOwnershipType!
+}
+
+"""
+Data for updating a scheduled search
+"""
+input UpdateScheduledSearchV3 {
+"""
+Data for updating a scheduled search
+"""
+	viewName: String!
+"""
+Data for updating a scheduled search
+"""
+	id: String!
+"""
+Data for updating a scheduled search
+"""
+	name: String!
+"""
+Data for updating a scheduled search
+"""
+	description: String
+"""
+Data for updating a scheduled search
+"""
+	queryString: String!
+"""
+Data for updating a scheduled search
+"""
+	schedule: String!
+"""
+Data for updating a scheduled search
+"""
+	timeZone: String!
+"""
+Data for updating a scheduled search
+"""
+	searchIntervalSeconds: Long!
+"""
+Data for updating a scheduled search
+"""
+	searchIntervalOffsetSeconds: Long
+"""
+Data for updating a scheduled search
+"""
+	maxWaitTimeSeconds: Long
+"""
+Data for updating a scheduled search
+"""
+	queryTimestampType: QueryTimestampType!
+"""
+Data for updating a scheduled search
+"""
+	backfillLimit: Int
+"""
+Data for updating a scheduled search
+"""
+	enabled: Boolean!
+"""
+Data for updating a scheduled search
+"""
+	triggerOnEmptyResult: Boolean!
+"""
+Data for updating a scheduled search
+"""
+	actionIdsOrNames: [String!]!
+"""
+Data for updating a scheduled search
+"""
+	labels: [String!]!
+"""
+Data for updating a scheduled search
+"""
+	runAsUserId: String
+"""
+Data for updating a scheduled search
+"""
+	queryOwnershipType: QueryOwnershipType!
+}
+
 input UpdateSearchLinkInteractionInput {
 	path: String!
 	interactionId: String!
@@ -11027,6 +11882,10 @@ Data for updating a Slack action
 Data for updating a Slack action
 """
 	useProxy: Boolean!
+"""
+Data for updating a Slack action
+"""
+	labels: [String!]
 }
 
 input UpdateSubscriptionInputObject {
@@ -11059,6 +11918,10 @@ Data for updating an upload file action.
 Data for updating an upload file action.
 """
 	fileName: String!
+"""
+Data for updating an upload file action.
+"""
+	labels: [String!]
 }
 
 input UpdateUserByIdInput {
@@ -11117,12 +11980,15 @@ Data for updating a VictorOps action.
 Data for updating a VictorOps action.
 """
 	useProxy: Boolean!
+"""
+Data for updating a VictorOps action.
+"""
+	labels: [String!]
 }
 
 input UpdateViewPermissionsTokenPermissionsInput {
 	id: String!
 	permissions: [Permission!]!
-	assetPermissionAssignments: [ViewPermissionsTokenAssetPermissionAssignmentInput!]
 }
 
 """
@@ -11165,6 +12031,10 @@ Data for updating a webhook action
 Data for updating a webhook action
 """
 	useProxy: Boolean!
+"""
+Data for updating a webhook action
+"""
+	labels: [String!]
 }
 
 input UpgradeAccountData {
@@ -11229,9 +12099,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 """
@@ -11239,24 +12128,37 @@ Asset actions given by direct user assignments for a specific asset
 """
 type UserAssetActionsBySource implements AssetActionsBySource{
 """
-Stability: Preview
+Stability: Short-term
 """
 	user: User!
 """
 Asset actions granted because user is root.
-Stability: Preview
+Stability: Short-term
 """
 	assetActionsGrantedBecauseUserIsRoot: [AssetAction!]!
 """
 List of roles assigned to the user or group and the asset actions they allow
-Stability: Preview
+Stability: Short-term
 """
 	assetActionsByRoles: [AssetActionsByRole!]!
 """
 Asset permissions assigned directly to the user or group
-Stability: Preview
+Stability: Short-term
 """
 	directlyAssigned: DirectlyAssignedAssetPermissions!
+}
+
+type UserCommitAuthor implements AssetCommitAuthor{
+"""
+User who committed the asset. If null, the user has been deleted.
+Stability: Preview
+"""
+	user: User
+"""
+A common string representation of an author
+Stability: Preview
+"""
+	displayString: String!
 }
 
 input UserDefaultSettingsInput {
@@ -11367,9 +12269,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 """
@@ -11406,7 +12327,7 @@ Stability: Long-term
 	views: [SearchDomain!]!
 """
 The permissions assigned to the token for individual view assets.
-Stability: Preview
+Stability: Short-term
 """
 	searchAssetPermissions(
 """
@@ -11554,9 +12475,28 @@ Stability: Long-term
 	requiresOrganizationOwnedQueriesPermissionToEdit: Boolean!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this action.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the action
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the action
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+Stability: Preview
+"""
+	labels: [String!]
 }
 
 input WidgetInput {
@@ -11632,6 +12572,17 @@ Stability: Long-term
 A user or pending user, depending on whether an invitation was sent
 """
 union userOrPendingUser =User | PendingUser
+
+"""
+Shows the current configuration for ingest feeds that uses AWS S3 and SQS.
+"""
+type AWSS3SQSConfiguration {
+"""
+Is true if configuration is setup for AWS S3 SQS ingest feeds.
+Stability: Long-term
+"""
+	isAuthConfigured: Boolean!
+}
 
 type AccessTokenValidatorResultType {
 """
@@ -11810,6 +12761,32 @@ An action that can be invoked from a trigger.
 An action that can be invoked from a trigger.
 """
 	allowedActions: [AssetAction!]!
+"""
+An action that can be invoked from a trigger.
+"""
+	resource: String!
+"""
+An action that can be invoked from a trigger.
+"""
+	createdInfo: AssetCommitMetadata
+"""
+An action that can be invoked from a trigger.
+"""
+	modifiedInfo: AssetCommitMetadata
+"""
+An action that can be invoked from a trigger.
+"""
+	labels: [String!]
+}
+
+"""
+An action
+"""
+type ActionEntry {
+"""
+Stability: Preview
+"""
+	action: Action!
 }
 
 """
@@ -11894,7 +12871,7 @@ Stability: Long-term
 }
 
 """
-The type of action this template is for
+Action types associated with the template.
 """
 enum ActionType {
 	Email
@@ -12034,9 +13011,19 @@ Stability: Long-term
 	queryOwnership: QueryOwnership!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this aggregate alert.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the aggregate alert
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
 }
 
 type AggregateAlertTemplate {
@@ -12072,7 +13059,6 @@ Name of the alert.
 Stability: Long-term
 """
 	name: String!
-	assetType: AssetType!
 """
 Id of user which the alert is running as.
 Stability: Long-term
@@ -12169,9 +13155,19 @@ Stability: Long-term
 	queryOwnership: QueryOwnership!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this alert.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the alert
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
 }
 
 """
@@ -12225,7 +13221,7 @@ Stability: Long-term
 }
 
 """
-The different types of alerts known to the system.
+Alert types known to the system.
 """
 enum AlertType {
 	LegacyAlert
@@ -12299,6 +13295,10 @@ Arguments for analyzeQuery
 Arguments for analyzeQuery
 """
 	rejectFunctions: [String!]
+"""
+Arguments for analyzeQuery
+"""
+	timeInterval: QueryTimeInterval
 }
 
 """
@@ -12318,10 +13318,46 @@ The given query is not guaranteed to be valid for the suggested alert type.
 Stability: Short-term
 """
 	suggestedAlertType: SuggestedAlertTypeInfo
+"""
+The results from statically analyzing the query.
+
+Stability: Preview
+"""
+	analysisResult: QueryAnalysisResult!
 }
 
 """
-Allowed asset action on asset
+Configuration for archiving, e.e. bucket name and/or region.
+"""
+interface ArchivingConfiguration {
+"""
+Configuration for archiving, e.e. bucket name and/or region.
+"""
+	bucket: String!
+"""
+Configuration for archiving, e.e. bucket name and/or region.
+"""
+	startFrom: DateTime
+"""
+Configuration for archiving, e.e. bucket name and/or region.
+"""
+	disabled: Boolean
+"""
+Configuration for archiving, e.e. bucket name and/or region.
+"""
+	tagOrderInName: [String!]!
+}
+
+"""
+The format to store archived segments.
+"""
+enum ArchivingFormat {
+	RAW
+	NDJSON
+}
+
+"""
+The allowed type of action for an asset.
 """
 enum AssetAction {
 	Read
@@ -12335,12 +13371,12 @@ A role and the asset actions it allows
 """
 type AssetActionsByRole {
 """
-Stability: Preview
+Stability: Short-term
 """
 	role: Role
 """
 Asset actions allowed by the role
-Stability: Preview
+Stability: Short-term
 """
 	assetActions: [AssetAction!]!
 }
@@ -12360,7 +13396,33 @@ Common interface for user and group permission assignments
 }
 
 """
-Asset permissions
+An author of an Asset commit
+"""
+interface AssetCommitAuthor {
+"""
+An author of an Asset commit
+"""
+	displayString: String!
+}
+
+"""
+Metadata about a commit of an asset
+"""
+type AssetCommitMetadata {
+"""
+The time of the commit
+Stability: Preview
+"""
+	timestamp: Long!
+"""
+The author of the commit
+Stability: Preview
+"""
+	author: AssetCommitAuthor!
+}
+
+"""
+Asset permissions.
 """
 enum AssetPermission {
 	UpdateAsset
@@ -12373,18 +13435,18 @@ An asset permission search result set
 type AssetPermissionSearchResultSet {
 """
 The total number of matching results
-Stability: Preview
+Stability: Short-term
 """
 	totalResults: Int!
 """
 The paginated result set
-Stability: Preview
+Stability: Short-term
 """
 	results: [SearchAssetPermissionsResultEntry!]!
 }
 
 """
-The different types of assets.
+Asset types.
 """
 enum AssetPermissionsAssetType {
 	LegacyAlert
@@ -12396,19 +13458,6 @@ enum AssetPermissionsAssetType {
 	Dashboard
 	File
 	SavedQuery
-}
-
-enum AssetType {
-	Interaction
-	ScheduledSearch
-	Action
-	File
-	AggregateAlert
-	FilterAlert
-	Alert
-	Parser
-	SavedQuery
-	Dashboard
 }
 
 """
@@ -12423,6 +13472,231 @@ Represents information about how users authenticate with LogScale.
 
 interface AuthenticationMethodAuth {
 	authType: String!
+}
+
+"""
+AWS Secrets Manager secret pointer
+"""
+type AwsSecretsManagerSecret {
+"""
+The Amazon Resource Name (ARN) of the AWS Secrets Manager secret.
+Stability: Preview
+"""
+	arn: String!
+}
+
+"""
+The type of Azure authentication config.
+"""
+enum AzureAuthenticationConfigType {
+"""
+Stability: Long-term
+"""
+	ClientSecretFromUser
+"""
+Stability: Long-term
+"""
+	ClientSecretFromEnvironmentVariables
+"""
+Stability: Long-term
+"""
+	NotConfigured
+}
+
+"""
+Shows the current configuration for ingest feeds that uses Azure Event Hubs.
+"""
+type AzureEventHubConfiguration {
+"""
+Is true if auth configuration is setup for ingest feeds that use Azure Event Hubs.
+Stability: Long-term
+"""
+	isAuthConfigured: Boolean!
+"""
+The type of azure authentication config.
+Stability: Long-term
+"""
+	AuthConfiguration: AzureAuthenticationConfigType!
+}
+
+"""
+Azure Event Hubs configuration
+"""
+type AzureEventHubs {
+"""
+Fully qualified namespace of the Event Hub. Often structured like this: <namespace>.servicebus.windows.net
+Stability: Preview
+"""
+	eventHubFullyQualifiedNamespace: String!
+"""
+Name of the Event Hub.
+Stability: Short-term
+"""
+	eventHubName: String!
+"""
+Consumer group for the Event Hub
+Stability: Preview
+"""
+	consumerGroup: String!
+"""
+The preprocessing to apply to an ingest feed before parsing.
+Stability: Preview
+"""
+	preprocessing: AzureEventHubsPreprocessing!
+"""
+Specifies the starting point for reading events from the Event Hub when no previous checkpoint exists.
+Stability: Preview
+"""
+	defaultCheckpoint: AzureEventHubsCheckPoint!
+"""
+Configuration for how the Event Hub checkpoints should be handled.
+Stability: Preview
+"""
+	checkpointHandling: AzureEventHubsCheckpointHandling!
+"""
+Authentication method for Azure event hub.
+Stability: Preview
+"""
+	authentication: AzureEventHubsAuthentication!
+}
+
+"""
+Authentication method for Azure event hub.
+"""
+union AzureEventHubsAuthentication =AzureEventHubsAuthenticationLogScaleConfig | AzureEventHubsAuthenticationClientSecretCredentials
+
+"""
+Authentication method using a service principal with a secret. The secret is stored in a secrets manager.
+"""
+type AzureEventHubsAuthenticationClientSecretCredentials {
+"""
+Id of the secret handle used to retrieve the secret.
+Stability: Preview
+"""
+	secretHandleId: String!
+"""
+Client id of the specific app used for authentication.
+Stability: Preview
+"""
+	clientId: String!
+"""
+Tenant id of the tenant the specific app, used for authentication, belongs to.
+Stability: Preview
+"""
+	tenantId: String!
+"""
+The id of the created secret. This is useful for verifying which secret is used for authentication.
+Stability: Preview
+"""
+	secretId: String!
+}
+
+"""
+LogScale configuration authentication.
+"""
+type AzureEventHubsAuthenticationLogScaleConfig {
+"""
+Field that allows for representing an empty object, this field does not represent anything
+Stability: Preview
+"""
+	noOp: Boolean!
+}
+
+"""
+Specifies a point in the the Event Hub.
+"""
+union AzureEventHubsCheckPoint =AzureEventHubsCheckpointEarliest | AzureEventHubsCheckpointLatest | AzureEventHubsCheckpointPoint
+
+"""
+Oldest available event in the Event Hub, ensuring no historical data is missed but potentially processing a large backlog.
+"""
+type AzureEventHubsCheckpointEarliest {
+"""
+Field that allows for representing an empty object, this field does not represent anything
+Stability: Preview
+"""
+	noOp: Boolean!
+}
+
+"""
+Configuration for how the Event Hub checkpoints should be handled.
+"""
+union AzureEventHubsCheckpointHandling =AzureEventHubsCheckpointHandlingBlobStorage
+
+"""
+Configuration for using blob storage for storing the checkpoint for the Event Hub.
+"""
+type AzureEventHubsCheckpointHandlingBlobStorage {
+"""
+Endpoint for blob storage, used for Event Hub checkpoints.
+Stability: Preview
+"""
+	blobStorageEndpoint: String!
+"""
+Name of the blob storage container, used for Event Hub checkpoints.
+Stability: Preview
+"""
+	containerName: String!
+}
+
+"""
+The most recent event in the Event Hub.
+"""
+type AzureEventHubsCheckpointLatest {
+"""
+Field that allows for representing an empty object, this field does not represent anything
+Stability: Preview
+"""
+	noOp: Boolean!
+}
+
+"""
+Specific event in the Event Hub, identified by its sequence number.
+"""
+type AzureEventHubsCheckpointPoint {
+"""
+A unique identifier for each event in the Event Hub, used to pinpoint exact positions in the event stream.
+Stability: Preview
+"""
+	sequenceNumber: Long!
+}
+
+"""
+The preprocessing to apply to an ingest feed before parsing.
+"""
+union AzureEventHubsPreprocessing =AzureEventHubsPreprocessingSplitNewLine | AzureEventHubsPreprocessingSplitAzureRecords | AzureEventHubsPreprocessingReadWhole
+
+"""
+Interprets the event hub event as one LogScale event.
+"""
+type AzureEventHubsPreprocessingReadWhole {
+"""
+Field that allows for representing an empty object, this field does not represent anything
+Stability: Preview
+"""
+	noOp: Boolean!
+}
+
+"""
+Interprets the event hub event Azure JSON record format and emit each record as an event.
+"""
+type AzureEventHubsPreprocessingSplitAzureRecords {
+"""
+Field that allows for representing an empty object, this field does not represent anything
+Stability: Preview
+"""
+	noOp: Boolean!
+}
+
+"""
+Interprets the event hub event as newline-delimited and emit each line as an event.
+"""
+type AzureEventHubsPreprocessingSplitNewLine {
+"""
+Field that allows for representing an empty object, this field does not represent anything
+Stability: Preview
+"""
+	noOp: Boolean!
 }
 
 """
@@ -12507,7 +13781,7 @@ A cache policy can be set either on one of three levels (in order of precedence)
  - Globally
 
  When determining the cache policy for a repo we first check if there is a cache
- policy set on the repo. If none is set on the repo, we check the the org. If none
+ policy set on the repo. If none is set on the repo, we check the org. If none
  is set there either we check the global setting.
 
 """
@@ -12986,7 +14260,7 @@ Arguments for concatenateQueries
 }
 
 """
-A value denoting some aspect of a cluster connection
+Denotes an aspect of a cluster connection.
 """
 enum ConnectionAspect {
 	Tag
@@ -13011,6 +14285,24 @@ An error message for the connection, tagged by the relevant aspect
 Stability: Short-term
 """
 	error: String!
+}
+
+type CorrelateUsageInfo {
+"""
+Indicates if the correlated event are sequenced.
+Stability: Preview
+"""
+	isSequenced: Boolean!
+"""
+Indicates if the events in the query result will have correlate format.
+Stability: Preview
+"""
+	isFormatPreservedInOutput: Boolean!
+"""
+The names, in order, of the queries used in correlate.
+Stability: Preview
+"""
+	queryNames: [String!]!
 }
 
 """
@@ -13108,7 +14400,10 @@ Stability: Long-term
 Stability: Long-term
 """
 	description: String
-	assetType: AssetType!
+"""
+Stability: Long-term
+"""
+	labels: [String!]!
 """
 A YAML formatted string that describes the dashboard. It does not contain links or permissions, and is safe to share and use for making copies of a dashboard.
 """
@@ -13122,10 +14417,6 @@ Stability: Long-term
 Stability: Long-term
 """
 	displayName: String!
-"""
-Stability: Long-term
-"""
-	labels: [String!]!
 """
 Stability: Long-term
 """
@@ -13192,9 +14483,24 @@ Stability: Long-term
 	package: PackageInstallation
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this dashboard.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the dashboard
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the dashboard
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
 }
 
 """
@@ -13459,12 +14765,12 @@ Asset permissions that can be directly assigned to users or groups
 type DirectlyAssignedAssetPermissions {
 """
 List of asset permissions
-Stability: Preview
+Stability: Short-term
 """
 	assetPermissions: [AssetPermission!]!
 """
 Whether permissions were assigned due to asset creator status
-Stability: Preview
+Stability: Short-term
 """
 	assignedBecauseOfCreatorStatus: Boolean!
 }
@@ -13497,15 +14803,20 @@ enum DynamicConfig {
 	GroupMaxLimit
 	RdnsDefaultLimit
 	RdnsMaxLimit
+	ReverseDnsDefaultLimit
+	ReverseDnsMaxLimit
+	ReverseDnsDefaultTimeoutInMs
+	ReverseDnsRequestsPerSecond
+	ReverseDnsConcurrentRequests
 	QueryResultRowCountLimit
 	AggregatorOutputRowLimit
 	ParserThrottlingAllocationFactor
 	UndersizedMergingRetentionPercentage
 	StaticQueryFractionOfCores
 	TargetMaxRateForDatasource
-	DelayIngestResponseDueToIngestLagMaxFactor
-	DelayIngestResponseDueToIngestLagThreshold
-	DelayIngestResponseDueToIngestLagScale
+	VerifySegmentInBucketCompletionIntervalDays
+	VerifySegmentInBucketHeadOnly
+	MaxRelocatedDatasourcesInGlobal
 	SampleIntervalForDatasourceRates
 	FdrMaxNodesPerFeed
 	BucketStorageWriteVersion
@@ -13516,10 +14827,10 @@ enum DynamicConfig {
 	FlushSegmentsAndGlobalOnShutdown
 	GracePeriodBeforeDeletingDeadEphemeralHostsMs
 	FdrS3FileSizeMax
-	S3ArchivingClusterWideStartFrom
-	S3ArchivingClusterWideEndAt
-	S3ArchivingClusterWideDisabled
-	S3ArchivingClusterWideRegexForRepoName
+	ArchivingClusterWideStartFrom
+	ArchivingClusterWideEndAt
+	ArchivingClusterWideDisabled
+	ArchivingClusterWideRegexForRepoName
 	EnableDemoData
 	MaxNumberOfOrganizations
 	NumberOfDaysToRemoveStaleOrganizationsAfter
@@ -13529,7 +14840,6 @@ enum DynamicConfig {
 	ReplaceANSIEscapeCodes
 	DisableInconsistencyDetectionJob
 	DeleteDuplicatedNameViewsAfterMerging
-	MaxQueryPenaltyCreditForBlockedQueriesFactor
 	MaxConcurrentQueriesOnWorker
 	MaxQueryPollsForWorker
 	MaxOpenSegmentsOnWorker
@@ -13549,11 +14859,12 @@ enum DynamicConfig {
 	LookupTableSyncAwaitSeconds
 	GraphQLSelectionSizeLimit
 	UnauthenticatedGraphQLSelectionSizeLimit
-	QueryBlockMillisOnHighIngestDelay
 	FileReplicationFactor
 	QueryBacktrackingLimit
 	ParserBacktrackingLimit
 	GraphQlDirectivesAmountLimit
+	GraphQLDirectiveCountLimit
+	GraphQLAliasCountLimit
 	TableCacheMemoryAllowanceFraction
 	TableCacheMaxStorageFraction
 	TableCacheMaxStorageFractionForIngestAndHttpOnly
@@ -13563,13 +14874,21 @@ enum DynamicConfig {
 	DisableNewRegexEngine
 	EnableGlobalJsonStatsLogger
 	LiveAdhocTableUpdatePeriodMinimumMs
-	ExperimentalSortDataStructure
+	MinQueryPermitsFactor
 	CorrelateQueryLimit
+	CorrelateConstraintLimit
 	CorrelateConstellationTickLimit
 	CorrelateLinkValuesLimit
 	CorrelateLinkValuesMaxByteSize
+	CorrelateNumberOfTimeBuckets
+	CorrelateQueryEventLimit
 	MultiPassDefaultIterationLimit
 	MultiPassMaxIterationLimit
+	CorrelateMinIterations
+	GracefulShutdownConsideredAliveSeconds
+	LarsMode
+	GraphQLQueryAnalysisDisabled
+	ExternalAssetsCacheGeneralizationEnabled
 }
 
 """
@@ -13600,7 +14919,19 @@ enum EnabledInScope {
 	Disabled
 }
 
+input EntitiesLabelsInputType {
+	entityTypes: [EntitySearchEntityType!]!
+	paths: [String!]
+}
+
+input EntitiesPackagesInputType {
+	entityTypes: [EntitySearchEntityType!]!
+	paths: [String!]
+}
+
 enum EntitiesPageDirection {
+	RefreshCurrentFromLastCursor
+	RefreshCurrentFromFirstCursor
 	Previous
 	Next
 }
@@ -13610,7 +14941,55 @@ input EntitiesPageInputType {
 	direction: EntitiesPageDirection!
 }
 
+enum EntityFieldType {
+	FilePackageId
+	ParserOrigin
+	UnversionedPackageId
+	PackageId
+	ParserOverridesBuiltInParser
+	ParserIsOverridden
+	ActionLabels
+	ActionType
+	FilePath
+	FileNameAndPath
+	FileSizeBytes
+	FileCreatedAt
+	FileUploadedDate
+	ParserInstalledAsPartOf
+	ActionInstalledAsPartOf
+	InteractionTypeInfo
+	InteractionConditions
+	InteractionTitleTemplate
+	DashboardSearchDomainName
+	SavedQueryIsStarred
+	DashboardIsStarred
+	SavedQueryLabels
+	DashboardLabels
+	FileLabels
+	DashboardDisplayName
+	ParserIsBuiltIn
+	ParserFieldsToBeRemovedBeforeParsing
+	ParserTagFields
+	ParserTestCases
+	Description
+	ParserScript
+	Type
+	CanDelete
+	CanChange
+	PackageScope
+	PackageName
+	ModifiedInfoAuthor
+	ModifiedInfoTimestamp
+	CreatedInfoAuthor
+	CreatedInfoTimestamp
+	View
+	Name
+}
+
 enum EntitySearchEntityType {
+	Parser
+	Action
+	SavedQuery
 	Dashboard
 	File
 	Interaction
@@ -13622,12 +15001,13 @@ input EntitySearchInputType {
 	paths: [String!]
 	sortBy: [EntitySearchSortInfoType!]
 	entityTypes: [EntitySearchEntityType!]!
+	fieldFilters: [FieldFilterInput!]
 }
 
-union EntitySearchResultEntity =ViewInteractionEntry | FileEntry | DashboardEntry
+union EntitySearchResultEntity =ViewInteractionEntry | FileEntry | DashboardEntry | SavedQueryEntry | ActionEntry | ParserEntry
 
 input EntitySearchSortInfoType {
-	name: String!
+	name: EntityFieldType!
 	order: EntitySearchSortOrderType!
 }
 
@@ -13874,8 +15254,8 @@ Stability: Long-term
 }
 
 enum FeatureAnnouncement {
-	AggregateAlertSearchPage
-	AggregateAlertOverview
+	TriggerSearchPage
+	TriggerOverview
 	FleetRemoteUpdatesAndGroups
 	FilterMatchHighlighting
 	OrganizationOwnedQueries
@@ -13901,30 +15281,10 @@ Stability: Preview
 """
 	RepeatingQueries
 """
-Enable custom ingest tokens not generated by LogScale.
-Stability: Preview
-"""
-	CustomIngestTokens
-"""
-Enable permission tokens.
-Stability: Preview
-"""
-	PermissionTokens
-"""
-Assign default roles for groups.
-Stability: Preview
-"""
-	DefaultRolesForGroups
-"""
 Use new organization limits.
 Stability: Preview
 """
 	NewOrganizationLimits
-"""
-Authenticate cookies server-side.
-Stability: Preview
-"""
-	CookieAuthServerSide
 """
 Enable ArrayFunctions in query language.
 THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
@@ -13993,20 +15353,10 @@ Stability: Preview
 """
 	MacosInstallerForLogCollector
 """
-Enables UsageJob to log average usage as part of usage log
-Stability: Preview
-"""
-	LogAverageUsage
-"""
 Enables ephemeral hosts support for fleet management
 Stability: Preview
 """
 	FleetEphemeralHosts
-"""
-Prevents the archiving logic from splitting segments into multiple archived files based on their tag groups
-Stability: Preview
-"""
-	DontSplitSegmentsForArchiving
 """
 Enables fleet management collector metrics
 Stability: Preview
@@ -14022,16 +15372,6 @@ Force a refresh of ClusterManagementStats cache before calculating UnregisterNod
 Stability: Preview
 """
 	RefreshClusterManagementStatsInUnregisterNode
-"""
-Pre-merge mini-segments
-Stability: Preview
-"""
-	PreMergeMiniSegments
-"""
-Use new store for Autosharding rules
-Stability: Preview
-"""
-	NewAutoshardRuleStore
 """
 Use a new segment file format on write - not readable by older versions
 Stability: Preview
@@ -14049,43 +15389,59 @@ Stability: Preview
 """
 	FleetCollectorDebugLogging
 """
-Resolve field names during codegen rather than for every event
-Stability: Preview
-"""
-	ResolveFieldsCodeGen
-"""
 Enables LogScale Collector remote updates
 Stability: Preview
 """
 	FleetRemoteUpdates
 """
-Enables alternate query merge target handling
-Stability: Preview
-"""
-	AlternateQueryMergeTargetHandling
-"""
-Allow digesters to start without having all the minis for the current merge target. Requires the AlternateQueryMergeTargetHandling feature flag to be enabled
-Stability: Preview
-"""
-	DigestersDontNeedMergeTargetMinis
-"""
 Enables labels for fleet management
-THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 Stability: Preview
 """
 	FleetLabels
 """
-Segment rebalancer handles mini segments. Can only take effect when the AlternateQueryMergeTargetHandling and DigestersDontNeedMergeTargetMinis feature flags are also enabled
-THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
-Stability: Preview
-"""
-	SegmentRebalancerHandlesMinis
-"""
 Enables dashboards on fleet overview page
-THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 Stability: Preview
 """
 	FleetOverviewDashboards
+"""
+Enables fleet management dashboards page
+THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+Stability: Preview
+"""
+	FleetDashboardsPage
+"""
+Enables archiving for Google Cloud Storage
+THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+Stability: Preview
+"""
+	GoogleCloudArchiving
+"""
+Enables TablePage UI on fleet management pages.
+THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+Stability: Preview
+"""
+	FleetTablePageUI
+"""
+Lets the cluster know that non-evicted nodes undergoing a graceful shutdown should be considered alive for 5 minutes with regards to segment rebalancing
+Stability: Preview
+"""
+	SetConsideredAliveUntilOnGracefulShutdown
+"""
+Enables migration of fleet metrics
+Stability: Preview
+"""
+	FleetMetricsMigration
+"""
+Enables a locking mechanism to prevent segment races
+Stability: Preview
+"""
+	LockingMechanismForSegmentRaces
+"""
+Will add an additional header value to kafka messages containing derived tags
+THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+Stability: Preview
+"""
+	AddDerivedTagsToKafkaHeaders
 """
 Enables Field Aliasing
 Stability: Preview
@@ -14093,11 +15449,13 @@ Stability: Preview
 	FieldAliasing
 """
 External Functions
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
 Stability: Preview
 """
 	ExternalFunctions
 """
 Enable the LogScale Query Assistant
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
 Stability: Preview
 """
 	QueryAssistant
@@ -14107,16 +15465,6 @@ THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is stron
 Stability: Preview
 """
 	FlightControl
-"""
-Enable organization level security policies. For instance the ability to only enable certain action types.
-Stability: Preview
-"""
-	OrganizationSecurityPolicies
-"""
-Enables a limit on query backtracking
-Stability: Preview
-"""
-	QueryBacktrackingLimit
 """
 Adds a derived #repo.cid tag when searching in views or dataspaces within an organization with an associated CID
 THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
@@ -14130,10 +15478,15 @@ Stability: Preview
 	LiveTables
 """
 Enables graph queries
-THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 Stability: Preview
 """
 	GraphQueries
+"""
+Enables aggregations for correlate
+THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
+Stability: Preview
+"""
+	CorrelateAggregations
 """
 Enables the MITRE Detection Annotation function
 THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
@@ -14142,7 +15495,6 @@ Stability: Preview
 	MitreDetectionAnnotation
 """
 Enables having multiple role bindings for a single view in the same group. This feature can only be enabled when min version is at least 1.150.0
-THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 Stability: Preview
 """
 	MultipleViewRoleBindings
@@ -14169,21 +15521,81 @@ Stability: Preview
 """
 	LlmParserGeneration
 """
-Enables sequence-functions in the query language
+Enables enriched parsers and handling enrichment headers in the HEC endpointThis flag has higher precedence than TestOnlyForceEnableXEnrichment flags
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	EnrichedParsers
+"""
+TO BE USED IN TEST ENVIRONMENTS ONLY: Enables HostEnrichment for all requests to the HEC Ingest endpoint,regardless of whether it was included in requested enrichmentsThis flag has lower precedence than EnrichedParsers flag
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	TestOnlyForceEnableHostEnrichment
+"""
+TO BE USED IN TEST ENVIRONMENTS ONLY: Enables MitreEnrichment for all requests to the HEC Ingest endpoint,regardless of whether it was included in requested enrichmentsThis flag has lower precedence than EnrichedParsers flag
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	TestOnlyForceEnableMitreEnrichment
+"""
+TO BE USED IN TEST ENVIRONMENTS ONLY: Enables UserEnrichment for all requests to the HEC Ingest endpoint,regardless of whether it was included in requested enrichmentsThis flag has lower precedence than EnrichedParsers flag
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	TestOnlyForceEnableUserEnrichment
+"""
+Enables the external data source sync job to sync entity data
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	ExternalDataSourceSyncForEntity
+"""
+Enables the external data source sync job to sync identity data
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	ExternalDataSourceSyncForIdentity
+"""
+Use the new sort, head, tail, and table datastructure
+Stability: Preview
+"""
+	SortNewDatastructure
+"""
+Enables integration with LogScale Assets Resolution Service (LARS)
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	LogScaleAssetsResolutionService
+"""
+Attaches a header to Ingest Queue records to indicate that the message can be forwarded by Kafka Egress Service
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	KafkaEgressEventForwardingEnabled
+"""
+Skips LogScale event forwarding for records that will instead be forwarded by Kafka Egress Service
+THIS FUNCTIONALITY IS RESTRICTED: Enabling this functionality should not be done in any production environment.
+Stability: Preview
+"""
+	LogScaleEventForwardingDisabled
+"""
+Applies access scope from from JWT claim
+Stability: Preview
+"""
+	JWTAccessScope
+"""
+Allows LogScale to fetch lookup tables from a remote source
 THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 Stability: Preview
 """
-	SequenceFunctions
+	RemoteTable
 """
-Enables the external data source sync job and related endpoints
+Enforce user query capacity limits
+THIS FUNCTIONALITY IS EXPERIMENTAL: Enabling experimental functionality is strongly discouraged and can lead to LogScale ending up in a bad state beyond repair.
 Stability: Preview
 """
-	ExternalDataSourceSync
-"""
-Use the new query coordination partition logic.
-Stability: Preview
-"""
-	UseNewQueryCoordinationPartitions
+	EnforceUserQueryCapacity
 }
 
 """
@@ -14277,6 +15689,21 @@ Stability: Long-term
 	config: JSON!
 }
 
+input FieldFilterInput {
+	field: EntityFieldType!
+	filter: String!
+	operator: FieldFilterOperator
+}
+
+enum FieldFilterOperator {
+	Equal
+	GreaterThan
+	LessThan
+	GreaterThanOrEqualTo
+	LessThanOrEqualTo
+	Contains
+}
+
 """
 An assertion that an event output from a parser test case has an expected value for a given field.
 """
@@ -14335,9 +15762,19 @@ Stability: Long-term
 	package: PackageInstallation
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this file.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Labels associated with this file
+Stability: Preview
+"""
+	labels: [String!]!
 }
 
 """
@@ -14489,25 +15926,19 @@ Stability: Long-term
 	queryOwnership: QueryOwnership!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
-}
-
 """
-The default config for filter alerts.
+The resource identifier for this filter alert.
+Stability: Short-term
 """
-type FilterAlertConfig {
+	resource: String!
 """
-Maximum trigger limit for filter alerts with one or more email actions.
-Stability: Long-term
+Metadata related to the creation of the filter alert
+Stability: Preview
 """
-	filterAlertEmailTriggerLimit: Int!
-"""
-Maximum trigger limit for filter alerts with no email actions.
-Stability: Long-term
-"""
-	filterAlertNonEmailTriggerLimit: Int!
+	createdInfo: AssetCommitMetadata
 }
 
 type FilterAlertTemplate {
@@ -14600,6 +16031,37 @@ The duration old object sampling will run for before dumping results and restart
 Stability: Preview
 """
 	oldObjectSampleDurationMinutes: Long!
+}
+
+"""
+Archiving configuration for GCS, i.e. bucket and format.
+"""
+type GCSArchivingConfiguration implements ArchivingConfiguration{
+"""
+Bucket name for storing archived data. Example: acme-bucket.
+Stability: Preview
+"""
+	bucket: String!
+"""
+Do not archive logs older than this.
+Stability: Preview
+"""
+	startFrom: DateTime
+"""
+Whether the archiving has been disabled.
+Stability: Preview
+"""
+	disabled: Boolean
+"""
+The format to store the archived data in Google Cloud Storage
+Stability: Preview
+"""
+	format: ArchivingFormat
+"""
+Array of names of tag fields to use in that order in the output file names.
+Stability: Preview
+"""
+	tagOrderInName: [String!]!
 }
 
 """
@@ -14822,7 +16284,7 @@ The type of the asset.
 	): GroupAssetActionsBySource!
 """
 Search for asset permissions for the group. Only search for asset name is supported with regards to the searchFilter argument.
-Stability: Preview
+Stability: Short-term
 """
 	searchAssetPermissions(
 """
@@ -14872,6 +16334,7 @@ Stability: Long-term
 	queryPrefixes(
 		onlyIncludeRestrictiveQueryPrefixes: Boolean
 		onlyForRoleWithId: String
+		onlyForViewWithId: String
 	): [QueryPrefixes!]!
 """
 Stability: Long-term
@@ -14917,17 +16380,17 @@ Asset actions given by a group for a specific asset
 """
 type GroupAssetActionsBySource implements AssetActionsBySource{
 """
-Stability: Preview
+Stability: Short-term
 """
 	group: Group
 """
 List of roles assigned to the user or group and the asset actions they allow
-Stability: Preview
+Stability: Short-term
 """
 	assetActionsByRoles: [AssetActionsByRole!]!
 """
 Asset permissions assigned directly to the user or group
-Stability: Preview
+Stability: Short-term
 """
 	directlyAssigned: DirectlyAssignedAssetPermissions!
 }
@@ -15188,9 +16651,10 @@ Stability: Short-term
 """
 	maxJsonFileUploadSizeBytes: Long!
 """
-The filter alert config.
+Shows the current configuration for ingest feeds.
+Stability: Long-term
 """
-	filterAlertConfig: FilterAlertConfig!
+	ingestFeedConfigurations: IngestFeedConfiguration!
 }
 
 """
@@ -15329,7 +16793,7 @@ Stability: Long-term
 """
 	parser: Parser
 """
-Is ingest from the ingest feed enabled?
+Ingest feed enabled state.
 Stability: Long-term
 """
 	enabled: Boolean!
@@ -15348,6 +16812,11 @@ Details about how the ingest feed is running
 Stability: Long-term
 """
 	executionInfo: IngestFeedExecutionInfo
+"""
+If the ingest feed is force stopped, meaning only a cluster manager can start the ingest feed again.
+Stability: Preview
+"""
+	forceStopped: Boolean!
 }
 
 """
@@ -15360,7 +16829,7 @@ IAM role authentication
 """
 type IngestFeedAwsAuthenticationIamRole {
 """
-Arn of the role to be assumed
+ARN of the role to be assumed
 Stability: Long-term
 """
 	roleArn: String!
@@ -15378,6 +16847,22 @@ enum IngestFeedCompression {
 	Auto
 	Gzip
 	None
+}
+
+"""
+Shows the current configuration for ingest feeds
+"""
+type IngestFeedConfiguration {
+"""
+Shows the current configuration for ingest feeds that uses Azure Event Hubs.
+Stability: Long-term
+"""
+	AzureEventHubs: AzureEventHubConfiguration!
+"""
+Shows the current configuration for ingest feeds that uses AWS S3 and SQS.
+Stability: Long-term
+"""
+	AwsS3SQS: AWSS3SQSConfiguration!
 }
 
 """
@@ -15497,7 +16982,7 @@ Stability: Long-term
 """
 The source from which to download from an ingest feed.
 """
-union IngestFeedSource =IngestFeedS3SqsSource
+union IngestFeedSource =IngestFeedS3SqsSource | AzureEventHubs
 
 """
 Details about the status of the ingest feed
@@ -15547,6 +17032,7 @@ enum IngestFeeds__SortBy {
 }
 
 enum IngestFeeds__Type {
+	AzureEventHubs
 	AwsS3Sqs
 }
 
@@ -15925,6 +17411,19 @@ Stability: Preview
 	fixedKeyFields: [String!]
 }
 
+type LabelsResult {
+"""
+Labels associated with the Entity Type(s) provided. Returns a maximum of 1000 distinct labels
+Stability: Preview
+"""
+	labels: [String!]!
+"""
+The total number of distinct labels that exist
+Stability: Preview
+"""
+	totalCount: Int!
+}
+
 type LanguageVersion {
 """
 If non-null, this is a version known by the current version of LogScale.
@@ -16202,6 +17701,11 @@ List of parameter value configurations.
 Stability: Long-term
 """
 	parameters: [ParameterValue!]!
+"""
+The resource identifier for this scheduled report.
+Stability: Short-term
+"""
+	resource: String!
 }
 
 """
@@ -16548,6 +18052,15 @@ Stability: Short-term
 Stability: Short-term
 """
 	status: LogCollectorStatusType
+"""
+Stability: Short-term
+"""
+	labels: [LogCollectorLabel!]!
+"""
+Ingest last 24h.
+Stability: Short-term
+"""
+	ingestLast24H: Long
 }
 
 type LogCollectorGroup {
@@ -16897,7 +18410,6 @@ Stability: Long-term
 Assignable node task.
 """
 enum NodeTaskEnum {
-	storage
 	digest
 	query
 }
@@ -17271,7 +18783,6 @@ enum OrganizationAction {
 	ManageUsers
 	ViewIpFilters
 	DownloadMacOsInstaller
-	SecurityPoliciesEnabled
 	ChangeSecurityPolicies
 	QueryAssistant
 	OrganizationQueryOwnershipEnabled
@@ -17295,6 +18806,13 @@ Stability: Preview
 	ViewEventForwarders
 	ViewSchemas
 	UseFleetOverviewDashboards
+	UseFleetDashboardsPage
+	UseFleetTablePageUI
+"""
+Stability: Preview
+"""
+	GranularPermissionsUI
+	UseFleetMetricsMigration
 }
 
 """
@@ -17828,6 +19346,10 @@ Stability: Long-term
 Stability: Long-term
 """
 	ZipFile
+"""
+Stability: Short-term
+"""
+	LogScaleAssetResolutionService
 }
 
 scalar PackageName
@@ -17884,6 +19406,19 @@ Stability: Long-term
 }
 
 scalar PackageVersion
+
+type PackagesResult {
+"""
+Packages associated with the Entity Type(s) provided. Returns a maximum of 1000 distinct packages
+Stability: Preview
+"""
+	packages: [VersionedPackageSpecifier!]!
+"""
+The total number of distinct packages that exist
+Stability: Preview
+"""
+	totalCount: Int!
+}
 
 type PageType {
 """
@@ -17977,6 +19512,22 @@ Stability: Long-term
 }
 
 """
+An organization search result set
+"""
+type ParentOrganizationsResultSet {
+"""
+The total number of matching results
+Stability: Preview
+"""
+	totalResults: Int!
+"""
+The paginated result set
+Stability: Preview
+"""
+	results: [Organization!]!
+}
+
+"""
 A configured parser for incoming data.
 """
 type Parser {
@@ -18000,21 +19551,26 @@ The description of the parser.
 Stability: Long-term
 """
 	description: String
-	assetType: AssetType!
 """
 True if the parser is one of LogScale's built-in parsers.
 Stability: Long-term
 """
 	isBuiltIn: Boolean!
 """
+True if the parser is one of LogScale's built-in parsers, and it is overridden by a custom parser.
+Stability: Preview
+"""
+	isOverridden: Boolean!
+"""
+True if the parser is overrides one of LogScale's built-in parsers.
+Stability: Preview
+"""
+	overridesBuiltInParser: Boolean!
+"""
 The parser script that is executed for every incoming event.
 Stability: Long-term
 """
 	script: String!
-"""
-The source code of the parser.
-"""
-	sourceCode: String!
 """
 Stability: Long-term
 """
@@ -18025,10 +19581,6 @@ Stability: Long-term
 """
 	fieldsToTag: [String!]!
 """
-The fields to use as tags.
-"""
-	tagFields: [String!]!
-"""
 A list of fields that will be removed from the event before it's parsed. These fields will not be included when calculating usage.
 Stability: Long-term
 """
@@ -18038,10 +19590,6 @@ A template that can be used to recreate the parser.
 Stability: Long-term
 """
 	yamlTemplate: YAML!
-"""
-Saved test data (e.g. log lines) that you can use to test the parser.
-"""
-	testData: [String!]!
 """
 Test cases that can be used to help verify that the parser works as expected.
 Stability: Long-term
@@ -18055,6 +19603,31 @@ Stability: Long-term
 Stability: Long-term
 """
 	package: PackageInstallation
+"""
+The origin of a parser. Can either be "Built in", "Local" or a package.
+Stability: Preview
+"""
+	originDisplayString: String!
+"""
+Metadata related to the creation of the parser
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the parser
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+}
+
+"""
+A parser
+"""
+type ParserEntry {
+"""
+Stability: Preview
+"""
+	parser: Parser!
 }
 
 type ParserTemplate {
@@ -18161,7 +19734,7 @@ Stability: Long-term
 """
 	invitedByName: String!
 """
-The name of the organization the the pending user is about to join
+The name of the organization the pending user is about to join
 Stability: Long-term
 """
 	orgName: String!
@@ -18195,10 +19768,6 @@ Permissions on a view
 enum Permission {
 	ChangeUserAccess
 """
-Permission to administer alerts, scheduled searches and actions
-"""
-	ChangeTriggersAndActions
-"""
 Permission to administer alerts and scheduled searches
 """
 	ChangeTriggers
@@ -18228,6 +19797,7 @@ Permission to administer actions
 	UpdateSavedQueries
 	DeleteSavedQueries
 	ConnectView
+	ChangeArchivingSettings
 	ChangeDataDeletionPermissions
 	ChangeRetention
 	ChangeDefaultSearchSettings
@@ -18420,6 +19990,10 @@ Stability: Preview
 		searchKeys: [String!]!
 	): String!
 """
+Stability: Long-term
+"""
+	defaultFleetInstallationToken: FleetInstallationToken
+"""
 This returns the current value for the dynamic configuration.
 Stability: Short-term
 """
@@ -18431,6 +20005,26 @@ Returns all dynamic configurations. Requires root access.
 Stability: Short-term
 """
 	dynamicConfigs: [DynamicConfigKeyValueType!]!
+"""
+Labels associated with specified assets available to the requester. Returns a maximum limit of 1000 distinct labels
+Stability: Preview
+"""
+	entitiesLabels(
+"""
+input parameter for fetching labels
+"""
+		input: EntitiesLabelsInputType!
+	): LabelsResult!
+"""
+Packages associated with specified assets available to the requester
+Stability: Preview
+"""
+	entitiesPackages(
+"""
+Input parameter for fetching packages
+"""
+		input: EntitiesPackagesInputType!
+	): PackagesResult!
 """
 Get next and previous pages when querying assets across LogScale views and repositories. Requires the cursor from the entitiesSearch or entitiesPage response as well as a direction
 Stability: Preview
@@ -18666,6 +20260,7 @@ Stability: Short-term
 """
 	getLogCollectorDetails(
 		machineId: String!
+		isLive: Boolean
 	): LogCollectorDetails
 """
 Stability: Short-term
@@ -18677,6 +20272,11 @@ Stability: Short-term
 Stability: Short-term
 """
 	getLostCollectorDays: Int!
+"""
+Returns whether a transfer is on going for this organization
+Stability: Long-term
+"""
+	getStatusOrganizationForBucketTransfer: Boolean!
 """
 Used to get information on a specified group.
 Stability: Long-term
@@ -18693,7 +20293,7 @@ Stability: Long-term
 	): Group!
 """
 Search groups and users with permissions on the asset.
-Stability: Preview
+Stability: Short-term
 """
 	groupsAndUsersWithPermissionsOnAsset(
 """
@@ -18728,6 +20328,10 @@ The number of results to skip or the offset to use. For instance if implementing
 Choose the order in which the results are returned.
 """
 		orderBy: OrderBy
+"""
+If true the result will also include users and groups that currently doesn't have access to the asset
+"""
+		includeEmptyPermissionSet: Boolean!
 	): UserOrGroupAssetPermissionSearchResultSet!
 """
 All defined groups in an organization.
@@ -18846,6 +20450,11 @@ Stability: Short-term
 		url: String
 	): HumioMetadata!
 """
+Get the current state of the multi-mode migration
+Stability: Preview
+"""
+	multiModeMigrationState: String!
+"""
 Returns a list of organizations that has non-default bucket-storage configuration
 Stability: Short-term
 """
@@ -18861,6 +20470,20 @@ Get the current organization
 Stability: Long-term
 """
 	organization: Organization!
+"""
+Get linked parent organizations
+Stability: Preview
+"""
+	parentOrganizations(
+		search: String
+		skip: Int!
+		limit: Int!
+"""
+Choose the order in which the results are returned.
+"""
+		orderBy: OrderBy
+		sortBy: OrganizationsLinks__SortBy
+	): ParentOrganizationsResultSet!
 """
 Get a pending user.
 Stability: Long-term
@@ -19044,14 +20667,16 @@ Whether to return global results. Default=false. True requires system level acce
 		global: Boolean
 	): RunningQueries!
 """
+Returns whether AWS Role is required when configuring S3 Archiving.
+Stability: Short-term
+"""
+	s3ArchivingRequiresRole: Boolean!
+"""
 Stability: Long-term
 """
 	samlIdentityProvider(
 		id: String!
 	): SamlIdentityProvider!
-"""
-Stability: Long-term
-"""
 	savedQuery(
 		id: String!
 	): SavedQuery!
@@ -19066,6 +20691,36 @@ Stability: Long-term
 	searchDomain(
 		name: String!
 	): SearchDomain!
+"""
+Lists assets in the provided search domains.
+Stability: Preview
+"""
+	searchDomainAssets(
+"""
+The names of the search domains to search for assets in. If empty, includes assets from all search domains the requester has access to.
+"""
+		searchDomainNames: [String!]!
+"""
+The types of assets to include. If empty, all asset types are included.
+"""
+		assetTypes: [AssetPermissionsAssetType!]
+"""
+Filter results based on this string
+"""
+		searchFilter: String
+"""
+The amount of results to return.
+"""
+		limit: Int
+"""
+The number of results to skip or the offset to use. For instance if implementing pagination, set skip = limit * (page - 1)
+"""
+		skip: Int
+"""
+Choose the order in which the results are returned.
+"""
+		orderBy: OrderBy
+	): SearchDomainAssetsResultSet!
 """
 Stability: Long-term
 """
@@ -19088,6 +20743,8 @@ Stability: Short-term
 """
 	searchFleet(
 		isLiveFilter: Boolean
+		versionFilter: SearchFleetVersionFilter
+		osFilter: SearchFleetOsFilter
 		groupIdsFilter: [String!]
 		changeFilter: Changes
 		groupFilter: GroupFilter
@@ -19204,6 +20861,16 @@ The amount of results to return.
 """
 		limit: Int
 	): OrganizationSearchResultSet!
+"""
+Fetch information about a specific segment. This query is not a quick lookup and should be used only for troubleshooting or to help with data recovery. It requires ManageCluster permission
+Stability: Preview
+"""
+	segment(
+"""
+Id of the segment for which information must be retrieved.
+"""
+		id: String!
+	): Segment
 """
 Check the status for a specific typed service.
 Stability: Preview
@@ -19388,6 +21055,14 @@ Get the list of keys being used to select queries for tracing on workers.
 Stability: Preview
 """
 	workerQueryTracingState: WorkerQueryTracingState!
+}
+
+type QueryAnalysisResult {
+"""
+If correlate is used, this will hold usage information.
+Stability: Preview
+"""
+	correlateUsageInfo: CorrelateUsageInfo
 }
 
 """
@@ -19733,6 +21408,20 @@ Stability: Short-term
 }
 
 """
+A time interval which includes both start and end. Please see public documentation for the time point syntax.
+"""
+input QueryTimeInterval {
+"""
+A time interval which includes both start and end. Please see public documentation for the time point syntax.
+"""
+	start: String
+"""
+A time interval which includes both start and end. Please see public documentation for the time point syntax.
+"""
+	end: String
+}
+
+"""
 Timestamp type to use for a query.
 """
 enum QueryTimestampType {
@@ -19883,7 +21572,6 @@ Stability: Short-term
 	remoteServerVersion: String
 """
 Oldest server version that is protocol compatible with the remote server
-Stability: Short-term
 """
 	remoteServerCompatVersion: String
 """
@@ -20027,6 +21715,21 @@ Stability: Long-term
 """
 	s3ArchivingConfiguration: S3Configuration
 """
+Configuration for GCS archiving. E.g. bucket name.
+Stability: Preview
+"""
+	gcsArchivingConfiguration: GCSArchivingConfiguration
+"""
+Configuration for archiving. E.g. bucket name and region.
+Stability: Preview
+"""
+	archivingConfiguration: ArchivingConfiguration
+"""
+Provider for archiving, i.e. S3 or GCS
+Stability: Preview
+"""
+	archivingProvider: String
+"""
 The cache policy set on this repo.
 Stability: Preview
 """
@@ -20054,6 +21757,11 @@ The AWS External ID used when assuming roles in AWS on behalf of this repository
 Stability: Long-term
 """
 	awsExternalId: String!
+"""
+The ARN of the AWS IAM identity that will write to S3 for S3 Archiving.
+Stability: Short-term
+"""
+	s3ArchivingArn: String
 """
 The event forwarding rules configured for the repository
 Stability: Long-term
@@ -20095,6 +21803,30 @@ Stability: Long-term
 """
 	fdrFeedControls: [FdrFeedControl!]!
 """
+A saved secret handle.
+Stability: Preview
+"""
+	secretHandle(
+"""
+The id of the secret handle to get.
+"""
+		id: String!
+	): SecretHandle!
+"""
+Saved secret handles.
+Stability: Preview
+"""
+	secretHandles(
+"""
+The number of results to skip or the offset to use. For instance if implementing pagination, set skip = limit * (page - 1)
+"""
+		skip: Int
+"""
+The amount of results to return.
+"""
+		limit: Int
+	): secretHandleQueryResultSet!
+"""
 A saved Ingest feed.
 Stability: Long-term
 """
@@ -20135,14 +21867,11 @@ The amount of results to return.
 		limit: Int
 	): IngestFeedQueryResultSet!
 """
-A parser on the repository.
+A parser on the repository. Supply either 'id' or 'name'.
 Stability: Long-term
 """
 	parser(
 		id: String
-"""
-[DEPRECATED: Please use `id` instead. Will be removed in version 1.178]
-"""
 		name: String
 	): Parser
 """
@@ -20254,7 +21983,7 @@ The amount of results to return.
 	): UsersAndGroupsSearchResultSet!
 """
 Search users with a given permission
-Stability: Preview
+Stability: Short-term
 """
 	usersV2(
 """
@@ -20316,6 +22045,11 @@ All tags from all datasources.
 Stability: Long-term
 """
 	tags: [String!]!
+"""
+The resource identifier for this search domain.
+Stability: Short-term
+"""
+	resource: String!
 """
 All interactions defined on the view.
 Stability: Long-term
@@ -20823,7 +22557,7 @@ Stability: Long-term
 }
 
 """
-The format to store archived segments in on AWS S3.
+The format to store archived segments in AWS S3.
 """
 enum S3ArchivingFormat {
 	RAW
@@ -20833,7 +22567,7 @@ enum S3ArchivingFormat {
 """
 Configuration for S3 archiving. E.g. bucket name and region.
 """
-type S3Configuration {
+type S3Configuration implements ArchivingConfiguration{
 """
 S3 bucket name for storing archived data. Example: acme-bucket.
 Stability: Short-term
@@ -20864,6 +22598,11 @@ Array of names of tag fields to use in that order in the output file names.
 Stability: Short-term
 """
 	tagOrderInName: [String!]!
+"""
+The ARN of the AWS Role that is assumed when writing to S3.
+Stability: Short-term
+"""
+	roleArn: String
 }
 
 """
@@ -20980,7 +22719,10 @@ Stability: Long-term
 Stability: Long-term
 """
 	description: String
-	assetType: AssetType!
+"""
+Stability: Long-term
+"""
+	labels: [String!]!
 """
 Stability: Long-term
 """
@@ -21011,9 +22753,34 @@ Stability: Long-term
 	interactions: [QueryBasedWidgetInteraction!]!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this saved query.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the dashboard
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the saved query
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
+}
+
+"""
+A saved query
+"""
+type SavedQueryEntry {
+"""
+Stability: Preview
+"""
+	savedQuery: SavedQuery!
 }
 
 type SavedQueryTemplate {
@@ -21174,9 +22941,14 @@ Stability: Long-term
 	layout: ScheduledReportLayout!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this scheduled report.
+Stability: Short-term
+"""
+	resource: String!
 }
 
 """
@@ -21261,14 +23033,27 @@ Stability: Long-term
 	queryString: String!
 """
 Start of the relative time interval for the query.
-Stability: Long-term
 """
 	start: String!
 """
 End of the relative time interval for the query.
-Stability: Long-term
 """
 	end: String!
+"""
+Search interval in seconds.
+Stability: Long-term
+"""
+	searchIntervalSeconds: Long!
+"""
+Offset of the search interval in seconds. Only present when 'queryTimestampType' is EventTimestamp.
+Stability: Long-term
+"""
+	searchIntervalOffsetSeconds: Long
+"""
+Maximum number of seconds to wait for ingest delay. Only present when 'queryTimestampType' is IngestTimestamp.
+Stability: Long-term
+"""
+	maxWaitTimeSeconds: Long
 """
 Time zone of the schedule. Currently this field only supports UTC offsets like 'UTC', 'UTC-01' or 'UTC+12:45'.
 Stability: Long-term
@@ -21280,15 +23065,29 @@ Stability: Long-term
 """
 	schedule: String!
 """
-User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown.
-Stability: Long-term
+User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. If the 'queryTimestampType' is IngestTimestamp this field is not used, but due to backwards compatibility a value of 0 is returned.
 """
 	backfillLimit: Int!
+"""
+User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. Only present when 'queryTimestampType' is EventTimestamp.
+Stability: Long-term
+"""
+	backfillLimitV2: Int
+"""
+Timestamp type to use for the query.
+Stability: Long-term
+"""
+	queryTimestampType: QueryTimestampType!
 """
 Flag indicating whether the scheduled search is enabled.
 Stability: Long-term
 """
 	enabled: Boolean!
+"""
+Flag indicating whether the scheduled search should trigger when it finds en empty result (no events).
+Stability: Long-term
+"""
+	triggerOnEmptyResult: Boolean!
 """
 List of Ids for actions to fire on query result.
 Stability: Long-term
@@ -21304,10 +23103,6 @@ Id of user which the scheduled search is running as.
 Stability: Long-term
 """
 	runAsUser: User
-"""
-Unix timestamp for when last query execution finished.
-"""
-	lastScheduledSearch: Long
 """
 Unix timestamp for end of search interval for last query execution.
 Stability: Long-term
@@ -21367,9 +23162,19 @@ Stability: Long-term
 	queryOwnership: QueryOwnership!
 """
 Allowed asset actions
-Stability: Preview
+Stability: Short-term
 """
 	allowedActions: [AssetAction!]!
+"""
+The resource identifier for this scheduled search.
+Stability: Short-term
+"""
+	resource: String!
+"""
+Metadata related to the creation of the scheduled search
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
 }
 
 type ScheduledSearchTemplate {
@@ -21408,29 +23213,34 @@ An asset permissions search result entry
 type SearchAssetPermissionsResultEntry {
 """
 The unique id for the Asset
-Stability: Preview
+Stability: Short-term
 """
 	assetId: String!
 """
 The name of the Asset
-Stability: Preview
+Stability: Short-term
 """
 	assetName: String!
 """
 The type of the Asset
-Stability: Preview
+Stability: Short-term
 """
 	assetType: AssetPermissionsAssetType!
 """
 The search domain that the asset belongs to
-Stability: Preview
+Stability: Short-term
 """
 	searchDomain: SearchDomain
 """
 The asset actions allowed for this asset
-Stability: Preview
+Stability: Short-term
 """
 	permissions: [AssetAction!]!
+"""
+The resource string representation of this asset. Can be used for assigning asset permissions for this asset
+Stability: Short-term
+"""
+	resource: String!
 }
 
 """
@@ -21557,6 +23367,10 @@ Common interface for Repositories and Views.
 """
 Common interface for Repositories and Views.
 """
+	resource: String!
+"""
+Common interface for Repositories and Views.
+"""
 	interactions: [ViewInteraction!]!
 """
 Common interface for Repositories and Views.
@@ -21662,6 +23476,58 @@ Common interface for Repositories and Views.
 }
 
 """
+An asset in a search domain.
+"""
+type SearchDomainAsset {
+"""
+The id of the asset.
+Stability: Short-term
+"""
+	id: String!
+"""
+The name of the asset.
+Stability: Short-term
+"""
+	name: String!
+"""
+The type of the asset.
+Stability: Short-term
+"""
+	assetType: AssetPermissionsAssetType!
+"""
+The id of the search domain.
+Stability: Short-term
+"""
+	searchDomainId: String!
+"""
+The name of the search domain.
+Stability: Short-term
+"""
+	searchDomainName: String!
+"""
+The resource string representation of this asset. Can be used for assigning asset permissions for this asset
+Stability: Short-term
+"""
+	resource: String!
+}
+
+"""
+A result set containing information about search domain assets.
+"""
+type SearchDomainAssetsResultSet {
+"""
+The total number of matching results.
+Stability: Short-term
+"""
+	totalResults: Int!
+"""
+The paginated result set.
+Stability: Short-term
+"""
+	results: [SearchDomainAsset!]!
+}
+
+"""
 A page of searchDomains.
 """
 type SearchDomainPage {
@@ -21712,6 +23578,32 @@ enum SearchDomainTypes {
 }
 
 """
+Aggregations for search fleet result set
+"""
+type SearchFleetAggregations {
+"""
+Stability: Short-term
+"""
+	status: SearchFleetStatus!
+"""
+Stability: Short-term
+"""
+	versions: [SearchFleetVersions!]!
+"""
+Stability: Short-term
+"""
+	allVersions: [String!]!
+"""
+Stability: Short-term
+"""
+	os: SearchFleetSystems!
+"""
+Stability: Short-term
+"""
+	ingest: SearchFleetIngest!
+}
+
+"""
 The fleet search has not finished yet
 """
 type SearchFleetInProgress {
@@ -21729,10 +23621,25 @@ Stability: Short-term
 """
 	totalResults: Int!
 """
+Aggregations of the result set
+Stability: Short-term
+"""
+	aggregations: SearchFleetAggregations
+"""
 The paginated result set
 Stability: Short-term
 """
 	results: [LogCollector!]!
+}
+
+"""
+Ingest aggregation for search fleet result set
+"""
+type SearchFleetIngest {
+"""
+Stability: Short-term
+"""
+	volume: Long!
 }
 
 """
@@ -21749,6 +23656,13 @@ The paginated result set
 Stability: Short-term
 """
 	results: [FleetInstallationToken!]!
+}
+
+enum SearchFleetOsFilter {
+	Unknown
+	MacOS
+	Linux
+	Windows
 }
 
 """
@@ -21769,15 +23683,52 @@ Stability: Short-term
 """
 	totalResults: Int!
 """
+Aggregations of the result set
+Stability: Short-term
+"""
+	aggregations: SearchFleetAggregations
+"""
 The paginated result set
 Stability: Short-term
 """
 	results: [LogCollector!]!
 }
 
+"""
+Status aggregation for search fleet result set
+"""
+type SearchFleetStatus {
+"""
+Stability: Short-term
+"""
+	errored: Int!
+"""
+Stability: Short-term
+"""
+	ok: Int!
+}
+
 enum SearchFleetStatusFilter {
 	Error
 	OK
+}
+
+"""
+Systems aggregation for search fleet result set
+"""
+type SearchFleetSystems {
+"""
+Stability: Short-term
+"""
+	windows: Int!
+"""
+Stability: Short-term
+"""
+	macOs: Int!
+"""
+Stability: Short-term
+"""
+	linux: Int!
 }
 
 """
@@ -21789,6 +23740,25 @@ union SearchFleetTotalResultInfo =OnlyTotal | GroupFilterInfo
 Query result for search fleet
 """
 union SearchFleetUnion =SearchFleetResultSet | SearchFleetInProgress
+
+input SearchFleetVersionFilter {
+	version: String
+	needsUpdate: Boolean
+}
+
+"""
+Version aggregation for search fleet result set
+"""
+type SearchFleetVersions {
+"""
+Stability: Short-term
+"""
+	version: String!
+"""
+Stability: Short-term
+"""
+	count: Int!
+}
 
 type SearchLinkInteraction {
 """
@@ -21877,6 +23847,52 @@ enum Searchdomain__SortBy {
 }
 
 """
+A handle for a secret
+"""
+type SecretHandle {
+"""
+Id of the secret handle.
+Stability: Preview
+"""
+	id: String!
+"""
+Name of the secret handle.
+Stability: Preview
+"""
+	name: String!
+"""
+Description of the secret handle.
+Stability: Preview
+"""
+	description: String!
+"""
+Name of the feature associated with this secret.
+Stability: Preview
+"""
+	featureName: String!
+"""
+Pointer to the secret in an external secret management system.
+Stability: Preview
+"""
+	secretPointer: SecretPointer!
+"""
+Timestamp, in milliseconds, of when the secret handle was created.
+Stability: Preview
+"""
+	createdAt: Long!
+"""
+Timestamp, in milliseconds, of when the secret handle was last updated.
+Stability: Preview
+"""
+	lastUpdatedAt: Long
+}
+
+"""
+Pointer to the secret in an external secret management system.
+"""
+union SecretPointer =AwsSecretsManagerSecret
+
+"""
 A dashboard section.
 """
 type Section {
@@ -21908,6 +23924,48 @@ Stability: Long-term
 Stability: Long-term
 """
 	order: Int!
+}
+
+"""
+Segment details
+"""
+type Segment {
+"""
+Stability: Preview
+"""
+	id: String!
+"""
+The timestamp of the first event contained in the segment.
+Stability: Preview
+"""
+	start: Long!
+"""
+The timestamp of the last event contained in the segment.
+Stability: Preview
+"""
+	end: Long!
+"""
+Information about the cluster's hosts that have this segment in local storage. Note this field is not necessarily populated (see e.g. NoCurrentsForBucketSegments for cluster withephemeral storage), in such case the segment can still be found in bucket.
+Stability: Preview
+"""
+	currentHosts: [ClusterNode!]!
+"""
+The time when this segment was marked deleted. Segments are actually deleted after at least MINUTES_BEFORE_TOMBSTONE_DELETION_NO_CURRENTS minutes.
+Stability: Preview
+"""
+	deletedAt: Long
+"""
+Stability: Preview
+"""
+	organization: Organization!
+"""
+Stability: Preview
+"""
+	repository: Repository!
+"""
+Stability: Preview
+"""
+	datasource: Datasource!
 }
 
 scalar SemanticVersion
@@ -22091,6 +24149,11 @@ Stability: Long-term
 Stability: Long-term
 """
 	series: [SeriesConfig!]!
+"""
+The resource identifier for this dashboard.
+Stability: Short-term
+"""
+	resource: String!
 }
 
 """
@@ -22751,12 +24814,10 @@ Stability: Long-term
 	queryString: String!
 """
 Start of the relative time interval for the query.
-Stability: Long-term
 """
 	start: String!
 """
 End of the relative time interval for the query.
-Stability: Long-term
 """
 	end: String!
 """
@@ -22770,10 +24831,34 @@ Stability: Long-term
 """
 	timeZone: String!
 """
-User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown.
-Stability: Long-term
+User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. If the 'queryTimestampType' is IngestTimestamp this field is not used, but due to backwards compatibility a value of 0 is returned.
 """
 	backfillLimit: Int!
+"""
+User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. Only present when 'queryTimestampType' is EventTimestamp.
+Stability: Long-term
+"""
+	backfillLimitV2: Int
+"""
+Search interval in seconds.
+Stability: Long-term
+"""
+	searchIntervalSeconds: Long!
+"""
+Offset of the search interval in seconds. Only present when 'queryTimestampType' is EventTimestamp.
+Stability: Long-term
+"""
+	searchIntervalOffsetSeconds: Long
+"""
+Maximum number of seconds to wait for ingest delay. Only present when 'queryTimestampType' is IngestTimestamp.
+Stability: Long-term
+"""
+	maxWaitTimeSeconds: Long
+"""
+Timestamp type to use for the query.
+Stability: Long-term
+"""
+	queryTimestampType: QueryTimestampType!
 """
 List of Ids for actions to fire on query result.
 Stability: Long-term
@@ -22789,6 +24874,11 @@ Flag indicating whether the scheduled search is enabled.
 Stability: Long-term
 """
 	enabled: Boolean!
+"""
+Flag indicating whether the scheduled search should trigger when it finds en empty result (no events).
+Stability: Long-term
+"""
+	triggerOnEmptyResult: Boolean!
 }
 
 scalar UnversionedPackageSpecifier
@@ -22836,6 +24926,11 @@ Stability: Long-term
 Stability: Long-term
 """
 	filterString: String
+"""
+The resource identifier for this file.
+Stability: Short-term
+"""
+	resource: String!
 }
 
 scalar UrlOrData
@@ -23053,7 +25148,7 @@ Stability: Long-term
 	): [SearchDomainRole!]!
 """
 Get allowed asset actions for the user on a specific asset and explain how these actions have been granted
-Stability: Preview
+Stability: Short-term
 """
 	allowedAssetActionsBySource(
 """
@@ -23071,7 +25166,7 @@ Search domain id
 	): [AssetActionsBySource!]!
 """
 Search for asset permissions for the user. Only search for asset name is supported with regards to the ${SearchFilterArg.name} argument.
-Stability: Preview
+Stability: Short-term
 """
 	searchAssetPermissions(
 """
@@ -23109,7 +25204,7 @@ Include Read, Update and/or Delete permission assignments. The filter will accep
 	): AssetPermissionSearchResultSet!
 """
 The roles assigned to the user through a group.
-Stability: Preview
+Stability: Short-term
 """
 	rolesV2(
 		search: String
@@ -23126,7 +25221,7 @@ The number of results to skip or the offset to use. For instance if implementing
 	): RolesResultSetType!
 """
 The groups the user is a member of.
-Stability: Preview
+Stability: Short-term
 """
 	groupsV2(
 		search: String
@@ -23202,12 +25297,12 @@ An asset permission search result set
 type UserOrGroupAssetPermissionSearchResultSet {
 """
 The total number of matching results
-Stability: Preview
+Stability: Short-term
 """
 	totalResults: Int!
 """
 The paginated result set
-Stability: Preview
+Stability: Short-term
 """
 	results: [UserOrGroupTypeAndPermissions!]!
 }
@@ -23241,16 +25336,16 @@ User or groups and its asset permissions
 """
 type UserOrGroupTypeAndPermissions {
 """
-Stability: Preview
+Stability: Short-term
 """
 	userOrGroup: UserOrGroup!
 """
-Stability: Preview
+Stability: Short-term
 """
 	assetPermissions: [AssetAction!]!
 """
 The type of the Asset
-Stability: Preview
+Stability: Short-term
 """
 	assetType: AssetPermissionsAssetType!
 }
@@ -23567,7 +25662,7 @@ The amount of results to return.
 	): UsersAndGroupsSearchResultSet!
 """
 Search users with a given permission
-Stability: Preview
+Stability: Short-term
 """
 	usersV2(
 """
@@ -23629,6 +25724,11 @@ All tags from all datasources.
 Stability: Long-term
 """
 	tags: [String!]!
+"""
+The resource identifier for this search domain.
+Stability: Short-term
+"""
+	resource: String!
 """
 All interactions defined on the view.
 Stability: Long-term
@@ -23790,10 +25890,6 @@ enum ViewAction {
 	ChangeConnections
 	ChangeUserAccess
 """
-Denotes if you can administer alerts, scheduled searches and actions
-"""
-	ChangeTriggersAndActions
-"""
 Denotes if you can administer alerts and scheduled searches
 """
 	ChangeTriggers
@@ -23827,6 +25923,7 @@ Denotes if you can administer actions
 	ChangeSizeBasedRetention
 	ChangeDefaultSearchSettings
 	ChangeS3ArchivingSettings
+	ChangeArchivingSettings
 	DeleteDataSources
 	DeleteRepositoryOrView
 	DeleteEvents
@@ -23851,6 +25948,7 @@ Denotes if you can administer event forwarding rules
 	CreateScheduledReports
 	GenerateParsers
 	SaveSearchResultAsWidget
+	TestActions
 }
 
 """
@@ -23893,7 +25991,6 @@ Stability: Long-term
 Stability: Long-term
 """
 	description: String
-	assetType: AssetType!
 """
 Stability: Long-term
 """
@@ -23902,6 +25999,16 @@ Stability: Long-term
 Stability: Long-term
 """
 	package: PackageInstallation
+"""
+Metadata related to the creation of the interaction
+Stability: Preview
+"""
+	createdInfo: AssetCommitMetadata
+"""
+Metadata related to the latest modification of the interaction
+Stability: Preview
+"""
+	modifiedInfo: AssetCommitMetadata
 }
 
 """
@@ -23928,6 +26035,10 @@ Stability: Preview
 Stability: Preview
 """
 	package: PackageInstallation
+"""
+Stability: Preview
+"""
+	viewInteraction: ViewInteraction!
 }
 
 type ViewInteractionTemplate {
@@ -24103,6 +26214,22 @@ Stability: Preview
 }
 
 """
+The secret handle query result set
+"""
+type secretHandleQueryResultSet {
+"""
+The total number of matching results
+Stability: Preview
+"""
+	totalResults: Int!
+"""
+The paginated result set
+Stability: Preview
+"""
+	results: [SecretHandle!]!
+}
+
+"""
 The `BigDecimal` scalar type represents signed fractional values with arbitrary precision.
 """
 scalar BigDecimal
@@ -24138,4 +26265,4 @@ The `String` scalar type represents textual data, represented as UTF-8 character
 scalar String
 
 
-# Fetched from version 1.174.0--build-2671--sha-3192c4edcd3366280c35d1067fde7bb7c7b30126
+# Fetched from version 1.204.0--build-4049--sha-a22d24dd0b758435b61dcabe5da368b774122570
