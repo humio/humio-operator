@@ -13,11 +13,9 @@ usage() {
     cat << EOF
 Usage: $0 [OPTIONS] [VERSION]
 
-Create release branches and PRs for Humio Operator releases.
+Create release branch for Humio Operator releases.
 
-This script creates two separate release branches with the SAME version:
-1. Operator container image release (updates VERSION file)
-2. Helm chart release (updates Chart.yaml)
+This script creates a release branch.
 
 VERSION DETECTION:
     If no VERSION is specified, the script automatically increments:
@@ -30,6 +28,7 @@ OPTIONS:
     -r, --remote NAME   Git remote name (default: origin)
     --minor             Force minor version bump (x.y+1.0)
     --patch             Force patch version bump (x.y.z+1)
+    --prerelease        Force prerelease version bump (x.y.z-pre.p+1)
 
 ARGUMENTS:
     VERSION             Explicit release version (e.g., 1.2.3) - overrides auto-detection
@@ -38,6 +37,7 @@ EXAMPLES:
     $0                          # Auto-detect next version
     $0 --dry-run                # Show what would be done
     $0 --minor                  # Force minor version bump
+    $0 --prerelease             # Force prerelease version bump
     $0 1.2.3                    # Use explicit version 1.2.3
 
 EOF
@@ -53,9 +53,28 @@ get_current_version() {
     fi
 }
 
+bump_prerelease_version() {
+    local current="$1"
+    local version_regex="^([0-9]+)\.([0-9]+)\.([0-9]+)(-pre.([0-9]+))?$"
+    if [[ ! "$current" =~ $version_regex ]]; then
+        echo "Cannot parse current version: $current"
+        exit 1
+    fi
+    
+    local major="${BASH_REMATCH[1]}"
+    local minor="${BASH_REMATCH[2]}"
+    local patch="${BASH_REMATCH[3]}"
+    local prerelease="${BASH_REMATCH[5]}"
+    if [[ $((prerelease + 1)) == 1 ]]; then # first prerelease
+        minor=$((minor+1)) # bump the minor
+        patch=0 # reset patch
+    fi
+    echo "$major.$minor.$patch-pre.$((prerelease + 1))"
+}
+
 bump_patch_version() {
     local current="$1"
-    local version_regex="^([0-9]+)\.([0-9]+)\.([0-9]+)$"
+    local version_regex="^([0-9]+)\.([0-9]+)\.([0-9]+)(-pre.([0-9]+))?$"
     if [[ ! "$current" =~ $version_regex ]]; then
         echo "Cannot parse current version: $current"
         exit 1
@@ -70,7 +89,7 @@ bump_patch_version() {
 
 bump_minor_version() {
     local current="$1"
-    local version_regex="^([0-9]+)\.([0-9]+)\.([0-9]+)$"
+    local version_regex="^([0-9]+)\.([0-9]+)\.([0-9]+)(-pre.([0-9]+))?$"
     if [[ ! "$current" =~ $version_regex ]]; then
         echo "Cannot parse current version: $current"
         exit 1
@@ -108,7 +127,7 @@ check_crd_changes() {
 
 validate_version() {
     local version="$1"
-    if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-pre.([0-9]+))?$ ]]; then
         echo "Invalid version format: $version. Expected format: x.y.z (e.g., 1.2.3)"
         exit 1
     fi
@@ -132,23 +151,10 @@ check_git_remote() {
     fi
 }
 
-ensure_master_updated() {
-    local remote="$1"
-    
-    echo "Ensuring we're on master branch and up to date..."
-    
-    if [[ "$dry_run" == "true" ]]; then
-        echo "[DRY RUN] Would checkout master and pull from $remote"
-        return
-    fi
-    
-    git checkout master
-    git pull "$remote" master
-}
-
 checkout_or_create_branch() {
     local branch_name="$1"
     local remote="$2"
+    local current_branch="$3"
     
     if git show-ref --verify --quiet refs/heads/"$branch_name"; then
         echo "Branch $branch_name already exists, switching to it and updating"
@@ -157,11 +163,11 @@ checkout_or_create_branch() {
         if git show-ref --verify --quiet refs/remotes/"$remote"/"$branch_name"; then
             git pull "$remote" "$branch_name"
         fi
-        # Rebase on master to get latest changes
-        git rebase master
+        # Rebase to get latest changes
+        git rebase "$current_branch"
     else
-        echo "Creating new branch $branch_name from master"
-        git checkout -b "$branch_name"
+        echo "Creating new branch $branch_name from current"
+        git checkout -b "$branch_name" HEAD
     fi
 }
 
@@ -169,6 +175,8 @@ create_operator_release_branch() {
     local version="$1"
     local remote="$2"
     local branch_name="release-operator-$version"
+    local chart_file="$project_root/charts/humio-operator/Chart.yaml"
+    local current_branch=$(git branch --show-current)
     
     echo "Creating operator release branch: $branch_name"
     
@@ -181,19 +189,25 @@ create_operator_release_branch() {
     fi
     
     # Handle branch creation/checkout
-    checkout_or_create_branch "$branch_name" "$remote"
+    checkout_or_create_branch "$branch_name" "$remote" "$current_branch"
     
     # Update VERSION file
     echo "$version" > "$project_root/VERSION"
     echo "Updated VERSION file to: $version"
     
+    # Update Chart.yaml
+    sed -i.bak "s/^version: .*/version: $version/" "$chart_file"
+    sed -i.bak "s/^appVersion: .*/appVersion: $version/" "$chart_file"
+    rm "$chart_file.bak"
+    echo "Updated Chart.yaml version and appVersion to: $version"
+
     # Run manifests generation
     cd "$project_root"
     make manifests
     echo "Generated manifests"
     
     # Stage and commit changes (only if there are changes)
-    git add VERSION config/crd/bases/ charts/humio-operator/crds/
+    git add VERSION charts/humio-operator/Chart.yaml config/crd/bases/ charts/humio-operator/crds/
     if ! git diff --staged --quiet; then
         git commit -m "Bump operator version to $version"
         echo "Committed changes for operator version $version"
@@ -205,57 +219,8 @@ create_operator_release_branch() {
     git push "$remote" "$branch_name"
     echo "Pushed branch $branch_name to $remote"
     
-    # Return to master
-    git checkout master
-}
-
-create_chart_release_branch() {
-    local version="$1"
-    local remote="$2"
-    local branch_name="release-chart-$version"
-    local chart_file="$project_root/charts/humio-operator/Chart.yaml"
-    
-    echo "Creating Helm chart release branch: $branch_name"
-    
-    if [[ "$dry_run" == "true" ]]; then
-        echo "[DRY RUN] Would create or update branch $branch_name"
-        echo "[DRY RUN] Would update Chart.yaml version to: $version"
-        echo "[DRY RUN] Would update Chart.yaml appVersion to: $version"
-        echo "[DRY RUN] Would run: make manifests"
-        echo "[DRY RUN] Would commit and push changes"
-        return
-    fi
-    
-    # Handle branch creation/checkout
-    checkout_or_create_branch "$branch_name" "$remote"
-    
-    # Update Chart.yaml
-    sed -i.bak "s/^version: .*/version: $version/" "$chart_file"
-    sed -i.bak "s/^appVersion: .*/appVersion: $version/" "$chart_file"
-    rm "$chart_file.bak"
-    
-    echo "Updated Chart.yaml version and appVersion to: $version"
-    
-    # Run manifests generation
-    cd "$project_root"
-    make manifests
-    echo "Generated manifests"
-    
-    # Stage and commit changes (only if there are changes)
-    git add charts/humio-operator/Chart.yaml charts/humio-operator/crds/
-    if ! git diff --staged --quiet; then
-        git commit -m "Bump Helm chart version to $version"
-        echo "Committed changes for Helm chart version $version"
-    else
-        echo "No changes to commit for Helm chart version $version"
-    fi
-    
-    # Push branch
-    git push "$remote" "$branch_name"
-    echo "Pushed branch $branch_name to $remote"
-    
-    # Return to master
-    git checkout master
+    # Return to current branch
+    git checkout "$current_branch"
 }
 
 display_next_steps() {
@@ -298,21 +263,11 @@ display_next_steps() {
         # Construct Bitbucket pull request creation URLs
         if [[ "$web_url" =~ bitbucket ]]; then
             local operator_pr_url="$web_url/pull-requests?create&sourceBranch=refs%2Fheads%2Frelease-operator-$version"
-            local chart_pr_url="$web_url/pull-requests?create&sourceBranch=refs%2Fheads%2Frelease-chart-$version"
             
             operator_branch_info="Branch: release-operator-$version
    Create PR: $operator_pr_url"
-            chart_branch_info="Branch: release-chart-$version
-   Create PR: $chart_pr_url"
-        elif [[ "$web_url" =~ github ]]; then
-            operator_branch_info="Branch: release-operator-$version
-   Create PR: $web_url/compare/release-operator-$version"
-            chart_branch_info="Branch: release-chart-$version
-   Create PR: $web_url/compare/release-chart-$version"
         else
             operator_branch_info="Branch: release-operator-$version
-   URL: $web_url (check for branch links)"
-            chart_branch_info="Branch: release-chart-$version
    URL: $web_url (check for branch links)"
         fi
     fi
@@ -331,17 +286,11 @@ Next Steps:
    $operator_branch_info
    Target: master
    Title: "Bump operator version to $version"
-   
-2. Create PR for Helm Chart Release:
-   $chart_branch_info
-   Target: master
-   Title: "Bump Helm chart version to $version"
 
 Repository URL: $web_url
 
 After merging:
-- Operator PR merge will trigger container image build and GitHub release
-- Chart PR merge will trigger Helm chart release
+- Operator PR merge will trigger container image / helm chart build and deploy in ECR
 - Consider updating documentation in docs2 repository
 
 EOF
@@ -352,6 +301,7 @@ main() {
     local version=""
     local force_minor=false
     local force_patch=false
+    local force_prerelease=false
     
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
@@ -374,6 +324,10 @@ main() {
                 ;;
             --patch)
                 force_patch=true
+                shift
+                ;;
+            --prerelease)
+                force_prerelease=true
                 shift
                 ;;
             -*)
@@ -416,6 +370,9 @@ main() {
         elif [[ "$force_patch" == "true" ]]; then
             version=$(bump_patch_version "$current_version")
             echo "Using forced patch bump: $version"
+        elif [[ "$force_prerelease" == "true" ]]; then
+            version=$(bump_prerelease_version "$current_version")
+            echo "Using forced prerelease bump: $version"
         elif check_crd_changes; then
             version=$(bump_minor_version "$current_version")
             echo "CRD changes detected, using minor bump: $version"
@@ -435,12 +392,8 @@ main() {
         echo "DRY RUN MODE - No changes will be made"
     fi
     
-    # Ensure we're on updated master
-    ensure_master_updated "$remote_name"
-    
     # Create release branches
     create_operator_release_branch "$version" "$remote_name"
-    create_chart_release_branch "$version" "$remote_name"
     
     # Display next steps
     display_next_steps "$version"

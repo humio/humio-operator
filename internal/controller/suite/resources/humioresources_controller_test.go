@@ -248,6 +248,69 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
+		It("should handle ingest token without parser correctly", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioingesttoken-without-parser",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateIngestToken := &humiov1alpha1.HumioIngestToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioIngestTokenSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					RepositoryName:     testRepo.Spec.Name,
+				},
+			}
+
+			var humioIngestToken *humiographql.IngestTokenDetails
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating the ingest token without parser successfully")
+			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Checking we do not have a parser assigned")
+			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedIngestToken)
+				return fetchedIngestToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+			Expect(fetchedIngestToken.Spec.ParserName).Should(BeNil())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Updating parser update the k8s/LS resource")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, fetchedIngestToken); err != nil {
+					return err
+				}
+				fetchedIngestToken.Spec.ParserName = helpers.StringPtr("accesslog")
+				return k8sClient.Update(ctx, fetchedIngestToken)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedIngestToken)
+				if fetchedIngestToken.Spec.ParserName != nil {
+					return *fetchedIngestToken.Spec.ParserName
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal("accesslog"))
+
+			Eventually(func() *humiographql.IngestTokenDetailsParser {
+				humioIngestToken, err = humioClient.GetIngestToken(ctx, humioHttpClient, fetchedIngestToken)
+				return humioIngestToken.Parser
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(&humiographql.IngestTokenDetailsParser{Name: "accesslog"}))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedIngestToken)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedIngestToken)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
 		It("Creating ingest token pointing to non-existent managed cluster", func() {
 			ctx := context.Background()
 			keyErr := types.NamespacedName{

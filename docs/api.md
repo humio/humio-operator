@@ -37120,13 +37120,6 @@ HumioIngestTokenSpec defines the desired state of HumioIngestToken.
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b>parserName</b></td>
-        <td>string</td>
-        <td>
-          ParserName is the name of the parser which will be assigned to the ingest token.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
         <td><b>repositoryName</b></td>
         <td>string</td>
         <td>
@@ -37148,6 +37141,13 @@ This conflicts with ManagedClusterName.<br/>
           ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 resources should be created.
 This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>parserName</b></td>
+        <td>string</td>
+        <td>
+          ParserName is the name of the parser which will be assigned to the ingest token.<br/>
         </td>
         <td>false</td>
       </tr><tr>

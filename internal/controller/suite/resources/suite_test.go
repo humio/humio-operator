@@ -185,7 +185,7 @@ var _ = SynchronizedBeforeSuite(func() {
 	}
 
 	webhookCertGenerator = helpers.NewCertGenerator(webhookCertPath, webhookCertName, webhookCertKey,
-		webhookServiceHost, helpers.GetOperatorNamespace(),
+		webhookServiceHost, webhookNamespace,
 	)
 	utilruntime.Must(webhookCertGenerator.GenerateIfNotExists())
 
