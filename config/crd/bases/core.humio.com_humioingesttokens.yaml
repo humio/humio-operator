@@ -101,7 +101,6 @@ spec:
                 type: string
             required:
             - name
-            - parserName
             - repositoryName
             type: object
             x-kubernetes-validations:
