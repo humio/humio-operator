@@ -128,6 +128,10 @@ var _ = Describe("HumioBootstrapToken Controller", func() {
 
 			Expect(bootstrapTokenOneTimePod.Name).To(Equal(bootstrapTokenConfig.PodName()))
 
+			// Verify service account matches the Humio service account
+			expectedServiceAccountName := toCreateHumioCluster.Name + "-humio"
+			Expect(bootstrapTokenOneTimePod.Spec.ServiceAccountName).To(Equal(expectedServiceAccountName))
+
 			// Verify node affinity matches
 			Expect(bootstrapTokenOneTimePod.Spec.Affinity).ToNot(BeNil())
 			Expect(bootstrapTokenOneTimePod.Spec.Affinity.NodeAffinity).ToNot(BeNil())
