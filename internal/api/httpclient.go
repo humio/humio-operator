@@ -11,9 +11,9 @@ import (
 // We must our own http.Client which adds the authorization header in all requests sent to Humio.
 // We use the approach described here: https://github.com/shurcooL/graphql/issues/28#issuecomment-464713908
 
-type headerTransport struct {
-	base    http.RoundTripper
-	headers map[string]string
+type HeaderTransport struct {
+	Base    http.RoundTripper
+	Headers map[string]string
 }
 
 func NewHttpTransport(config Config) *http.Transport {
@@ -77,20 +77,20 @@ func NewHttpTransport(config Config) *http.Transport {
 // NewHTTPClientWithHeaders returns a *http.Client that attaches a defined set of Headers to all requests.
 func (c *Client) newHTTPClientWithHeaders(headers map[string]string) *http.Client {
 	return &http.Client{
-		Transport: &headerTransport{
-			base:    c.httpTransport,
-			headers: headers,
+		Transport: &HeaderTransport{
+			Base:    c.httpTransport,
+			Headers: headers,
 		},
 		Timeout: 30 * time.Second,
 	}
 }
 
-func (h *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (h *HeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req2 := CloneRequest(req)
-	for key, val := range h.headers {
+	for key, val := range h.Headers {
 		req2.Header.Set(key, val)
 	}
-	return h.base.RoundTrip(req2)
+	return h.Base.RoundTrip(req2)
 }
 
 // CloneRequest and CloneHeader copied from https://github.com/kubernetes/apimachinery/blob/a76b7114b20a2e56fd698bba815b1e2c82ec4bff/pkg/util/net/http.go#L469-L491

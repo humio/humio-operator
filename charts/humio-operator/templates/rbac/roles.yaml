@@ -140,6 +140,12 @@ rules:
       - humiopdfrenderservices
       - humiopdfrenderservices/finalizers
       - humiopdfrenderservices/status
+      - humiopackageregistries
+      - humiopackageregistries/finalizers
+      - humiopackageregistries/status
+      - humiopackages
+      - humiopackages/finalizers
+      - humiopackages/status
     verbs:
       - create
       - delete

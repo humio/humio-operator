@@ -1,0 +1,13 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPackageRegistry
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+  name: humiopackageregistry-sample
+spec:
+  managedClusterName: humiocluster
+  displayName: test-pr
+  registryType: marketplace
+  enabled: true
+  marketplace:
+    url: https://packages.humio.com

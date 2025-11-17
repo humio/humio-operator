@@ -527,14 +527,9 @@ func (r *WebhookSetupReconciler) Start(ctx context.Context) error {
 		serviceInfo := r.ValidatingWebhookConfigurationProvider.GetServiceInfo()
 		if serviceInfo != nil {
 			log.Info("creating k8s service for webhook setup", "serviceName", serviceInfo.Name, "targetPort", serviceInfo.TargetPort)
-			if err := helpers.RetryOperation(func(args ...any) error {
-				return r.createOrUpdateWebhookService(
-					args[0].(context.Context),
-					args[1].(string),
-					args[2].(int32),
-					args[3].(logr.Logger),
-				)
-			}, 5, 1, ctx, serviceInfo.Name, serviceInfo.TargetPort, log); err != nil {
+			if _, err := helpers.Retry(func() (any, error) {
+				return nil, r.createOrUpdateWebhookService(ctx, serviceInfo.Name, serviceInfo.TargetPort, log)
+			}, 5, 1*time.Second); err != nil {
 				return fmt.Errorf("failed to create webhook service: %w", err)
 			}
 		}
@@ -542,13 +537,9 @@ func (r *WebhookSetupReconciler) Start(ctx context.Context) error {
 		webhookConfig := r.ValidatingWebhookConfigurationProvider.CreateValidatingWebhookConfiguration(r.Namespace, r.OperatorName, caBundle, GVKs)
 
 		// Create or update the ValidatingWebhookConfiguration
-		if err := helpers.RetryOperation(func(args ...any) error {
-			return r.createOrUpdateValidatingWebhookConfiguration(
-				args[0].(context.Context),
-				args[1].(*admissionregistrationv1.ValidatingWebhookConfiguration),
-				args[2].(logr.Logger),
-			)
-		}, 5, 1, ctx, webhookConfig, log); err != nil {
+		if _, err := helpers.Retry(func() (any, error) {
+			return nil, r.createOrUpdateValidatingWebhookConfiguration(ctx, webhookConfig, log)
+		}, 5, 1*time.Second); err != nil {
 			return fmt.Errorf("failed to create or update ValidatingWebhookConfiguration: %w", err)
 		}
 	}

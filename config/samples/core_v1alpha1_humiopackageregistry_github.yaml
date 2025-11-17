@@ -1,0 +1,28 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPackageRegistry
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humiopackageregistry-github-sample
+spec:
+  managedClusterName: humiocluster
+  displayName: "GitHub Releases"
+  registryType: github
+  enabled: true
+  github:
+    url: "https://api.github.com"
+    owner: "myorganization"
+    tokenRef:
+      name: github-token-secret
+      key: token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-token-secret
+  labels:
+    app.kubernetes.io/name: humio-operator
+type: Opaque
+stringData:
+  token: "your-github-token-here"

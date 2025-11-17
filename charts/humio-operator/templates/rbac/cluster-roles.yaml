@@ -185,6 +185,12 @@ rules:
   - humiotelemetries
   - humiotelemetries/finalizers
   - humiotelemetries/status
+  - humiopackageregistries
+  - humiopackageregistries/finalizers
+  - humiopackageregistries/status
+  - humiopackages
+  - humiopackages/finalizers
+  - humiopackages/status
   verbs:
   - create
   - delete

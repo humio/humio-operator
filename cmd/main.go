@@ -30,9 +30,11 @@ import (
 	"github.com/go-logr/zapr"
 	uberzap "go.uber.org/zap"
 
+	"github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/registries"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -520,6 +522,31 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 			RequeuePeriod: requeuePeriod,
 		},
 		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetry")
+		os.Exit(1)
+	}
+	httpClient := registries.NewHTTPClient(api.Config{Insecure: false})
+	if err := (&controller.HumioPackageRegistryReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HTTPClient: httpClient,
+		BaseLogger: log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPackageRegistry")
+		os.Exit(1)
+	}
+
+	if err := (&controller.HumioPackageReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		HTTPClient:  httpClient,
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetry")

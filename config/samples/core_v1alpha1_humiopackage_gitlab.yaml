@@ -1,0 +1,19 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPackage
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humiopackage-gitlab-sample
+spec:
+  managedClusterName: "humiocluster"
+  packageName: "crowdstrike/fdr"
+  packageVersion: "1.1.4"
+  packageChecksum: "sha256:bf6d5929ae79f9b43dc5dd378a20a39e2325e4d4c54bdffef248e8d129886453"
+  registryRef:
+    name: "humiopackageregistry-gitlab-sample"
+  packageInstallTargets:
+    - viewNames: ["humio"]
+  gitlab:
+    package: "fdr"
+    assetName: "crowdstrike-fdr-1.1.4.zip"

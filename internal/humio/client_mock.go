@@ -74,6 +74,7 @@ type ClientMock struct {
 	ViewToken              map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken
 	SystemToken            map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken
 	OrganizationToken      map[resourceKey]humiographql.OrganizationTokenDetailsOrganizationPermissionsToken
+	Package                map[resourceKey]humiographql.PackageDetails
 }
 
 type MockClientConfig struct {
@@ -104,6 +105,7 @@ func NewMockClient() *MockClientConfig {
 			ViewToken:              make(map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken),
 			SystemToken:            make(map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken),
 			OrganizationToken:      make(map[resourceKey]humiographql.OrganizationTokenDetailsOrganizationPermissionsToken),
+			Package:                make(map[resourceKey]humiographql.PackageDetails),
 		},
 	}
 
@@ -137,6 +139,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.IPFilter = make(map[resourceKey]humiographql.IPFilterDetails)
 	h.apiClient.ViewToken = make(map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken)
 	h.apiClient.SystemToken = make(map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken)
+	h.apiClient.Package = make(map[resourceKey]humiographql.PackageDetails)
 }
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client) (*humioapi.StatusResponse, error) {
@@ -2619,6 +2622,59 @@ func (h *MockClientConfig) RotateOrganizationToken(ctx context.Context, client *
 
 func (h *MockClientConfig) EnableTokenUpdatePermissionsForTests(ctx context.Context, client *humioapi.Client) error {
 	return nil
+}
+
+func (h *MockClientConfig) AnalyzePackageFromZip(ctx context.Context, client *humioapi.Client, name, viewName string) (any, error) {
+	return nil, nil
+}
+
+func (h *MockClientConfig) InstallPackageFromZip(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioPackage, zipFilePath string, viewName string) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+	clusterName := fmt.Sprintf("%s%s", hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:      clusterName,
+		resourceName:     hp.Spec.GetPackageName(),
+		searchDomainName: viewName,
+	}
+	packageDetails := humiographql.PackageDetails{
+		Name:    hp.Spec.PackageName,
+		Version: hp.Spec.PackageVersion,
+	}
+	h.apiClient.Package[key] = packageDetails
+	return nil
+}
+
+func (h *MockClientConfig) UninstallPackage(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioPackage, viewName string) (bool, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+	clusterName := fmt.Sprintf("%s%s", hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:      clusterName,
+		resourceName:     hp.Spec.GetPackageName(),
+		searchDomainName: viewName,
+	}
+	if _, found := h.apiClient.Package[key]; found {
+		delete(h.apiClient.Package, key)
+		return true, nil
+	}
+	return false, fmt.Errorf("package is not installed")
+}
+
+func (h *MockClientConfig) CheckPackage(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioPackage, viewName string) (*humiographql.PackageDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+	clusterName := fmt.Sprintf("%s%s", hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:      clusterName,
+		resourceName:     hp.Spec.GetPackageName(),
+		searchDomainName: viewName,
+	}
+	packageDetails, exists := h.apiClient.Package[key]
+	if !exists {
+		return nil, nil
+	}
+	return &packageDetails, nil
 }
 
 // Telemetry methods for mock client

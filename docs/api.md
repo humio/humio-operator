@@ -37,6 +37,10 @@ Resource Types:
 
 - [HumioOrganizationToken](#humioorganizationtoken)
 
+- [HumioPackageRegistry](#humiopackageregistry)
+
+- [HumioPackage](#humiopackage)
+
 - [HumioParser](#humioparser)
 
 - [HumioPdfRenderService](#humiopdfrenderservice)
@@ -38420,6 +38424,1362 @@ HumioOrganizationTokenStatus defines the observed state of HumioOrganizationToke
         <td>string</td>
         <td>
           State reflects the current state of the HumioToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioPackageRegistry
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioPackageRegistry is the Schema for the humiopackageregistries API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioPackageRegistry</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioPackageRegistrySpec defines the desired state of HumioPackageRegistry<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>(self.registryType == 'marketplace') ? has(self.marketplace) : true: marketplace is required when registryType is 'marketplace'</li><li>(self.registryType == 'gitlab') ? has(self.gitlab) : true: gitlab is required when registryType is 'gitlab'</li><li>(self.registryType == 'github') ? has(self.github) : true: github is required when registryType is 'github'</li><li>(self.registryType == 'artifactory') ? has(self.artifactory) : true: artifactory is required when registryType is 'artifactory'</li><li>(self.registryType == 'aws') ? has(self.aws) : true: aws is required when registryType is 'aws'</li><li>(self.registryType == 'gcloud') ? has(self.gcloud) : true: gcloud is required when registryType is 'gcloud'</li><li>(self.registryType != 'marketplace') ? !has(self.marketplace) : true: marketplace should only be set when registryType is 'marketplace'</li><li>(self.registryType != 'gitlab') ? !has(self.gitlab) : true: gitlab should only be set when registryType is 'gitlab'</li><li>(self.registryType != 'github') ? !has(self.github) : true: github should only be set when registryType is 'github'</li><li>(self.registryType != 'artifactory') ? !has(self.artifactory) : true: artifactory should only be set when registryType is 'artifactory'</li><li>(self.registryType != 'aws') ? !has(self.aws) : true: aws should only be set when registryType is 'aws'</li><li>(self.registryType != 'gcloud') ? !has(self.gcloud) : true: gcloud should only be set when registryType is 'gcloud'</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistrystatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioPackageRegistryStatus defines the observed state of HumioPackageRegistry.
+This reflects the current operational status as determined by the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec
+<sup><sup>[↩ Parent](#humiopackageregistry)</sup></sup>
+
+
+
+HumioPackageRegistrySpec defines the desired state of HumioPackageRegistry
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled determines whether this registry is active and available for package installations.
+When false, the registry will be ignored by HumioPackage resources. Defaults to true.<br/>
+          <br/>
+            <i>Default</i>: true<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>registryType</b></td>
+        <td>enum</td>
+        <td>
+          RegistryType specifies the type of package registry to configure.
+Each type requires its corresponding configuration block (e.g., registryType: "gitlab" requires the gitlab field).
+Supported types: marketplace, gitlab, github, artifactory, aws, gcloud.<br/>
+          <br/>
+            <i>Enum</i>: marketplace, gitlab, github, artifactory, aws, gcloud<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecartifactory">artifactory</a></b></td>
+        <td>object</td>
+        <td>
+          Artifactory contains connection configuration for JFrog Artifactory generic repositories.
+Required when registryType is "artifactory". Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecaws">aws</a></b></td>
+        <td>object</td>
+        <td>
+          Aws contains connection configuration for AWS CodeArtifact.
+Required when registryType is "aws". Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>displayName</b></td>
+        <td>string</td>
+        <td>
+          DisplayName is a human-readable name for the registry shown in logs and status messages.
+This is optional and can be used to distinguish between multiple registries of the same type.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName specifies the name of a HumioExternalCluster resource representing an external LogScale cluster.
+Package registries configured with this field will be available to HumioPackage resources targeting this external cluster.
+Must specify exactly one of managedClusterName or externalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecgcloud">gcloud</a></b></td>
+        <td>object</td>
+        <td>
+          Gcloud contains connection configuration for Google Cloud Artifact Registry.
+Required when registryType is "gcloud". Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecgithub">github</a></b></td>
+        <td>object</td>
+        <td>
+          Github contains connection configuration for GitHub Releases.
+Required when registryType is "github". Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecgitlab">gitlab</a></b></td>
+        <td>object</td>
+        <td>
+          Gitlab contains connection configuration for GitLab Package Registry.
+Required when registryType is "gitlab". Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName specifies the name of a HumioCluster resource managed by this operator.
+Package registries configured with this field will be available to HumioPackage resources targeting this cluster.
+Must specify exactly one of managedClusterName or externalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecmarketplace">marketplace</a></b></td>
+        <td>object</td>
+        <td>
+          Marketplace contains connection configuration for the LogScale Marketplace (packages.humio.com).
+Required when registryType is "marketplace". Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.artifactory
+<sup><sup>[↩ Parent](#humiopackageregistryspec)</sup></sup>
+
+
+
+Artifactory contains connection configuration for JFrog Artifactory generic repositories.
+Required when registryType is "artifactory". Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>repository</b></td>
+        <td>string</td>
+        <td>
+          Repository is the name of the generic repository in Artifactory where packages are stored.
+This repository must be configured to allow generic package types.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecartifactorytokenref">tokenRef</a></b></td>
+        <td>object</td>
+        <td>
+          TokenRef contains a reference to a Kubernetes secret with Artifactory authentication credentials.
+The token should have read access to the specified repository.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          URL is the Artifactory base URL (e.g., "https://mycompany.jfrog.io/artifactory").
+This should be the base Artifactory URL without the repository path.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.artifactory.tokenRef
+<sup><sup>[↩ Parent](#humiopackageregistryspecartifactory)</sup></sup>
+
+
+
+TokenRef contains a reference to a Kubernetes secret with Artifactory authentication credentials.
+The token should have read access to the specified repository.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key is the specific key within the secret data that contains the required value.
+For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Kubernetes secret containing the required data.
+The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace where the secret is located (optional).
+If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.aws
+<sup><sup>[↩ Parent](#humiopackageregistryspec)</sup></sup>
+
+
+
+Aws contains connection configuration for AWS CodeArtifact.
+Required when registryType is "aws". Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiopackageregistryspecawsaccesskeyref">accessKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          AccessKeyRef contains a reference to a Kubernetes secret with the AWS access key ID.
+This access key must have permissions to read from the specified CodeArtifact repository.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecawsaccesssecretref">accessSecretRef</a></b></td>
+        <td>object</td>
+        <td>
+          AccessSecretRef contains a reference to a Kubernetes secret with the AWS secret access key.
+This secret key corresponds to the access key and is used for AWS Signature V4 authentication.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>domain</b></td>
+        <td>string</td>
+        <td>
+          Domain is the name of the CodeArtifact domain that contains the repository.
+Domains provide a way to organize repositories and control access across them.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>region</b></td>
+        <td>string</td>
+        <td>
+          Region is the AWS region where the CodeArtifact domain and repository are located (e.g., "us-east-1").
+This must match the region where your CodeArtifact resources were created.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>repository</b></td>
+        <td>string</td>
+        <td>
+          Repository is the name of the CodeArtifact repository within the domain where packages are stored.
+The repository must be configured to support generic package format.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.aws.accessKeyRef
+<sup><sup>[↩ Parent](#humiopackageregistryspecaws)</sup></sup>
+
+
+
+AccessKeyRef contains a reference to a Kubernetes secret with the AWS access key ID.
+This access key must have permissions to read from the specified CodeArtifact repository.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key is the specific key within the secret data that contains the required value.
+For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Kubernetes secret containing the required data.
+The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace where the secret is located (optional).
+If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.aws.accessSecretRef
+<sup><sup>[↩ Parent](#humiopackageregistryspecaws)</sup></sup>
+
+
+
+AccessSecretRef contains a reference to a Kubernetes secret with the AWS secret access key.
+This secret key corresponds to the access key and is used for AWS Signature V4 authentication.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key is the specific key within the secret data that contains the required value.
+For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Kubernetes secret containing the required data.
+The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace where the secret is located (optional).
+If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.gcloud
+<sup><sup>[↩ Parent](#humiopackageregistryspec)</sup></sup>
+
+
+
+Gcloud contains connection configuration for Google Cloud Artifact Registry.
+Required when registryType is "gcloud". Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>location</b></td>
+        <td>string</td>
+        <td>
+          Location is the Google Cloud region or multi-region where the repository is located.
+Examples: "us-central1" (region), "us" (multi-region). This must match the repository's actual location.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>projectId</b></td>
+        <td>string</td>
+        <td>
+          ProjectID is the Google Cloud project ID where the Artifact Registry repository is located.
+This is the unique identifier for your GCP project (e.g., "my-project-123").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>repository</b></td>
+        <td>string</td>
+        <td>
+          Repository is the name of the Artifact Registry repository where packages are stored.
+The repository must be configured to support generic package format.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecgcloudserviceaccountkeyref">serviceAccountKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          ServiceAccountKeyRef contains a reference to a Kubernetes secret with the GCP service account JSON key.
+The service account must have the "Artifact Registry Reader" role or equivalent permissions.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          URL is the Google Cloud Artifact Registry API base URL.
+Defaults to "https://artifactregistry.googleapis.com" (the standard API endpoint).<br/>
+          <br/>
+            <i>Default</i>: https://artifactregistry.googleapis.com<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.gcloud.serviceAccountKeyRef
+<sup><sup>[↩ Parent](#humiopackageregistryspecgcloud)</sup></sup>
+
+
+
+ServiceAccountKeyRef contains a reference to a Kubernetes secret with the GCP service account JSON key.
+The service account must have the "Artifact Registry Reader" role or equivalent permissions.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key is the specific key within the secret data that contains the required value.
+For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Kubernetes secret containing the required data.
+The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace where the secret is located (optional).
+If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.github
+<sup><sup>[↩ Parent](#humiopackageregistryspec)</sup></sup>
+
+
+
+Github contains connection configuration for GitHub Releases.
+Required when registryType is "github". Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>owner</b></td>
+        <td>string</td>
+        <td>
+          Owner is the GitHub username or organization name that owns the repositories.
+This will be combined with repository names from HumioPackage specs to form the full repository path.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecgithubtokenref">tokenRef</a></b></td>
+        <td>object</td>
+        <td>
+          TokenRef contains a reference to a Kubernetes secret with GitHub authentication credentials.
+For public repositories, a classic personal access token with no scopes is sufficient.
+For private repositories, the token needs the "repo" scope.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          URL is the GitHub API base URL (e.g., "https://api.github.com").
+For GitHub Enterprise Server, use your instance's API URL (e.g., "https://github.enterprise.com/api/v3").<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.github.tokenRef
+<sup><sup>[↩ Parent](#humiopackageregistryspecgithub)</sup></sup>
+
+
+
+TokenRef contains a reference to a Kubernetes secret with GitHub authentication credentials.
+For public repositories, a classic personal access token with no scopes is sufficient.
+For private repositories, the token needs the "repo" scope.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key is the specific key within the secret data that contains the required value.
+For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Kubernetes secret containing the required data.
+The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace where the secret is located (optional).
+If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.gitlab
+<sup><sup>[↩ Parent](#humiopackageregistryspec)</sup></sup>
+
+
+
+Gitlab contains connection configuration for GitLab Package Registry.
+Required when registryType is "gitlab". Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>project</b></td>
+        <td>string</td>
+        <td>
+          Project is the GitLab project identifier where packages are stored.
+This can be either the project path (e.g., "group/project") or the numeric project ID.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackageregistryspecgitlabtokenref">tokenRef</a></b></td>
+        <td>object</td>
+        <td>
+          TokenRef contains a reference to a Kubernetes secret with GitLab authentication credentials.
+The token should have at least read access to the specified project's package registry.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          URL is the GitLab API base URL including the API version (e.g., "https://gitlab.example.com/api/v4").
+For GitLab.com, use "https://gitlab.com/api/v4". For self-hosted instances, adjust the domain accordingly.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.gitlab.tokenRef
+<sup><sup>[↩ Parent](#humiopackageregistryspecgitlab)</sup></sup>
+
+
+
+TokenRef contains a reference to a Kubernetes secret with GitLab authentication credentials.
+The token should have at least read access to the specified project's package registry.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key is the specific key within the secret data that contains the required value.
+For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Kubernetes secret containing the required data.
+The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace where the secret is located (optional).
+If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.spec.marketplace
+<sup><sup>[↩ Parent](#humiopackageregistryspec)</sup></sup>
+
+
+
+Marketplace contains connection configuration for the LogScale Marketplace (packages.humio.com).
+Required when registryType is "marketplace". Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          URL is the LogScale Marketplace REST API endpoint.
+Defaults to "https://packages.humio.com" (the official marketplace). Custom marketplace instances can override this.<br/>
+          <br/>
+            <i>Default</i>: https://packages.humio.com<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.status
+<sup><sup>[↩ Parent](#humiopackageregistry)</sup></sup>
+
+
+
+HumioPackageRegistryStatus defines the observed state of HumioPackageRegistry.
+This reflects the current operational status as determined by the controller.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message provides additional details about the current state.
+This may contain error messages, connection status, or other diagnostic information from the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current operational state of the package registry.
+Possible values: "Unknown", "Active", "Disabled", "ConfigError".
+"Active" means the registry is successfully configured and available for use.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioPackage
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioPackage is the Schema for the humiopackages API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioPackage</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioPackageSpec defines the desired state of HumioPackage<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>[has(self.marketplace) && self.marketplace != null, has(self.gitlab) && self.gitlab != null, has(self.github) && self.github != null, has(self.aws) && self.aws != null, has(self.artifactory) && self.artifactory != null, has(self.gcloud) && self.gcloud != null].filter(x, x).size() == 1: Must specify exactly one of marketplace, gitlab, github, aws, artifactory, or gcloud configuration</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagestatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioPackageStatus defines the observed state of HumioPackage.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec
+<sup><sup>[↩ Parent](#humiopackage)</sup></sup>
+
+
+
+HumioPackageSpec defines the desired state of HumioPackage
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>packageChecksum</b></td>
+        <td>string</td>
+        <td>
+          PackageChecksum is the SHA256 checksum of the package file for integrity verification.
+Format: "sha256:<64-character-hex-string>". This ensures the downloaded package hasn't been tampered with.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecpackageinstalltargetsindex">packageInstallTargets</a></b></td>
+        <td>[]object</td>
+        <td>
+          PackageInstallTargets specifies the LogScale views/repositories where this package should be installed.
+Each target can reference views by name directly or reference HumioView Kubernetes resources.
+At least one target must be specified.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>packageName</b></td>
+        <td>string</td>
+        <td>
+          PackageName is the name of the LogScale package to install (e.g., "crowdstrike/fdr").
+This corresponds to the package name field in the package's manifest.yaml file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>packageVersion</b></td>
+        <td>string</td>
+        <td>
+          PackageVersion is the specific version of the package to install (e.g., "1.2.3").
+This must match exactly with the version field in the package's manifest.yaml file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecregistryref">registryRef</a></b></td>
+        <td>object</td>
+        <td>
+          RegistryRef references the HumioPackageRegistry resource that contains authentication and connection details
+for the package registry where this package should be downloaded from.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecartifactory">artifactory</a></b></td>
+        <td>object</td>
+        <td>
+          Artifactory contains configuration specific to JFrog Artifactory generic repository packages.
+Required when using an Artifactory registry. Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecaws">aws</a></b></td>
+        <td>object</td>
+        <td>
+          Aws contains configuration specific to AWS CodeArtifact generic packages.
+Required when using an AWS registry. Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>conflictPolicy</b></td>
+        <td>enum</td>
+        <td>
+          ConflictPolicy determines how to handle conflicts when package components already exist in the target views.
+"error": fail installation if conflicts are detected. "overwrite"(default): replace existing components.<br/>
+          <br/>
+            <i>Enum</i>: error, overwrite<br/>
+            <i>Default</i>: overwrite<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName specifies the name of a HumioExternalCluster resource representing an external LogScale cluster.
+The package will be installed into this external cluster. Must specify exactly one of managedClusterName or externalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecgcloud">gcloud</a></b></td>
+        <td>object</td>
+        <td>
+          Gcloud contains configuration specific to Google Cloud Artifact Registry generic packages.
+Required when using a Google Cloud registry. Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecgithub">github</a></b></td>
+        <td>object</td>
+        <td>
+          Github contains configuration specific to GitHub Releases packages.
+Required when using a GitHub registry. Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecgitlab">gitlab</a></b></td>
+        <td>object</td>
+        <td>
+          Gitlab contains configuration specific to GitLab Package Registry packages.
+Required when using a GitLab registry. Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName specifies the name of a HumioCluster resource managed by this operator.
+The package will be installed into this cluster. Must specify exactly one of managedClusterName or externalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecmarketplace">marketplace</a></b></td>
+        <td>object</td>
+        <td>
+          Marketplace contains configuration specific to LogScale Marketplace packages.
+Required when using the marketplace registry. Must specify exactly one registry type configuration.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.packageInstallTargets[index]
+<sup><sup>[↩ Parent](#humiopackagespec)</sup></sup>
+
+
+
+PackageInstallTarget represents a target LogScale view or repository where a package should be installed.
+It supports two methods of specifying targets: direct view names or references to HumioView CRDs.
+Must specify exactly one of viewNames or viewRef.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>viewNames</b></td>
+        <td>[]string</td>
+        <td>
+          ViewNames is a list of LogScale view names where the package should be installed.
+These are direct string references to existing views in the LogScale cluster.
+Use this when you manage views directly in LogScale rather than through Kubernetes CRDs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopackagespecpackageinstalltargetsindexviewref">viewRef</a></b></td>
+        <td>object</td>
+        <td>
+          ViewRef is a reference to a HumioView Kubernetes resource.
+The package will be installed into the LogScale view managed by this HumioView CRD.
+Use this when you manage views through Kubernetes HumioView resources.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.packageInstallTargets[index].viewRef
+<sup><sup>[↩ Parent](#humiopackagespecpackageinstalltargetsindex)</sup></sup>
+
+
+
+ViewRef is a reference to a HumioView Kubernetes resource.
+The package will be installed into the LogScale view managed by this HumioView CRD.
+Use this when you manage views through Kubernetes HumioView resources.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the HumioView Kubernetes resource.
+The referenced HumioView must exist and be successfully reconciled.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace where the HumioView resource is located (optional).
+If not specified, defaults to the same namespace as the HumioPackage resource.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.registryRef
+<sup><sup>[↩ Parent](#humiopackagespec)</sup></sup>
+
+
+
+RegistryRef references the HumioPackageRegistry resource that contains authentication and connection details
+for the package registry where this package should be downloaded from.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the HumioPackageRegistry Kubernetes resource.
+The referenced registry must exist, be enabled, and have valid configuration.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace where the HumioPackageRegistry resource is located (optional).
+If not specified, defaults to the same namespace as the HumioPackage resource.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.artifactory
+<sup><sup>[↩ Parent](#humiopackagespec)</sup></sup>
+
+
+
+Artifactory contains configuration specific to JFrog Artifactory generic repository packages.
+Required when using an Artifactory registry. Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>filePath</b></td>
+        <td>string</td>
+        <td>
+          FilePath is the complete path to the artifact file within the Artifactory repository.
+This should include any folder structure and the filename (e.g., "packages/mypackage/1.0.0/mypackage-1.0.0.zip").
+The path is relative to the repository root configured in the registry.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.aws
+<sup><sup>[↩ Parent](#humiopackagespec)</sup></sup>
+
+
+
+Aws contains configuration specific to AWS CodeArtifact generic packages.
+Required when using an AWS registry. Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>filename</b></td>
+        <td>string</td>
+        <td>
+          Filename is the specific asset filename within the package version to download.
+This corresponds to the actual file uploaded to CodeArtifact (e.g., "package-1.0.0.zip").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the AWS CodeArtifact namespace for generic packages.
+This provides an additional level of organization within the repository (e.g., "com.example").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>package</b></td>
+        <td>string</td>
+        <td>
+          Package is the generic package name within the namespace.
+This should match the package name as stored in CodeArtifact (e.g., "my-logscale-package").<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.gcloud
+<sup><sup>[↩ Parent](#humiopackagespec)</sup></sup>
+
+
+
+Gcloud contains configuration specific to Google Cloud Artifact Registry generic packages.
+Required when using a Google Cloud registry. Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>filename</b></td>
+        <td>string</td>
+        <td>
+          Filename is the specific file within the package version to download.
+This corresponds to the actual file uploaded to Artifact Registry (e.g., "package-1.0.0.zip").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>package</b></td>
+        <td>string</td>
+        <td>
+          Package is the generic package name as stored in Google Cloud Artifact Registry.
+This should match the package name used when uploading to Artifact Registry (e.g., "my-logscale-package").<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.github
+<sup><sup>[↩ Parent](#humiopackagespec)</sup></sup>
+
+
+
+Github contains configuration specific to GitHub Releases packages.
+Required when using a GitHub registry. Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>repository</b></td>
+        <td>string</td>
+        <td>
+          Repository is the GitHub repository name within the configured owner/organization.
+This should be just the repository name, not the full path (e.g., "my-package", not "owner/my-package").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>tag</b></td>
+        <td>string</td>
+        <td>
+          Tag is the GitHub release tag to download from (e.g., "v1.2.3" or "1.2.3").
+This must match an existing release tag in the repository.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>assetName</b></td>
+        <td>string</td>
+        <td>
+          AssetName is the specific release asset filename to download (optional).
+If not specified, the release's source code archive (zipball) will be downloaded instead.
+Use this when the package is distributed as a specific file attachment to the release.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.gitlab
+<sup><sup>[↩ Parent](#humiopackagespec)</sup></sup>
+
+
+
+Gitlab contains configuration specific to GitLab Package Registry packages.
+Required when using a GitLab registry. Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>assetName</b></td>
+        <td>string</td>
+        <td>
+          AssetName is the specific file name within the package version to download and install.
+This corresponds to the actual file uploaded to the GitLab Package Registry (e.g., "mypackage-1.0.0.zip").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>package</b></td>
+        <td>string</td>
+        <td>
+          Package is the GitLab generic package name as stored in the Package Registry.
+This should match the package name used when publishing to GitLab Package Registry.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.spec.marketplace
+<sup><sup>[↩ Parent](#humiopackagespec)</sup></sup>
+
+
+
+Marketplace contains configuration specific to LogScale Marketplace packages.
+Required when using the marketplace registry. Must specify exactly one registry type configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>package</b></td>
+        <td>string</td>
+        <td>
+          Package is the package name within the scope (e.g., "fdr").
+This corresponds to the second part of the package identifier in the marketplace.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>scope</b></td>
+        <td>string</td>
+        <td>
+          Scope is the marketplace namespace or organization name (e.g., "crowdstrike").
+This corresponds to the first part of the package identifier in the marketplace.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.status
+<sup><sup>[↩ Parent](#humiopackage)</sup></sup>
+
+
+
+HumioPackageStatus defines the observed state of HumioPackage.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>humioPackageName</b></td>
+        <td>string</td>
+        <td>
+          HumioPackageName displays the Humio package name installed extracted from manifest.yaml<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message displays the last detected state message set via the reconciler<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioPackage<br/>
         </td>
         <td>false</td>
       </tr></tbody>

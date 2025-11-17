@@ -31,6 +31,7 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	"github.com/humio/humio-operator/internal/registries"
 	uberzap "go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -91,6 +92,7 @@ var webhookServiceHost string = "127.0.0.1"
 var webhookNamespace string = "e2e-resources-1"
 var webhookSetupReconciler *controller.WebhookSetupReconciler
 var webhookCertWatcher *certwatcher.CertWatcher
+var humioPackageRegistryReconciler *controller.HumioPackageRegistryReconciler
 
 const (
 	webhookPort     int           = 9443
@@ -132,7 +134,7 @@ var _ = SynchronizedBeforeSuite(func() {
 
 	// initiatialize testenv and humioClient
 	if !helpers.UseEnvtest() {
-		testTimeout = time.Second * 240
+		testTimeout = time.Second * 300
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 			CRDInstallOptions: envtest.CRDInstallOptions{
@@ -913,6 +915,33 @@ func registerControllers(k8sOperatorManager ctrl.Manager, log logr.Logger) {
 		HumioClient: humioClient,
 		BaseLogger:  log,
 		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	mockHTTPClient := new(registries.MockHTTPClient)
+	humioPackageRegistryReconciler = &controller.HumioPackageRegistryReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5,
+		},
+		BaseLogger: log,
+		HTTPClient: mockHTTPClient,
+		Namespace:  clusterKey.Namespace,
+	}
+	err = (humioPackageRegistryReconciler).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioPackageReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+		HTTPClient:  mockHTTPClient,
 	}).SetupWithManager(k8sOperatorManager)
 	Expect(err).NotTo(HaveOccurred())
 

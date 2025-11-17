@@ -96,3 +96,10 @@ spec:
           capabilities:
             drop:
             - ALL
+        volumeMounts:
+        - name: package-downloads
+          mountPath: /tmp/packages
+      volumes:
+      - name: package-downloads
+        emptyDir:
+          sizeLimit: 1Gi

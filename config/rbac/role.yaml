@@ -109,6 +109,8 @@ rules:
   - humiomulticlustersearchviews
   - humioorganizationpermissionroles
   - humioorganizationtokens
+  - humiopackageregistries
+  - humiopackages
   - humioparsers
   - humiopdfrenderservices
   - humiorepositories
@@ -145,6 +147,8 @@ rules:
   - humiomulticlustersearchviews/finalizers
   - humioorganizationpermissionroles/finalizers
   - humioorganizationtokens/finalizers
+  - humiopackageregistries/finalizers
+  - humiopackages/finalizers
   - humioparsers/finalizers
   - humiopdfrenderservices/finalizers
   - humiorepositories/finalizers
@@ -175,6 +179,8 @@ rules:
   - humiomulticlustersearchviews/status
   - humioorganizationpermissionroles/status
   - humioorganizationtokens/status
+  - humiopackageregistries/status
+  - humiopackages/status
   - humioparsers/status
   - humiopdfrenderservices/status
   - humiorepositories/status

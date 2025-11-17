@@ -1,0 +1,33 @@
+fragment PackageDetails on Package2 {
+    id
+    scope
+    name
+    version
+}
+
+
+query PackageInstallation(
+    $PackageId: VersionedPackageSpecifier!
+    $ViewName: String!
+) {
+    installedPackage(
+        packageId: $PackageId
+        viewName: $ViewName
+    ) {
+       package {
+            ...PackageDetails
+       }
+    }
+}
+
+mutation UninstallPackage(
+    $PackageId: UnversionedPackageSpecifier!
+    $ViewName: String!
+) {
+    uninstallPackage(
+        packageId: $PackageId
+        viewName: $ViewName
+    ) {
+        result
+    }
+}

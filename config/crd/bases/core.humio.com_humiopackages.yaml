@@ -1,0 +1,339 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: humiopackages.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.33.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioPackage
+    listKind: HumioPackageList
+    plural: humiopackages
+    singular: humiopackage
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the package
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: The package name as installed in Humio
+      jsonPath: .status.humioPackageName
+      name: HumioPackageName
+      type: string
+    - description: The last state message detected by the reconciler
+      jsonPath: .status.message
+      name: Message
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioPackage is the Schema for the humiopackages API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioPackageSpec defines the desired state of HumioPackage
+            properties:
+              artifactory:
+                description: |-
+                  Artifactory contains configuration specific to JFrog Artifactory generic repository packages.
+                  Required when using an Artifactory registry. Must specify exactly one registry type configuration.
+                properties:
+                  filePath:
+                    description: |-
+                      FilePath is the complete path to the artifact file within the Artifactory repository.
+                      This should include any folder structure and the filename (e.g., "packages/mypackage/1.0.0/mypackage-1.0.0.zip").
+                      The path is relative to the repository root configured in the registry.
+                    minLength: 1
+                    type: string
+                required:
+                - filePath
+                type: object
+              aws:
+                description: |-
+                  Aws contains configuration specific to AWS CodeArtifact generic packages.
+                  Required when using an AWS registry. Must specify exactly one registry type configuration.
+                properties:
+                  filename:
+                    description: |-
+                      Filename is the specific asset filename within the package version to download.
+                      This corresponds to the actual file uploaded to CodeArtifact (e.g., "package-1.0.0.zip").
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace is the AWS CodeArtifact namespace for generic packages.
+                      This provides an additional level of organization within the repository (e.g., "com.example").
+                    minLength: 1
+                    type: string
+                  package:
+                    description: |-
+                      Package is the generic package name within the namespace.
+                      This should match the package name as stored in CodeArtifact (e.g., "my-logscale-package").
+                    minLength: 1
+                    type: string
+                required:
+                - filename
+                - namespace
+                - package
+                type: object
+              conflictPolicy:
+                default: overwrite
+                description: |-
+                  ConflictPolicy determines how to handle conflicts when package components already exist in the target views.
+                  "error": fail installation if conflicts are detected. "overwrite"(default): replace existing components.
+                enum:
+                - error
+                - overwrite
+                type: string
+              externalClusterName:
+                description: |-
+                  ExternalClusterName specifies the name of a HumioExternalCluster resource representing an external LogScale cluster.
+                  The package will be installed into this external cluster. Must specify exactly one of managedClusterName or externalClusterName.
+                minLength: 1
+                type: string
+              gcloud:
+                description: |-
+                  Gcloud contains configuration specific to Google Cloud Artifact Registry generic packages.
+                  Required when using a Google Cloud registry. Must specify exactly one registry type configuration.
+                properties:
+                  filename:
+                    description: |-
+                      Filename is the specific file within the package version to download.
+                      This corresponds to the actual file uploaded to Artifact Registry (e.g., "package-1.0.0.zip").
+                    minLength: 1
+                    type: string
+                  package:
+                    description: |-
+                      Package is the generic package name as stored in Google Cloud Artifact Registry.
+                      This should match the package name used when uploading to Artifact Registry (e.g., "my-logscale-package").
+                    minLength: 1
+                    type: string
+                required:
+                - filename
+                - package
+                type: object
+              github:
+                description: |-
+                  Github contains configuration specific to GitHub Releases packages.
+                  Required when using a GitHub registry. Must specify exactly one registry type configuration.
+                properties:
+                  assetName:
+                    description: |-
+                      AssetName is the specific release asset filename to download (optional).
+                      If not specified, the release's source code archive (zipball) will be downloaded instead.
+                      Use this when the package is distributed as a specific file attachment to the release.
+                    type: string
+                  repository:
+                    description: |-
+                      Repository is the GitHub repository name within the configured owner/organization.
+                      This should be just the repository name, not the full path (e.g., "my-package", not "owner/my-package").
+                    minLength: 1
+                    type: string
+                  tag:
+                    description: |-
+                      Tag is the GitHub release tag to download from (e.g., "v1.2.3" or "1.2.3").
+                      This must match an existing release tag in the repository.
+                    minLength: 1
+                    type: string
+                required:
+                - repository
+                - tag
+                type: object
+              gitlab:
+                description: |-
+                  Gitlab contains configuration specific to GitLab Package Registry packages.
+                  Required when using a GitLab registry. Must specify exactly one registry type configuration.
+                properties:
+                  assetName:
+                    description: |-
+                      AssetName is the specific file name within the package version to download and install.
+                      This corresponds to the actual file uploaded to the GitLab Package Registry (e.g., "mypackage-1.0.0.zip").
+                    minLength: 1
+                    type: string
+                  package:
+                    description: |-
+                      Package is the GitLab generic package name as stored in the Package Registry.
+                      This should match the package name used when publishing to GitLab Package Registry.
+                    minLength: 1
+                    type: string
+                required:
+                - assetName
+                - package
+                type: object
+              managedClusterName:
+                description: |-
+                  ManagedClusterName specifies the name of a HumioCluster resource managed by this operator.
+                  The package will be installed into this cluster. Must specify exactly one of managedClusterName or externalClusterName.
+                minLength: 1
+                type: string
+              marketplace:
+                description: |-
+                  Marketplace contains configuration specific to LogScale Marketplace packages.
+                  Required when using the marketplace registry. Must specify exactly one registry type configuration.
+                properties:
+                  package:
+                    description: |-
+                      Package is the package name within the scope (e.g., "fdr").
+                      This corresponds to the second part of the package identifier in the marketplace.
+                    type: string
+                  scope:
+                    description: |-
+                      Scope is the marketplace namespace or organization name (e.g., "crowdstrike").
+                      This corresponds to the first part of the package identifier in the marketplace.
+                    type: string
+                required:
+                - package
+                - scope
+                type: object
+              packageChecksum:
+                description: |-
+                  PackageChecksum is the SHA256 checksum of the package file for integrity verification.
+                  Format: "sha256:<64-character-hex-string>". This ensures the downloaded package hasn't been tampered with.
+                maxLength: 253
+                minLength: 1
+                type: string
+              packageInstallTargets:
+                description: |-
+                  PackageInstallTargets specifies the LogScale views/repositories where this package should be installed.
+                  Each target can reference views by name directly or reference HumioView Kubernetes resources.
+                  At least one target must be specified.
+                items:
+                  description: |-
+                    PackageInstallTarget represents a target LogScale view or repository where a package should be installed.
+                    It supports two methods of specifying targets: direct view names or references to HumioView CRDs.
+                    Must specify exactly one of viewNames or viewRef.
+                  properties:
+                    viewNames:
+                      description: |-
+                        ViewNames is a list of LogScale view names where the package should be installed.
+                        These are direct string references to existing views in the LogScale cluster.
+                        Use this when you manage views directly in LogScale rather than through Kubernetes CRDs.
+                      items:
+                        type: string
+                      minItems: 1
+                      type: array
+                    viewRef:
+                      description: |-
+                        ViewRef is a reference to a HumioView Kubernetes resource.
+                        The package will be installed into the LogScale view managed by this HumioView CRD.
+                        Use this when you manage views through Kubernetes HumioView resources.
+                      properties:
+                        name:
+                          description: |-
+                            Name is the name of the HumioView Kubernetes resource.
+                            The referenced HumioView must exist and be successfully reconciled.
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace where the HumioView resource is located (optional).
+                            If not specified, defaults to the same namespace as the HumioPackage resource.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  type: object
+                  x-kubernetes-validations:
+                  - message: Must specify exactly one of viewNames or viewRef
+                    rule: (has(self.viewNames) && size(self.viewNames) > 0) != (has(self.viewRef)
+                      && self.viewRef != null)
+                minItems: 1
+                type: array
+              packageName:
+                description: |-
+                  PackageName is the name of the LogScale package to install (e.g., "crowdstrike/fdr").
+                  This corresponds to the package name field in the package's manifest.yaml file.
+                maxLength: 253
+                minLength: 1
+                type: string
+              packageVersion:
+                description: |-
+                  PackageVersion is the specific version of the package to install (e.g., "1.2.3").
+                  This must match exactly with the version field in the package's manifest.yaml file.
+                maxLength: 253
+                minLength: 1
+                type: string
+              registryRef:
+                description: |-
+                  RegistryRef references the HumioPackageRegistry resource that contains authentication and connection details
+                  for the package registry where this package should be downloaded from.
+                properties:
+                  name:
+                    description: |-
+                      Name is the name of the HumioPackageRegistry Kubernetes resource.
+                      The referenced registry must exist, be enabled, and have valid configuration.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace is the namespace where the HumioPackageRegistry resource is located (optional).
+                      If not specified, defaults to the same namespace as the HumioPackage resource.
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - packageChecksum
+            - packageInstallTargets
+            - packageName
+            - packageVersion
+            - registryRef
+            type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
+            - message: Must specify exactly one of marketplace, gitlab, github, aws,
+                artifactory, or gcloud configuration
+              rule: '[has(self.marketplace) && self.marketplace != null, has(self.gitlab)
+                && self.gitlab != null, has(self.github) && self.github != null, has(self.aws)
+                && self.aws != null, has(self.artifactory) && self.artifactory !=
+                null, has(self.gcloud) && self.gcloud != null].filter(x, x).size()
+                == 1'
+          status:
+            description: HumioPackageStatus defines the observed state of HumioPackage.
+            properties:
+              humioPackageName:
+                description: HumioPackageName displays the Humio package name installed
+                  extracted from manifest.yaml
+                type: string
+              message:
+                description: Message displays the last detected state message set
+                  via the reconciler
+                type: string
+              state:
+                description: State reflects the current state of the HumioPackage
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

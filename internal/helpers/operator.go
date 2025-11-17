@@ -41,19 +41,21 @@ func GetOperatorWebhookServiceName() string {
 	return operatorWebhookServiceName
 }
 
-// RetryOperation will call 'caller' for 'tries' amount of times before returning
-func RetryOperation(caller func(...any) error, tries int, secondsBackoff int, args ...any) error {
+// Retry executes a function with retry logic using generics for type safety
+func Retry[T any](fn func() (T, error), tries int, secondsBackoff time.Duration) (T, error) {
+	var result T
 	var err error
+
 	for i := range tries {
-		err = caller(args...)
+		result, err = fn()
 		if err == nil {
-			return nil
+			return result, nil
 		}
 		if i < tries-1 {
-			time.Sleep(time.Duration(secondsBackoff))
+			time.Sleep(secondsBackoff)
 		}
 	}
-	return fmt.Errorf("operation failed after %d retries: %v", tries, err)
+	return result, fmt.Errorf("operation failed after %d retries: %w", tries, err)
 }
 
 // GetClusterImageVersion returns the cluster's humio version

@@ -1,0 +1,28 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPackageRegistry
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humiopackageregistry-artifactory-sample
+spec:
+  managedClusterName: humiocluster
+  displayName: "JFrog Artifactory"
+  registryType: artifactory
+  enabled: true
+  artifactory:
+    url: "https://mycompany.jfrog.io/artifactory"
+    repository: "generic-repo"
+    tokenRef:
+      name: artifactory-token-secret
+      key: token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: artifactory-token-secret
+  labels:
+    app.kubernetes.io/name: humio-operator
+type: Opaque
+stringData:
+  token: "your-artifactory-token-here"

@@ -18,9 +18,14 @@ package humio
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -37,6 +42,12 @@ import (
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humiov1beta1 "github.com/humio/humio-operator/api/v1beta1"
 	humioapi "github.com/humio/humio-operator/internal/api"
+)
+
+const (
+	PackageResponseTypeAnalysisResult = "PackageAnalysisResultJson"
+	PackageResponseTypeErrorReport    = "PackageErrorReport"
+	PackagePolicyOverwrite            = "overwrite"
 )
 
 // Client is the interface that can be mocked
@@ -65,6 +76,7 @@ type Client interface {
 	SystemTokenClient
 	OrganizationTokenClient
 	SecurityPoliciesClient
+	PackageClient
 	TelemetryClient
 }
 
@@ -246,6 +258,13 @@ type SecurityPoliciesClient interface {
 	EnableTokenUpdatePermissionsForTests(context.Context, *humioapi.Client) error
 }
 
+type PackageClient interface {
+	AnalyzePackageFromZip(context.Context, *humioapi.Client, string, string) (any, error)
+	InstallPackageFromZip(context.Context, *humioapi.Client, *humiov1alpha1.HumioPackage, string, string) error
+	UninstallPackage(context.Context, *humioapi.Client, *humiov1alpha1.HumioPackage, string) (bool, error)
+	CheckPackage(context.Context, *humioapi.Client, *humiov1alpha1.HumioPackage, string) (*humiographql.PackageDetails, error)
+}
+
 type TelemetryClient interface {
 	CollectLicenseData(context.Context, *humioapi.Client) (*TelemetryLicenseData, error)
 	CollectClusterInfo(context.Context, *humioapi.Client) (*TelemetryClusterInfo, error)
@@ -273,6 +292,30 @@ type humioClientKey struct {
 type humioClientConnection struct {
 	client    *humioapi.Client
 	transport *http.Transport
+}
+
+// PackageErrorReportJson represents the error response when analysis fails
+type PackageErrorReportJson struct {
+	ParseErrors        []string `json:"parseErrors"`
+	InstallationErrors []string `json:"installationErrors"`
+	ResponseType       string   `json:"responseType"`
+}
+
+// PackageManifestResultJson represents the package manifest information. Incomplete structure
+type PackageManifestResultJson struct {
+	Name        string  `json:"name"`
+	Version     string  `json:"version"`
+	LogoURL     *string `json:"logoUrl"`
+	Description string  `json:"description"`
+	Status      string  `json:"status"` // "New", "Unchanged", "Changed"
+}
+
+// PackageAnalysisResultJson represents the successful analysis response. Incomplete structure
+type PackageAnalysisResultJson struct {
+	ExistingVersion           *string                   `json:"existingVersion"`
+	PackageManifestResultJson PackageManifestResultJson `json:"packageManifestResultJson"`
+	IgnoredFiles              []string                  `json:"ignoredFiles"`
+	ResponseType              string                    `json:"responseType"`
 }
 
 // NewClient returns a ClientConfig
@@ -3388,6 +3431,156 @@ func (h *ClientConfig) UpdateOrganizationToken(ctx context.Context, client *humi
 		permissions,
 	)
 	return err
+}
+
+// uploadPackageZip handles the common logic for uploading a zip file to Humio REST API endpoints
+func (h *ClientConfig) uploadPackageZip(ctx context.Context, client *humioapi.Client, zipFilePath string, path string) (*http.Response, error) {
+	// Open the file
+	file, err := os.Open(zipFilePath) // #nosec G304 - zipFilePath is validated and constructed internally by package download process
+	if err != nil {
+		return nil, fmt.Errorf("failed to open zip file: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			h.logger.Error(err, "could not close upload", "filePath", zipFilePath)
+		}
+	}()
+
+	// Create a pipe for streaming multipart data
+	pipeReader, pipeWriter := io.Pipe()
+	writer := multipart.NewWriter(pipeWriter)
+
+	// Start a goroutine to write the multipart data
+	go func() {
+		defer func() {
+			if err := pipeWriter.Close(); err != nil {
+				h.logger.Error(err, "could not close pipe writer")
+			}
+		}()
+		defer func() {
+			if err := writer.Close(); err != nil {
+				h.logger.Error(err, "could not close multipart writer")
+			}
+		}()
+
+		// Add the file field
+		fileWriter, err := writer.CreateFormFile("file", filepath.Base(zipFilePath))
+		if err != nil {
+			pipeWriter.CloseWithError(fmt.Errorf("failed to create form file: %w", err))
+			return
+		}
+		// Copy file content
+		_, err = io.Copy(fileWriter, file)
+		if err != nil {
+			pipeWriter.CloseWithError(fmt.Errorf("failed to copy file content: %w", err))
+			return
+		}
+	}()
+
+	// Set the correct content type with the boundary from the writer
+	contentType := writer.FormDataContentType()
+	// Use the API client's HTTPRequestContext method to get proper Auth/TLS configuration
+	resp, err := client.HTTPRequestContext(ctx, "POST", path, pipeReader, contentType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (h *ClientConfig) InstallPackageFromZip(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioPackage, zipFilePath string, viewName string) error {
+	overwrite := "false"
+	if hp.Spec.ConflictPolicy == PackagePolicyOverwrite {
+		overwrite = "true"
+	}
+	path := fmt.Sprintf("/api/v1/packages/install?view=%s&overwrite=%s&queryOwnershipType=%s",
+		viewName, overwrite, humiographql.QueryOwnershipTypeOrganization)
+
+	resp, err := h.uploadPackageZip(ctx, client, zipFilePath, path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.logger.Error(err, "could not close response body")
+		}
+	}()
+
+	// Check response status code
+	if resp.StatusCode != 200 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == 409 { // same version conflict
+			return fmt.Errorf("conflict detected: %s", string(bodyBytes))
+		}
+		return fmt.Errorf("HTTP error %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	return nil
+}
+
+func (h *ClientConfig) AnalyzePackageFromZip(ctx context.Context, client *humioapi.Client, zipFilePath string, viewName string) (any, error) {
+	path := fmt.Sprintf("/api/v1/packages/analyze?view=%s", viewName)
+
+	resp, err := h.uploadPackageZip(ctx, client, zipFilePath, path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.logger.Error(err, "could not close response body")
+		}
+	}()
+
+	jsonData, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP error %d: %s", resp.StatusCode, string(jsonData))
+	}
+
+	var responseType struct {
+		ResponseType string `json:"responseType"`
+	}
+	if err := json.Unmarshal(jsonData, &responseType); err != nil {
+		return nil, err
+	}
+
+	switch responseType.ResponseType {
+	case PackageResponseTypeAnalysisResult:
+		var result PackageAnalysisResultJson
+		err := json.Unmarshal(jsonData, &result)
+		return result, err
+	case PackageResponseTypeErrorReport:
+		var result PackageErrorReportJson
+		err := json.Unmarshal(jsonData, &result)
+		return result, err
+	default:
+		return nil, fmt.Errorf("unexpected response from analyze endpoint")
+	}
+}
+
+func (h *ClientConfig) UninstallPackage(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioPackage, viewName string) (bool, error) {
+	// to uninstall we need a valid HumioPackageName in Status
+	if hp.Status.HumioPackageName == "" {
+		return false, fmt.Errorf("unexpected scenario, missing HumioPackageName, received: %s", hp.Status.HumioPackageName)
+	}
+	removed, err := humiographql.UninstallPackage(ctx, client, hp.Status.HumioPackageName, viewName)
+	if err != nil {
+		return false, err
+	}
+	response := removed.GetUninstallPackage()
+
+	return response.Result, nil
+}
+
+func (h *ClientConfig) CheckPackage(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioPackage, viewName string) (*humiographql.PackageDetails, error) {
+	packageId := fmt.Sprintf("%s@%s", hp.Spec.PackageName, hp.Spec.PackageVersion)
+	packageData, err := humiographql.PackageInstallation(ctx, client, packageId, viewName)
+	if err != nil {
+		return nil, fmt.Errorf("error while checking package installation: %s", err)
+	}
+	if packageData.InstalledPackage == nil {
+		return nil, nil
+	}
+	return &packageData.InstalledPackage.Package.PackageDetails, nil
 }
 
 func equalSlices[T comparable](a, b []T) bool {

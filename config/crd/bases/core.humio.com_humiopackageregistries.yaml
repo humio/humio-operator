@@ -1,0 +1,499 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: humiopackageregistries.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.33.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioPackageRegistry
+    listKind: HumioPackageRegistryList
+    plural: humiopackageregistries
+    singular: humiopackageregistry
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the package registry
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: The last state message detected by the reconciler
+      jsonPath: .status.message
+      name: Message
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioPackageRegistry is the Schema for the humiopackageregistries
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioPackageRegistrySpec defines the desired state of HumioPackageRegistry
+            properties:
+              artifactory:
+                description: |-
+                  Artifactory contains connection configuration for JFrog Artifactory generic repositories.
+                  Required when registryType is "artifactory". Must specify exactly one registry type configuration.
+                properties:
+                  repository:
+                    description: |-
+                      Repository is the name of the generic repository in Artifactory where packages are stored.
+                      This repository must be configured to allow generic package types.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  tokenRef:
+                    description: |-
+                      TokenRef contains a reference to a Kubernetes secret with Artifactory authentication credentials.
+                      The token should have read access to the specified repository.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the specific key within the secret data that contains the required value.
+                          For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: |-
+                          Name is the name of the Kubernetes secret containing the required data.
+                          The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace where the secret is located (optional).
+                          If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+                          This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.
+                        maxLength: 253
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  url:
+                    description: |-
+                      URL is the Artifactory base URL (e.g., "https://mycompany.jfrog.io/artifactory").
+                      This should be the base Artifactory URL without the repository path.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^https://.*
+                    type: string
+                required:
+                - repository
+                - tokenRef
+                - url
+                type: object
+              aws:
+                description: |-
+                  Aws contains connection configuration for AWS CodeArtifact.
+                  Required when registryType is "aws". Must specify exactly one registry type configuration.
+                properties:
+                  accessKeyRef:
+                    description: |-
+                      AccessKeyRef contains a reference to a Kubernetes secret with the AWS access key ID.
+                      This access key must have permissions to read from the specified CodeArtifact repository.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the specific key within the secret data that contains the required value.
+                          For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: |-
+                          Name is the name of the Kubernetes secret containing the required data.
+                          The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace where the secret is located (optional).
+                          If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+                          This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.
+                        maxLength: 253
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  accessSecretRef:
+                    description: |-
+                      AccessSecretRef contains a reference to a Kubernetes secret with the AWS secret access key.
+                      This secret key corresponds to the access key and is used for AWS Signature V4 authentication.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the specific key within the secret data that contains the required value.
+                          For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: |-
+                          Name is the name of the Kubernetes secret containing the required data.
+                          The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace where the secret is located (optional).
+                          If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+                          This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.
+                        maxLength: 253
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  domain:
+                    description: |-
+                      Domain is the name of the CodeArtifact domain that contains the repository.
+                      Domains provide a way to organize repositories and control access across them.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  region:
+                    description: |-
+                      Region is the AWS region where the CodeArtifact domain and repository are located (e.g., "us-east-1").
+                      This must match the region where your CodeArtifact resources were created.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                  repository:
+                    description: |-
+                      Repository is the name of the CodeArtifact repository within the domain where packages are stored.
+                      The repository must be configured to support generic package format.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - accessKeyRef
+                - accessSecretRef
+                - domain
+                - region
+                - repository
+                type: object
+              displayName:
+                description: |-
+                  DisplayName is a human-readable name for the registry shown in logs and status messages.
+                  This is optional and can be used to distinguish between multiple registries of the same type.
+                maxLength: 253
+                type: string
+              enabled:
+                default: true
+                description: |-
+                  Enabled determines whether this registry is active and available for package installations.
+                  When false, the registry will be ignored by HumioPackage resources. Defaults to true.
+                type: boolean
+              externalClusterName:
+                description: |-
+                  ExternalClusterName specifies the name of a HumioExternalCluster resource representing an external LogScale cluster.
+                  Package registries configured with this field will be available to HumioPackage resources targeting this external cluster.
+                  Must specify exactly one of managedClusterName or externalClusterName.
+                minLength: 1
+                type: string
+              gcloud:
+                description: |-
+                  Gcloud contains connection configuration for Google Cloud Artifact Registry.
+                  Required when registryType is "gcloud". Must specify exactly one registry type configuration.
+                properties:
+                  location:
+                    description: |-
+                      Location is the Google Cloud region or multi-region where the repository is located.
+                      Examples: "us-central1" (region), "us" (multi-region). This must match the repository's actual location.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  projectId:
+                    description: |-
+                      ProjectID is the Google Cloud project ID where the Artifact Registry repository is located.
+                      This is the unique identifier for your GCP project (e.g., "my-project-123").
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  repository:
+                    description: |-
+                      Repository is the name of the Artifact Registry repository where packages are stored.
+                      The repository must be configured to support generic package format.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  serviceAccountKeyRef:
+                    description: |-
+                      ServiceAccountKeyRef contains a reference to a Kubernetes secret with the GCP service account JSON key.
+                      The service account must have the "Artifact Registry Reader" role or equivalent permissions.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the specific key within the secret data that contains the required value.
+                          For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: |-
+                          Name is the name of the Kubernetes secret containing the required data.
+                          The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace where the secret is located (optional).
+                          If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+                          This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.
+                        maxLength: 253
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  url:
+                    default: https://artifactregistry.googleapis.com
+                    description: |-
+                      URL is the Google Cloud Artifact Registry API base URL.
+                      Defaults to "https://artifactregistry.googleapis.com" (the standard API endpoint).
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^https://.*
+                    type: string
+                required:
+                - location
+                - projectId
+                - repository
+                - serviceAccountKeyRef
+                - url
+                type: object
+              github:
+                description: |-
+                  Github contains connection configuration for GitHub Releases.
+                  Required when registryType is "github". Must specify exactly one registry type configuration.
+                properties:
+                  owner:
+                    description: |-
+                      Owner is the GitHub username or organization name that owns the repositories.
+                      This will be combined with repository names from HumioPackage specs to form the full repository path.
+                    minLength: 1
+                    type: string
+                  tokenRef:
+                    description: |-
+                      TokenRef contains a reference to a Kubernetes secret with GitHub authentication credentials.
+                      For public repositories, a classic personal access token with no scopes is sufficient.
+                      For private repositories, the token needs the "repo" scope.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the specific key within the secret data that contains the required value.
+                          For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: |-
+                          Name is the name of the Kubernetes secret containing the required data.
+                          The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace where the secret is located (optional).
+                          If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+                          This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.
+                        maxLength: 253
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  url:
+                    description: |-
+                      URL is the GitHub API base URL (e.g., "https://api.github.com").
+                      For GitHub Enterprise Server, use your instance's API URL (e.g., "https://github.enterprise.com/api/v3").
+                    maxLength: 253
+                    pattern: ^https://.*
+                    type: string
+                required:
+                - owner
+                - tokenRef
+                - url
+                type: object
+              gitlab:
+                description: |-
+                  Gitlab contains connection configuration for GitLab Package Registry.
+                  Required when registryType is "gitlab". Must specify exactly one registry type configuration.
+                properties:
+                  project:
+                    description: |-
+                      Project is the GitLab project identifier where packages are stored.
+                      This can be either the project path (e.g., "group/project") or the numeric project ID.
+                    minLength: 1
+                    type: string
+                  tokenRef:
+                    description: |-
+                      TokenRef contains a reference to a Kubernetes secret with GitLab authentication credentials.
+                      The token should have at least read access to the specified project's package registry.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the specific key within the secret data that contains the required value.
+                          For example, "token" for API tokens, "password" for passwords, or "service-account.json" for GCP service accounts.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: |-
+                          Name is the name of the Kubernetes secret containing the required data.
+                          The secret must exist in the same namespace as the HumioPackageRegistry (or in the namespace specified below).
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace where the secret is located (optional).
+                          If not specified, defaults to the same namespace as the HumioPackageRegistry resource.
+                          This allows referencing secrets from other namespaces when appropriate RBAC permissions exist.
+                        maxLength: 253
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  url:
+                    description: |-
+                      URL is the GitLab API base URL including the API version (e.g., "https://gitlab.example.com/api/v4").
+                      For GitLab.com, use "https://gitlab.com/api/v4". For self-hosted instances, adjust the domain accordingly.
+                    maxLength: 253
+                    pattern: ^https://.*
+                    type: string
+                required:
+                - project
+                - tokenRef
+                - url
+                type: object
+              managedClusterName:
+                description: |-
+                  ManagedClusterName specifies the name of a HumioCluster resource managed by this operator.
+                  Package registries configured with this field will be available to HumioPackage resources targeting this cluster.
+                  Must specify exactly one of managedClusterName or externalClusterName.
+                minLength: 1
+                type: string
+              marketplace:
+                description: |-
+                  Marketplace contains connection configuration for the LogScale Marketplace (packages.humio.com).
+                  Required when registryType is "marketplace". Must specify exactly one registry type configuration.
+                properties:
+                  url:
+                    default: https://packages.humio.com
+                    description: |-
+                      URL is the LogScale Marketplace REST API endpoint.
+                      Defaults to "https://packages.humio.com" (the official marketplace). Custom marketplace instances can override this.
+                    maxLength: 253
+                    pattern: ^https://.*
+                    type: string
+                required:
+                - url
+                type: object
+              registryType:
+                description: |-
+                  RegistryType specifies the type of package registry to configure.
+                  Each type requires its corresponding configuration block (e.g., registryType: "gitlab" requires the gitlab field).
+                  Supported types: marketplace, gitlab, github, artifactory, aws, gcloud.
+                enum:
+                - marketplace
+                - gitlab
+                - github
+                - artifactory
+                - aws
+                - gcloud
+                type: string
+            required:
+            - enabled
+            - registryType
+            type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
+            - message: marketplace is required when registryType is 'marketplace'
+              rule: '(self.registryType == ''marketplace'') ? has(self.marketplace)
+                : true'
+            - message: gitlab is required when registryType is 'gitlab'
+              rule: '(self.registryType == ''gitlab'') ? has(self.gitlab) : true'
+            - message: github is required when registryType is 'github'
+              rule: '(self.registryType == ''github'') ? has(self.github) : true'
+            - message: artifactory is required when registryType is 'artifactory'
+              rule: '(self.registryType == ''artifactory'') ? has(self.artifactory)
+                : true'
+            - message: aws is required when registryType is 'aws'
+              rule: '(self.registryType == ''aws'') ? has(self.aws) : true'
+            - message: gcloud is required when registryType is 'gcloud'
+              rule: '(self.registryType == ''gcloud'') ? has(self.gcloud) : true'
+            - message: marketplace should only be set when registryType is 'marketplace'
+              rule: '(self.registryType != ''marketplace'') ? !has(self.marketplace)
+                : true'
+            - message: gitlab should only be set when registryType is 'gitlab'
+              rule: '(self.registryType != ''gitlab'') ? !has(self.gitlab) : true'
+            - message: github should only be set when registryType is 'github'
+              rule: '(self.registryType != ''github'') ? !has(self.github) : true'
+            - message: artifactory should only be set when registryType is 'artifactory'
+              rule: '(self.registryType != ''artifactory'') ? !has(self.artifactory)
+                : true'
+            - message: aws should only be set when registryType is 'aws'
+              rule: '(self.registryType != ''aws'') ? !has(self.aws) : true'
+            - message: gcloud should only be set when registryType is 'gcloud'
+              rule: '(self.registryType != ''gcloud'') ? !has(self.gcloud) : true'
+          status:
+            description: |-
+              HumioPackageRegistryStatus defines the observed state of HumioPackageRegistry.
+              This reflects the current operational status as determined by the controller.
+            properties:
+              message:
+                description: |-
+                  Message provides additional details about the current state.
+                  This may contain error messages, connection status, or other diagnostic information from the controller.
+                type: string
+              state:
+                description: |-
+                  State reflects the current operational state of the package registry.
+                  Possible values: "Unknown", "Active", "Disabled", "ConfigError".
+                  "Active" means the registry is successfully configured and available for use.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

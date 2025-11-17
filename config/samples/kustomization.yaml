@@ -34,4 +34,6 @@ resources:
 - core_v1alpha1_humioviewtoken.yaml
 - core_v1alpha1_humiosystemtoken.yaml
 - core_v1alpha1_humioorganizationtoken.yaml
+- core_v1alpha1_humiopackageregistry.yaml
+- core_v1alpha1_humiopackage.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

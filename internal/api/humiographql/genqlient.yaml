@@ -28,6 +28,7 @@ operations:
   - graphql/system-tokens.graphql
   - graphql/organization-tokens.graphql
   - graphql/security-policies.graphql
+  - graphql/packages.graphql
 generated: humiographql.go
 
 bindings:
@@ -41,9 +42,13 @@ bindings:
     type: string
   UnversionedPackageSpecifier:
     type: string
-  PackageVersion:
-    type: string
   YAML:
     type: string
+  PackageVersion:
+    type: string
+  PackageScope:
+    type: string
+  PackageName:
+    type: string 
 
 optional: pointer

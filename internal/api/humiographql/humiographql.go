@@ -15332,6 +15332,140 @@ func (v *OrganizationTokenDetailsViewPermissionsToken) __premarshalJSON() (*__pr
 	return &retval, nil
 }
 
+// PackageDetails includes the GraphQL fields of Package2 requested by the fragment PackageDetails.
+// The GraphQL type's documentation follows.
+//
+// A Humio package
+type PackageDetails struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	Scope string `json:"scope"`
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Stability: Long-term
+	Version string `json:"version"`
+}
+
+// GetId returns PackageDetails.Id, and is useful for accessing the field via an interface.
+func (v *PackageDetails) GetId() string { return v.Id }
+
+// GetScope returns PackageDetails.Scope, and is useful for accessing the field via an interface.
+func (v *PackageDetails) GetScope() string { return v.Scope }
+
+// GetName returns PackageDetails.Name, and is useful for accessing the field via an interface.
+func (v *PackageDetails) GetName() string { return v.Name }
+
+// GetVersion returns PackageDetails.Version, and is useful for accessing the field via an interface.
+func (v *PackageDetails) GetVersion() string { return v.Version }
+
+// PackageInstallationInstalledPackagePackageInstallation includes the requested fields of the GraphQL type PackageInstallation.
+// The GraphQL type's documentation follows.
+//
+// A package installation.
+type PackageInstallationInstalledPackagePackageInstallation struct {
+	// Stability: Long-term
+	Package PackageInstallationInstalledPackagePackageInstallationPackagePackage2 `json:"package"`
+}
+
+// GetPackage returns PackageInstallationInstalledPackagePackageInstallation.Package, and is useful for accessing the field via an interface.
+func (v *PackageInstallationInstalledPackagePackageInstallation) GetPackage() PackageInstallationInstalledPackagePackageInstallationPackagePackage2 {
+	return v.Package
+}
+
+// PackageInstallationInstalledPackagePackageInstallationPackagePackage2 includes the requested fields of the GraphQL type Package2.
+// The GraphQL type's documentation follows.
+//
+// A Humio package
+type PackageInstallationInstalledPackagePackageInstallationPackagePackage2 struct {
+	PackageDetails `json:"-"`
+}
+
+// GetId returns PackageInstallationInstalledPackagePackageInstallationPackagePackage2.Id, and is useful for accessing the field via an interface.
+func (v *PackageInstallationInstalledPackagePackageInstallationPackagePackage2) GetId() string {
+	return v.PackageDetails.Id
+}
+
+// GetScope returns PackageInstallationInstalledPackagePackageInstallationPackagePackage2.Scope, and is useful for accessing the field via an interface.
+func (v *PackageInstallationInstalledPackagePackageInstallationPackagePackage2) GetScope() string {
+	return v.PackageDetails.Scope
+}
+
+// GetName returns PackageInstallationInstalledPackagePackageInstallationPackagePackage2.Name, and is useful for accessing the field via an interface.
+func (v *PackageInstallationInstalledPackagePackageInstallationPackagePackage2) GetName() string {
+	return v.PackageDetails.Name
+}
+
+// GetVersion returns PackageInstallationInstalledPackagePackageInstallationPackagePackage2.Version, and is useful for accessing the field via an interface.
+func (v *PackageInstallationInstalledPackagePackageInstallationPackagePackage2) GetVersion() string {
+	return v.PackageDetails.Version
+}
+
+func (v *PackageInstallationInstalledPackagePackageInstallationPackagePackage2) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PackageInstallationInstalledPackagePackageInstallationPackagePackage2
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PackageInstallationInstalledPackagePackageInstallationPackagePackage2 = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PackageDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPackageInstallationInstalledPackagePackageInstallationPackagePackage2 struct {
+	Id string `json:"id"`
+
+	Scope string `json:"scope"`
+
+	Name string `json:"name"`
+
+	Version string `json:"version"`
+}
+
+func (v *PackageInstallationInstalledPackagePackageInstallationPackagePackage2) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PackageInstallationInstalledPackagePackageInstallationPackagePackage2) __premarshalJSON() (*__premarshalPackageInstallationInstalledPackagePackageInstallationPackagePackage2, error) {
+	var retval __premarshalPackageInstallationInstalledPackagePackageInstallationPackagePackage2
+
+	retval.Id = v.PackageDetails.Id
+	retval.Scope = v.PackageDetails.Scope
+	retval.Name = v.PackageDetails.Name
+	retval.Version = v.PackageDetails.Version
+	return &retval, nil
+}
+
+// PackageInstallationResponse is returned by PackageInstallation on success.
+type PackageInstallationResponse struct {
+	// Provides details for a specific package installed on a specific view.
+	// Stability: Long-term
+	InstalledPackage *PackageInstallationInstalledPackagePackageInstallation `json:"installedPackage"`
+}
+
+// GetInstalledPackage returns PackageInstallationResponse.InstalledPackage, and is useful for accessing the field via an interface.
+func (v *PackageInstallationResponse) GetInstalledPackage() *PackageInstallationInstalledPackagePackageInstallation {
+	return v.InstalledPackage
+}
+
 // ParserDetails includes the GraphQL fields of Parser requested by the fragment ParserDetails.
 // The GraphQL type's documentation follows.
 //
@@ -18635,6 +18769,27 @@ type UnassignViewPermissionRoleFromGroupForViewUnassignRoleFromGroup struct {
 func (v *UnassignViewPermissionRoleFromGroupForViewUnassignRoleFromGroup) GetTypename() *string {
 	return v.Typename
 }
+
+// UninstallPackageResponse is returned by UninstallPackage on success.
+type UninstallPackageResponse struct {
+	// Uninstalls a package from a specific view.
+	// Stability: Long-term
+	UninstallPackage UninstallPackageUninstallPackageBooleanResultType `json:"uninstallPackage"`
+}
+
+// GetUninstallPackage returns UninstallPackageResponse.UninstallPackage, and is useful for accessing the field via an interface.
+func (v *UninstallPackageResponse) GetUninstallPackage() UninstallPackageUninstallPackageBooleanResultType {
+	return v.UninstallPackage
+}
+
+// UninstallPackageUninstallPackageBooleanResultType includes the requested fields of the GraphQL type BooleanResultType.
+type UninstallPackageUninstallPackageBooleanResultType struct {
+	// Stability: Long-term
+	Result bool `json:"result"`
+}
+
+// GetResult returns UninstallPackageUninstallPackageBooleanResultType.Result, and is useful for accessing the field via an interface.
+func (v *UninstallPackageUninstallPackageBooleanResultType) GetResult() bool { return v.Result }
 
 // UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation includes the requested fields of the GraphQL type UnregisterNodeMutation.
 type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation struct {
@@ -22472,6 +22627,18 @@ type __ListScheduledSearchesV2Input struct {
 // GetSearchDomainName returns __ListScheduledSearchesV2Input.SearchDomainName, and is useful for accessing the field via an interface.
 func (v *__ListScheduledSearchesV2Input) GetSearchDomainName() string { return v.SearchDomainName }
 
+// __PackageInstallationInput is used internally by genqlient
+type __PackageInstallationInput struct {
+	PackageId string `json:"PackageId"`
+	ViewName  string `json:"ViewName"`
+}
+
+// GetPackageId returns __PackageInstallationInput.PackageId, and is useful for accessing the field via an interface.
+func (v *__PackageInstallationInput) GetPackageId() string { return v.PackageId }
+
+// GetViewName returns __PackageInstallationInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__PackageInstallationInput) GetViewName() string { return v.ViewName }
+
 // __RefreshClusterManagementStatsInput is used internally by genqlient
 type __RefreshClusterManagementStatsInput struct {
 	Vhost int `json:"Vhost"`
@@ -22591,6 +22758,18 @@ func (v *__UnassignViewPermissionRoleFromGroupForViewInput) GetGroupId() string 
 
 // GetViewId returns __UnassignViewPermissionRoleFromGroupForViewInput.ViewId, and is useful for accessing the field via an interface.
 func (v *__UnassignViewPermissionRoleFromGroupForViewInput) GetViewId() string { return v.ViewId }
+
+// __UninstallPackageInput is used internally by genqlient
+type __UninstallPackageInput struct {
+	PackageId string `json:"PackageId"`
+	ViewName  string `json:"ViewName"`
+}
+
+// GetPackageId returns __UninstallPackageInput.PackageId, and is useful for accessing the field via an interface.
+func (v *__UninstallPackageInput) GetPackageId() string { return v.PackageId }
+
+// GetViewName returns __UninstallPackageInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__UninstallPackageInput) GetViewName() string { return v.ViewName }
 
 // __UnregisterClusterNodeInput is used internally by genqlient
 type __UnregisterClusterNodeInput struct {
@@ -27314,6 +27493,50 @@ func ListSearchDomains(
 	return data_, err_
 }
 
+// The query executed by PackageInstallation.
+const PackageInstallation_Operation = `
+query PackageInstallation ($PackageId: VersionedPackageSpecifier!, $ViewName: String!) {
+	installedPackage(packageId: $PackageId, viewName: $ViewName) {
+		package {
+			... PackageDetails
+		}
+	}
+}
+fragment PackageDetails on Package2 {
+	id
+	scope
+	name
+	version
+}
+`
+
+func PackageInstallation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	PackageId string,
+	ViewName string,
+) (data_ *PackageInstallationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PackageInstallation",
+		Query:  PackageInstallation_Operation,
+		Variables: &__PackageInstallationInput{
+			PackageId: PackageId,
+			ViewName:  ViewName,
+		},
+	}
+
+	data_ = &PackageInstallationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RefreshClusterManagementStats.
 const RefreshClusterManagementStats_Operation = `
 mutation RefreshClusterManagementStats ($Vhost: Int!) {
@@ -27699,6 +27922,42 @@ func UnassignViewPermissionRoleFromGroupForView(
 	}
 
 	data_ = &UnassignViewPermissionRoleFromGroupForViewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UninstallPackage.
+const UninstallPackage_Operation = `
+mutation UninstallPackage ($PackageId: UnversionedPackageSpecifier!, $ViewName: String!) {
+	uninstallPackage(packageId: $PackageId, viewName: $ViewName) {
+		result
+	}
+}
+`
+
+func UninstallPackage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	PackageId string,
+	ViewName string,
+) (data_ *UninstallPackageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UninstallPackage",
+		Query:  UninstallPackage_Operation,
+		Variables: &__UninstallPackageInput{
+			PackageId: PackageId,
+			ViewName:  ViewName,
+		},
+	}
+
+	data_ = &UninstallPackageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

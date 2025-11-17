@@ -19,6 +19,7 @@ package helpers
 import (
 	"crypto/sha256"
 	"fmt"
+	"net/url"
 	"os"
 	"reflect"
 	"sort"
@@ -409,4 +410,23 @@ func GetCurrentDay() time.Time {
 		baseTime.Location(),
 	)
 	return specificTime
+}
+
+func SafeURLJoin(baseURL, path string) (string, error) {
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	// Clean the path to remove leading slash for proper joining
+	cleanPath := strings.TrimPrefix(path, "/")
+
+	// Join the base path with the new path segment
+	if base.Path == "" || base.Path == "/" {
+		base.Path = "/" + cleanPath
+	} else {
+		base.Path = strings.TrimSuffix(base.Path, "/") + "/" + cleanPath
+	}
+
+	return base.String(), nil
 }

@@ -1,0 +1,28 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPackageRegistry
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humiopackageregistry-gitlab-sample
+spec:
+  managedClusterName: humiocluster
+  displayName: "GitLab Package Registry"
+  registryType: gitlab
+  enabled: true
+  gitlab:
+    url: "https://gitlab.example.com/api/v4"
+    project: "myproject"
+    tokenRef:
+      name: gitlab-token-secret
+      key: token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-token-secret
+  labels:
+    app.kubernetes.io/name: humio-operator
+type: Opaque
+stringData:
+  token: "your-gitlab-token-here"

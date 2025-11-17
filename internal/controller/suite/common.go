@@ -295,7 +295,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 			},
 			{
 				Name:  "HUMIO_MEMORY_OPTS",
-				Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
+				Value: "-Xss2m -Xms4g -Xmx4g -XX:MaxDirectMemorySize=1g",
 			},
 			{
 				Name:  "HUMIO_JVM_LOG_OPTS",

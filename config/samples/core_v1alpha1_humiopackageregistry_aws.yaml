@@ -1,0 +1,44 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPackageRegistry
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humiopackageregistry-aws-sample
+spec:
+  managedClusterName: humiocluster
+  displayName: "AWS CodeArtifact"
+  registryType: aws
+  enabled: true
+  aws:
+    region: "us-east-1"
+    domain: "my-domain"
+    repository: "my-repo"
+    accessKeyRef:
+      name: aws-access-key-secret
+      key: access-key
+    accessSecretRef:
+      name: aws-access-secret-secret
+      key: secret-key
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-access-key-secret
+  labels:
+    app.kubernetes.io/name: humio-operator
+type: Opaque
+stringData:
+  # Example credentials - replace with actual AWS access key
+  access-key: "AKIAIOSFODNN7EXAMPLE"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-access-secret-secret
+  labels:
+    app.kubernetes.io/name: humio-operator
+type: Opaque
+stringData:
+  # Example credentials - replace with actual AWS secret access key
+  secret-key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
