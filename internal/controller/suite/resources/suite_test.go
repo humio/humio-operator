@@ -111,7 +111,7 @@ var _ = SynchronizedBeforeSuite(func() {
 	var cfg *rest.Config
 	var err error
 
-	zapLog, _ := helpers.NewLogger()
+	zapLog, _ := helpers.NewLogger(suite.LogLevel)
 	defer func(zapLog *uberzap.Logger) {
 		_ = zapLog.Sync()
 	}(zapLog)
@@ -304,7 +304,7 @@ var _ = SynchronizedBeforeSuite(func() {
 	var log logr.Logger
 	var err error
 
-	zapLog, _ := helpers.NewLogger()
+	zapLog, _ := helpers.NewLogger(suite.LogLevel)
 	defer func(zapLog *uberzap.Logger) {
 		_ = zapLog.Sync()
 	}(zapLog)

@@ -55,6 +55,9 @@ spec:
         - --metrics-bind-address=:{{ .Values.operator.metrics.listen.port }}
         - --metrics-secure={{ .Values.operator.metrics.secure }}
 {{- end }}
+{{- if .Values.operator.loglevel}}
+        - --loglevel={{ .Values.operator.loglevel | quote }}
+{{- end}}
         env:
         - name: POD_NAME
           valueFrom:

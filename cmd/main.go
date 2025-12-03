@@ -75,6 +75,7 @@ func main() {
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var enableLeaderElection bool
 	var probeAddr string
+	var logLevel string
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
@@ -96,10 +97,12 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.DurationVar(&requeuePeriod, "requeue-period", 15*time.Second,
 		"The default reconciliation requeue period for all Humio* resources.")
+	flag.StringVar(&logLevel, "loglevel", "INFO", "The level at which to log output. "+
+		"Possible values: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL.")
 	flag.Parse()
 
 	var log logr.Logger
-	zapLog, _ := helpers.NewLogger()
+	zapLog, _ := helpers.NewLogger(logLevel)
 	defer func(zapLog *uberzap.Logger) {
 		_ = zapLog.Sync()
 	}(zapLog)

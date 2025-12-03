@@ -66,6 +66,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var logLevel string
 	var webhookCertPath, webhookCertName, webhookCertKey string
 	var requeuePeriod time.Duration
 
@@ -84,10 +85,12 @@ func main() {
 	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
 	flag.DurationVar(&requeuePeriod, "requeue-period", 15*time.Second,
 		"The default reconciliation requeue period for all Humio* resources.")
+	flag.StringVar(&logLevel, "loglevel", "INFO", "The level at which to log output. "+
+		"Possible values: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL.")
 	flag.Parse()
 
 	var log logr.Logger
-	zapLog, _ := helpers.NewLogger()
+	zapLog, _ := helpers.NewLogger(logLevel)
 	defer func(zapLog *uberzap.Logger) {
 		_ = zapLog.Sync()
 	}(zapLog)
