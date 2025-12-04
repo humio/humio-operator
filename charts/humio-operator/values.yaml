@@ -46,6 +46,7 @@ operator:
             values:
             - linux
 webhook:
+  loglevel: INFO
   resources:
     limits:
       cpu: 250m

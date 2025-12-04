@@ -56,7 +56,7 @@ spec:
         - --metrics-secure={{ .Values.operator.metrics.secure }}
 {{- end }}
 {{- if .Values.operator.loglevel}}
-        - --loglevel={{ .Values.operator.loglevel | quote }}
+        - --loglevel={{ .Values.operator.loglevel }}
 {{- end}}
         env:
         - name: POD_NAME

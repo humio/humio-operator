@@ -101,6 +101,8 @@ func main() {
 		"Possible values: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL.")
 	flag.Parse()
 
+	logLevel = strings.Trim(logLevel, "\" ")
+
 	var log logr.Logger
 	zapLog, _ := helpers.NewLogger(logLevel)
 	defer func(zapLog *uberzap.Logger) {
