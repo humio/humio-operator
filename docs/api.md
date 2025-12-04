@@ -49192,8 +49192,6 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
         <td>integer</td>
         <td>
           BackfillLimit is the user-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. Only allowed when queryTimestamp is EventTimestamp<br/>
-          <br/>
-            <i>Default</i>: 0<br/>
         </td>
         <td>false</td>
       </tr><tr>

@@ -191,7 +191,6 @@ spec:
                 - message: Actions cannot contain empty strings
                   rule: self.all(action, size(action) > 0)
               backfillLimit:
-                default: 0
                 description: BackfillLimit is the user-defined limit, which caps the
                   number of missed searches to backfill, e.g. in the event of a shutdown.
                   Only allowed when queryTimestamp is EventTimestamp

@@ -92,7 +92,6 @@ type HumioScheduledSearchSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == 'UTC' || self.matches(r'^UTC[+-]([01]?[0-9]|2[0-3])(:[0-5][0-9])?$')",message="timeZone must be 'UTC' or a UTC offset like 'UTC-01', 'UTC+12:45'"
 	TimeZone string `json:"timeZone"`
-	// +kubebuilder:default=0
 	// BackfillLimit is the user-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown. Only allowed when queryTimestamp is EventTimestamp
 	BackfillLimit *int `json:"backfillLimit,omitempty"`
 	// Enabled will set the ScheduledSearch to enabled when set to true

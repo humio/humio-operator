@@ -16,7 +16,7 @@ This guide helps you migrate from HumioScheduledSearch v1alpha1 to v1beta1. The 
 |---|---|---|
 | `queryStart` (string) | `searchIntervalSeconds` (int64) | Time interval converted to seconds |
 | `queryEnd` (string) | `searchIntervalOffsetSeconds` (*int64) | Offset converted to seconds, optional |
-| `backfillLimit` (int) | `backfillLimit` (*int) | Now optional pointer |
+| `backfillLimit` (int) | `backfillLimit` (int) | Optional, required when `queryTimestampType` is `EventTimestamp` |
 | N/A | `queryTimestampType` (enum) | **Required**: `EventTimestamp` or `IngestTimestamp` |
 | N/A | `maxWaitTimeSeconds` (int64) | Optional, for `IngestTimestamp` type only |
 
@@ -99,7 +99,7 @@ spec:
   queryTimestampType: EventTimestamp # Required new field
   schedule: "0 * * * *"
   timeZone: "UTC"
-  backfillLimit: 3                   # Optional (but recommended for EventTimestamp)
+  backfillLimit: 3                   # Required for EventTimestamp (≥ 0)
   enabled: true
   actions: ["my-action"]
 ```
@@ -217,7 +217,7 @@ error: Must specify exactly one of managedClusterName or externalClusterName
 ```
 error: backfillLimit is required when QueryTimestampType is EventTimestamp
 ```
-**Solution:** Add `backfillLimit: 0` (or desired value) for EventTimestamp searches
+**Solution:** Add `backfillLimit: 0` (or desired value ≥ 0) for EventTimestamp searches
 
 #### 4. Invalid Time Format
 ```
