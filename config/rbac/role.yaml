@@ -115,6 +115,7 @@ rules:
   - humioscheduledsearches
   - humiosystempermissionroles
   - humiosystemtokens
+  - humiotelemetries
   - humiousers
   - humioviewpermissionroles
   - humioviews
@@ -150,6 +151,7 @@ rules:
   - humioscheduledsearches/finalizers
   - humiosystempermissionroles/finalizers
   - humiosystemtokens/finalizers
+  - humiotelemetries/finalizers
   - humiousers/finalizers
   - humioviewpermissionroles/finalizers
   - humioviews/finalizers
@@ -179,6 +181,7 @@ rules:
   - humioscheduledsearches/status
   - humiosystempermissionroles/status
   - humiosystemtokens/status
+  - humiotelemetries/status
   - humiousers/status
   - humioviewpermissionroles/status
   - humioviews/status

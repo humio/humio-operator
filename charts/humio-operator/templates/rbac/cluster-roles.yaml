@@ -182,6 +182,9 @@ rules:
   - humiopdfrenderservices
   - humiopdfrenderservices/finalizers
   - humiopdfrenderservices/status
+  - humiotelemetries
+  - humiotelemetries/finalizers
+  - humiotelemetries/status
   verbs:
   - create
   - delete

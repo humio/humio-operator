@@ -46,6 +46,31 @@ To run a E2E tests locally using `kind`, execute:
 make run-e2e-tests-local-kind
 ```
 
+### Telemetry Testing
+
+The operator includes telemetry collection functionality that gathers usage and cluster information. For detailed telemetry testing instructions, see the [Telemetry Testing Guide](docs/telemetry-testing.md).
+
+**Note**: Telemetry tests are included in the main E2E test suite and will run automatically with `make run-e2e-tests-local-kind`.
+
+Quick start for telemetry testing:
+
+```bash
+# Set required license
+export HUMIO_E2E_LICENSE="your-license-here"
+
+# Run all E2E tests (includes telemetry tests)
+make run-e2e-tests-local-kind
+
+# Interactive testing (creates persistent test cluster)
+./hack/run-telemetry-test-cluster.sh
+
+# Automated telemetry-only integration tests
+./hack/run-telemetry-integration-using-kind.sh
+
+# Unit tests for telemetry controller only
+make run-telemetry-tests
+```
+
 ## Publishing new releases
 
 In order to publish new release of the different components, we have the following procedures we can follow:

@@ -6784,6 +6784,252 @@ type GetIPFiltersResponse struct {
 // GetIpFilters returns GetIPFiltersResponse.IpFilters, and is useful for accessing the field via an interface.
 func (v *GetIPFiltersResponse) GetIpFilters() []GetIPFiltersIpFiltersIPFilter { return v.IpFilters }
 
+// GetLicenseForTelemetryInstalledLicense includes the requested fields of the GraphQL interface License.
+//
+// GetLicenseForTelemetryInstalledLicense is implemented by the following types:
+// GetLicenseForTelemetryInstalledLicenseOnPremLicense
+// GetLicenseForTelemetryInstalledLicenseTrialLicense
+// The GraphQL type's documentation follows.
+//
+// Represents information about the LogScale instance.
+type GetLicenseForTelemetryInstalledLicense interface {
+	implementsGraphQLInterfaceGetLicenseForTelemetryInstalledLicense()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetExpiresAt returns the interface-field "expiresAt" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Represents information about the LogScale instance.
+	GetExpiresAt() time.Time
+	// GetIssuedAt returns the interface-field "issuedAt" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Represents information about the LogScale instance.
+	GetIssuedAt() time.Time
+}
+
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) implementsGraphQLInterfaceGetLicenseForTelemetryInstalledLicense() {
+}
+func (v *GetLicenseForTelemetryInstalledLicenseTrialLicense) implementsGraphQLInterfaceGetLicenseForTelemetryInstalledLicense() {
+}
+
+func __unmarshalGetLicenseForTelemetryInstalledLicense(b []byte, v *GetLicenseForTelemetryInstalledLicense) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "OnPremLicense":
+		*v = new(GetLicenseForTelemetryInstalledLicenseOnPremLicense)
+		return json.Unmarshal(b, *v)
+	case "TrialLicense":
+		*v = new(GetLicenseForTelemetryInstalledLicenseTrialLicense)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing License.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetLicenseForTelemetryInstalledLicense: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetLicenseForTelemetryInstalledLicense(v *GetLicenseForTelemetryInstalledLicense) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetLicenseForTelemetryInstalledLicenseOnPremLicense:
+		typename = "OnPremLicense"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetLicenseForTelemetryInstalledLicenseOnPremLicense
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetLicenseForTelemetryInstalledLicenseTrialLicense:
+		typename = "TrialLicense"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetLicenseForTelemetryInstalledLicenseTrialLicense
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetLicenseForTelemetryInstalledLicense: "%T"`, v)
+	}
+}
+
+// GetLicenseForTelemetryInstalledLicenseOnPremLicense includes the requested fields of the GraphQL type OnPremLicense.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a LogScale License.
+type GetLicenseForTelemetryInstalledLicenseOnPremLicense struct {
+	Typename *string `json:"__typename"`
+	// Represents information about the LogScale instance.
+	ExpiresAt time.Time `json:"expiresAt"`
+	// Represents information about the LogScale instance.
+	IssuedAt time.Time `json:"issuedAt"`
+	// license id.
+	// Stability: Long-term
+	Uid string `json:"uid"`
+	// The name of the entity the license was issued to.
+	// Stability: Long-term
+	Owner string `json:"owner"`
+	// The maximum number of user accounts allowed in LogScale. Unlimited if undefined.
+	// Stability: Long-term
+	MaxUsers *int `json:"maxUsers"`
+	// Indicates whether the license allows running LogScale as a SaaS platform.
+	// Stability: Long-term
+	IsSaaS bool `json:"isSaaS"`
+	// Indicates whether the license is an OEM license.
+	// Stability: Long-term
+	IsOem bool `json:"isOem"`
+}
+
+// GetTypename returns GetLicenseForTelemetryInstalledLicenseOnPremLicense.Typename, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) GetTypename() *string {
+	return v.Typename
+}
+
+// GetExpiresAt returns GetLicenseForTelemetryInstalledLicenseOnPremLicense.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) GetExpiresAt() time.Time {
+	return v.ExpiresAt
+}
+
+// GetIssuedAt returns GetLicenseForTelemetryInstalledLicenseOnPremLicense.IssuedAt, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) GetIssuedAt() time.Time {
+	return v.IssuedAt
+}
+
+// GetUid returns GetLicenseForTelemetryInstalledLicenseOnPremLicense.Uid, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) GetUid() string { return v.Uid }
+
+// GetOwner returns GetLicenseForTelemetryInstalledLicenseOnPremLicense.Owner, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) GetOwner() string { return v.Owner }
+
+// GetMaxUsers returns GetLicenseForTelemetryInstalledLicenseOnPremLicense.MaxUsers, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) GetMaxUsers() *int { return v.MaxUsers }
+
+// GetIsSaaS returns GetLicenseForTelemetryInstalledLicenseOnPremLicense.IsSaaS, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) GetIsSaaS() bool { return v.IsSaaS }
+
+// GetIsOem returns GetLicenseForTelemetryInstalledLicenseOnPremLicense.IsOem, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseOnPremLicense) GetIsOem() bool { return v.IsOem }
+
+// GetLicenseForTelemetryInstalledLicenseTrialLicense includes the requested fields of the GraphQL type TrialLicense.
+// The GraphQL type's documentation follows.
+//
+// Represents information about an on-going trial of LogScale.
+type GetLicenseForTelemetryInstalledLicenseTrialLicense struct {
+	Typename *string `json:"__typename"`
+	// Represents information about the LogScale instance.
+	ExpiresAt time.Time `json:"expiresAt"`
+	// Represents information about the LogScale instance.
+	IssuedAt time.Time `json:"issuedAt"`
+}
+
+// GetTypename returns GetLicenseForTelemetryInstalledLicenseTrialLicense.Typename, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseTrialLicense) GetTypename() *string { return v.Typename }
+
+// GetExpiresAt returns GetLicenseForTelemetryInstalledLicenseTrialLicense.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseTrialLicense) GetExpiresAt() time.Time {
+	return v.ExpiresAt
+}
+
+// GetIssuedAt returns GetLicenseForTelemetryInstalledLicenseTrialLicense.IssuedAt, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryInstalledLicenseTrialLicense) GetIssuedAt() time.Time {
+	return v.IssuedAt
+}
+
+// GetLicenseForTelemetryResponse is returned by GetLicenseForTelemetry on success.
+type GetLicenseForTelemetryResponse struct {
+	// This returns information about the license for the LogScale instance, if any license installed.
+	// Stability: Long-term
+	InstalledLicense *GetLicenseForTelemetryInstalledLicense `json:"-"`
+}
+
+// GetInstalledLicense returns GetLicenseForTelemetryResponse.InstalledLicense, and is useful for accessing the field via an interface.
+func (v *GetLicenseForTelemetryResponse) GetInstalledLicense() *GetLicenseForTelemetryInstalledLicense {
+	return v.InstalledLicense
+}
+
+func (v *GetLicenseForTelemetryResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetLicenseForTelemetryResponse
+		InstalledLicense json.RawMessage `json:"installedLicense"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetLicenseForTelemetryResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.InstalledLicense
+		src := firstPass.InstalledLicense
+		if len(src) != 0 && string(src) != "null" {
+			*dst = new(GetLicenseForTelemetryInstalledLicense)
+			err = __unmarshalGetLicenseForTelemetryInstalledLicense(
+				src, *dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GetLicenseForTelemetryResponse.InstalledLicense: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetLicenseForTelemetryResponse struct {
+	InstalledLicense json.RawMessage `json:"installedLicense"`
+}
+
+func (v *GetLicenseForTelemetryResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetLicenseForTelemetryResponse) __premarshalJSON() (*__premarshalGetLicenseForTelemetryResponse, error) {
+	var retval __premarshalGetLicenseForTelemetryResponse
+
+	{
+
+		dst := &retval.InstalledLicense
+		src := v.InstalledLicense
+		if src != nil {
+			var err error
+			*dst, err = __marshalGetLicenseForTelemetryInstalledLicense(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal GetLicenseForTelemetryResponse.InstalledLicense: %w", err)
+			}
+		}
+	}
+	return &retval, nil
+}
+
 // GetLicenseInstalledLicense includes the requested fields of the GraphQL interface License.
 //
 // GetLicenseInstalledLicense is implemented by the following types:
@@ -25806,6 +26052,49 @@ func GetLicense(
 	}
 
 	data_ = &GetLicenseResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetLicenseForTelemetry.
+const GetLicenseForTelemetry_Operation = `
+query GetLicenseForTelemetry {
+	installedLicense {
+		__typename
+		expiresAt
+		issuedAt
+		... on OnPremLicense {
+			uid
+			owner
+			maxUsers
+			isSaaS
+			isOem
+		}
+		... on TrialLicense {
+			__typename
+		}
+	}
+}
+`
+
+// Enhanced query for telemetry collection
+func GetLicenseForTelemetry(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *GetLicenseForTelemetryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetLicenseForTelemetry",
+		Query:  GetLicenseForTelemetry_Operation,
+	}
+
+	data_ = &GetLicenseForTelemetryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

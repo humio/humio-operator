@@ -255,8 +255,10 @@ update-schema:
 
 # run tests without e2e tests
 .PHONY: test
-test: ginkgo
-	$(GINKGO) run -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m --skip-package="./internal/controller/suite" ./...
+test: manifests generate fmt vet setup-envtest ginkgo ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
+	TEST_USING_ENVTEST=true \
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./...
 
 # run e2e tests
 .PHONY: run-e2e-tests
@@ -268,6 +270,16 @@ run-e2e-tests: manifests generate fmt vet setup-envtest ginkgo
 .PHONY: run-e2e-tests-local-kind
 run-e2e-tests-local-kind: manifests generate fmt vet ## Run tests.
 	hack/run-e2e-using-kind.sh
+
+.PHONY: run-telemetry-tests
+run-telemetry-tests: manifests generate fmt vet setup-envtest ginkgo ## Run telemetry controller tests with envtest.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
+	TEST_USING_ENVTEST=true \
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -timeout 10m ./internal/controller/suite/telemetry/...
+
+.PHONY: run-telemetry-integration-tests
+run-telemetry-integration-tests: manifests generate fmt vet ## Run telemetry integration tests using Kind cluster.
+	hack/run-telemetry-integration-using-kind.sh
 
 # Run go fmt against code
 .PHONY: fmt-simple

@@ -106,6 +106,10 @@ type HumioClusterSpec struct {
 
 	// NodePools can be used to define additional groups of Humio cluster pods that share a set of configuration.
 	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
+
+	// TelemetryConfig contains the configuration for telemetry collection when enabled
+	// Telemetry is enabled if this field is not nil
+	TelemetryConfig *TelemetryConfig `json:"telemetryConfig,omitempty"`
 }
 
 // HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.
@@ -498,6 +502,8 @@ type HumioClusterStatus struct {
 	ObservedGeneration string `json:"observedGeneration,omitempty"` // TODO: We should change the type to int64 so we don't have to convert back and forth between int64 and string
 	// EvictedNodeIds keeps track of evicted nodes for use within the downscaling functionality
 	EvictedNodeIds []int `json:"evictedNodeIds,omitempty"`
+	// TelemetryStatus shows the status of telemetry collection for this cluster
+	TelemetryStatus *TelemetryStatus `json:"telemetryStatus,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -556,4 +562,55 @@ func (l HumioPodStatusList) Less(i, j int) bool {
 // Swap swaps the elements with indexes i and j
 func (l HumioPodStatusList) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
+}
+
+// TelemetryConfig contains configuration for telemetry collection
+type TelemetryConfig struct {
+	// RemoteReport defines the configuration for sending telemetry data to a remote cluster
+	RemoteReport *TelemetryRemoteReportConfig `json:"remoteReport,omitempty"`
+
+	// ClusterIdentifier is a unique identifier for this cluster used in telemetry data
+	ClusterIdentifier string `json:"clusterIdentifier,omitempty"`
+
+	// Collections defines what data to collect and how frequently
+	Collections []TelemetryCollectionConfig `json:"collections,omitempty"`
+}
+
+// TelemetryRemoteReportConfig defines configuration for exporting telemetry data
+type TelemetryRemoteReportConfig struct {
+	// URL is the endpoint URL for the telemetry cluster HEC endpoint
+	URL string `json:"url,omitempty"`
+
+	// Token contains the authentication token for the telemetry cluster
+	Token VarSource `json:"token,omitempty"`
+}
+
+// TelemetryCollectionConfig defines what data to collect and collection frequency
+type TelemetryCollectionConfig struct {
+	// Interval defines how frequently to collect this data (e.g., "15m", "1h", "1d")
+	Interval string `json:"interval,omitempty"`
+
+	// Include defines which data types to collect in this collection
+	Include []string `json:"include,omitempty"`
+}
+
+// TelemetryStatus represents the status of telemetry collection for a cluster
+type TelemetryStatus struct {
+	// State represents the current state of telemetry collection
+	State string `json:"state,omitempty"`
+
+	// LastCollectionTime indicates when data was last collected
+	LastCollectionTime *metav1.Time `json:"lastCollectionTime,omitempty"`
+
+	// LastExportTime indicates when data was last exported successfully
+	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
+
+	// CollectionErrors contains any errors from data collection
+	CollectionErrors []TelemetryError `json:"collectionErrors,omitempty"`
+
+	// ExportErrors contains any errors from data export
+	ExportErrors []TelemetryError `json:"exportErrors,omitempty"`
+
+	// TelemetryResourceName is the name of the HumioTelemetry resource managing this cluster's telemetry
+	TelemetryResourceName string `json:"telemetryResourceName,omitempty"`
 }

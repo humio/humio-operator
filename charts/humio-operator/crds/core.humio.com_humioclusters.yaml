@@ -15798,6 +15798,75 @@ spec:
                 description: TargetReplicationFactor is the desired number of replicas
                   of both storage and ingest partitions
                 type: integer
+              telemetryConfig:
+                description: |-
+                  TelemetryConfig contains the configuration for telemetry collection when enabled
+                  Telemetry is enabled if this field is not nil
+                properties:
+                  clusterIdentifier:
+                    description: ClusterIdentifier is a unique identifier for this
+                      cluster used in telemetry data
+                    type: string
+                  collections:
+                    description: Collections defines what data to collect and how
+                      frequently
+                    items:
+                      description: TelemetryCollectionConfig defines what data to
+                        collect and collection frequency
+                      properties:
+                        include:
+                          description: Include defines which data types to collect
+                            in this collection
+                          items:
+                            type: string
+                          type: array
+                        interval:
+                          description: Interval defines how frequently to collect
+                            this data (e.g., "15m", "1h", "1d")
+                          type: string
+                      type: object
+                    type: array
+                  remoteReport:
+                    description: RemoteReport defines the configuration for sending
+                      telemetry data to a remote cluster
+                    properties:
+                      token:
+                        description: Token contains the authentication token for the
+                          telemetry cluster
+                        properties:
+                          secretKeyRef:
+                            description: SecretKeyRef allows specifying which secret
+                              and what key in that secret holds the value we want
+                              to use
+                            properties:
+                              key:
+                                description: The key of the secret to select from.  Must
+                                  be a valid secret key.
+                                type: string
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                              optional:
+                                description: Specify whether the Secret or its key
+                                  must be defined
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
+                      url:
+                        description: URL is the endpoint URL for the telemetry cluster
+                          HEC endpoint
+                        type: string
+                    type: object
+                type: object
               terminationGracePeriodSeconds:
                 description: |-
                   TerminationGracePeriodSeconds defines the amount of time to allow cluster pods to gracefully terminate
@@ -16198,6 +16267,81 @@ spec:
                 description: State will be empty before the cluster is bootstrapped.
                   From there it can be "Running", "Upgrading", "Restarting" or "Pending"
                 type: string
+              telemetryStatus:
+                description: TelemetryStatus shows the status of telemetry collection
+                  for this cluster
+                properties:
+                  collectionErrors:
+                    description: CollectionErrors contains any errors from data collection
+                    items:
+                      description: TelemetryError represents an error that occurred
+                        during telemetry operations
+                      properties:
+                        dataType:
+                          description: DataType indicates which data type this error
+                            relates to (if applicable)
+                          type: string
+                        message:
+                          description: Message is the human-readable error message
+                          type: string
+                        timestamp:
+                          description: Timestamp indicates when this error occurred
+                          format: date-time
+                          type: string
+                        type:
+                          description: Type is the category of error (e.g., "collection",
+                            "export", "configuration")
+                          type: string
+                      required:
+                      - message
+                      - timestamp
+                      - type
+                      type: object
+                    type: array
+                  exportErrors:
+                    description: ExportErrors contains any errors from data export
+                    items:
+                      description: TelemetryError represents an error that occurred
+                        during telemetry operations
+                      properties:
+                        dataType:
+                          description: DataType indicates which data type this error
+                            relates to (if applicable)
+                          type: string
+                        message:
+                          description: Message is the human-readable error message
+                          type: string
+                        timestamp:
+                          description: Timestamp indicates when this error occurred
+                          format: date-time
+                          type: string
+                        type:
+                          description: Type is the category of error (e.g., "collection",
+                            "export", "configuration")
+                          type: string
+                      required:
+                      - message
+                      - timestamp
+                      - type
+                      type: object
+                    type: array
+                  lastCollectionTime:
+                    description: LastCollectionTime indicates when data was last collected
+                    format: date-time
+                    type: string
+                  lastExportTime:
+                    description: LastExportTime indicates when data was last exported
+                      successfully
+                    format: date-time
+                    type: string
+                  state:
+                    description: State represents the current state of telemetry collection
+                    type: string
+                  telemetryResourceName:
+                    description: TelemetryResourceName is the name of the HumioTelemetry
+                      resource managing this cluster's telemetry
+                    type: string
+                type: object
               version:
                 description: Version is the version of humio running
                 type: string

@@ -7,6 +7,26 @@ query GetLicense {
     }
 }
 
+# Enhanced query for telemetry collection
+query GetLicenseForTelemetry {
+    installedLicense {
+        __typename
+        expiresAt
+        issuedAt
+        ... on OnPremLicense {
+            uid
+            owner
+            maxUsers
+            isSaaS
+            isOem
+        }
+        ... on TrialLicense {
+            # Trial licenses have the base fields from the License interface
+            __typename
+        }
+    }
+}
+
 mutation UpdateLicenseKey(
     $LicenseKey: String!
 ) {

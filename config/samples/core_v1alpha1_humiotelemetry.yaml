@@ -1,0 +1,45 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioTelemetry
+metadata:
+  labels:
+    app.kubernetes.io/name: humiotelemetry
+    app.kubernetes.io/instance: humiotelemetry-sample
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: humio-operator
+  name: humiotelemetry-sample
+spec:
+  # Unique identifier for this cluster used in telemetry data
+  clusterIdentifier: "sample-cluster-001"
+
+  # Reference to the HumioCluster being monitored
+  managedClusterName: "example-humiocluster"
+
+  # Remote telemetry cluster configuration
+  remoteReport:
+    url: "https://telemetry.example.com/api/v1/ingest/hec"
+    token:
+      secretKeyRef:
+        name: "telemetry-token"
+        key: "token"
+
+  # Collection configurations with different intervals
+  collections:
+    - interval: "1d"
+      include:
+        - "license"
+    - interval: "15m"
+      include:
+        - "cluster_info"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: telemetry-token
+  labels:
+    app.kubernetes.io/name: humiotelemetry
+    app.kubernetes.io/instance: humiotelemetry-sample
+    app.kubernetes.io/part-of: humio-operator
+type: Opaque
+stringData:
+  token: "your-telemetry-token-here"

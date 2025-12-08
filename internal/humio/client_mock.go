@@ -2620,3 +2620,68 @@ func (h *MockClientConfig) RotateOrganizationToken(ctx context.Context, client *
 func (h *MockClientConfig) EnableTokenUpdatePermissionsForTests(ctx context.Context, client *humioapi.Client) error {
 	return nil
 }
+
+// Telemetry methods for mock client
+func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humioapi.Client) (*TelemetryLicenseData, error) {
+	// Return mock license data for testing
+	return &TelemetryLicenseData{
+		LicenseUID:     "mock-license-uid-123",
+		LicenseType:    "onprem",
+		ExpirationDate: time.Now().Add(365 * 24 * time.Hour), // 1 year from now
+		IssuedDate:     time.Now().Add(-30 * 24 * time.Hour), // 30 days ago
+		Owner:          "Test Organization",
+		MaxUsers:       func() *int { i := 100; return &i }(),
+		IsSaaS:         helpers.BoolPtr(false),
+		IsOem:          helpers.BoolPtr(false),
+	}, nil
+}
+
+func (h *MockClientConfig) CollectClusterInfo(ctx context.Context, client *humioapi.Client) (*TelemetryClusterInfo, error) {
+	// Return mock cluster info for testing
+	return &TelemetryClusterInfo{
+		Version:         "1.122.0--build-12345--sha-abcdef123456",
+		NodeCount:       3,
+		UserCount:       15,
+		RepositoryCount: 8,
+	}, nil
+}
+
+func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *humioapi.Client, dataTypes []string, clusterID string) ([]TelemetryPayload, error) {
+	var payloads []TelemetryPayload
+	timestamp := time.Now()
+
+	for _, dataType := range dataTypes {
+		switch dataType {
+		case "license":
+			licenseData, err := h.CollectLicenseData(ctx, client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to collect license data: %w", err)
+			}
+			payloads = append(payloads, TelemetryPayload{
+				Timestamp:      timestamp,
+				ClusterID:      clusterID,
+				CollectionType: "license",
+				SourceType:     "json",
+				Data:           licenseData,
+			})
+
+		case "cluster_info":
+			clusterInfo, err := h.CollectClusterInfo(ctx, client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to collect cluster info: %w", err)
+			}
+			payloads = append(payloads, TelemetryPayload{
+				Timestamp:      timestamp,
+				ClusterID:      clusterID,
+				CollectionType: "cluster_info",
+				SourceType:     "json",
+				Data:           clusterInfo,
+			})
+
+		default:
+			return nil, fmt.Errorf("unsupported data type: %s", dataType)
+		}
+	}
+
+	return payloads, nil
+}

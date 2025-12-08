@@ -49,6 +49,8 @@ Resource Types:
 
 - [HumioSystemToken](#humiosystemtoken)
 
+- [HumioTelemetry](#humiotelemetry)
+
 - [HumioUser](#humiouser)
 
 - [HumioViewPermissionRole](#humioviewpermissionrole)
@@ -4598,6 +4600,14 @@ Deprecated: No longer needed as LogScale now automatically redistributes segment
         <td>integer</td>
         <td>
           TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspectelemetryconfig">telemetryConfig</a></b></td>
+        <td>object</td>
+        <td>
+          TelemetryConfig contains the configuration for telemetry collection when enabled
+Telemetry is enabled if this field is not nil<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35788,6 +35798,190 @@ SubPathExpr and SubPath are mutually exclusive.<br/>
 </table>
 
 
+### HumioCluster.spec.telemetryConfig
+<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
+
+
+
+TelemetryConfig contains the configuration for telemetry collection when enabled
+Telemetry is enabled if this field is not nil
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>clusterIdentifier</b></td>
+        <td>string</td>
+        <td>
+          ClusterIdentifier is a unique identifier for this cluster used in telemetry data<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspectelemetryconfigcollectionsindex">collections</a></b></td>
+        <td>[]object</td>
+        <td>
+          Collections defines what data to collect and how frequently<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspectelemetryconfigremotereport">remoteReport</a></b></td>
+        <td>object</td>
+        <td>
+          RemoteReport defines the configuration for sending telemetry data to a remote cluster<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.telemetryConfig.collections[index]
+<sup><sup>[↩ Parent](#humioclusterspectelemetryconfig)</sup></sup>
+
+
+
+TelemetryCollectionConfig defines what data to collect and collection frequency
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>include</b></td>
+        <td>[]string</td>
+        <td>
+          Include defines which data types to collect in this collection<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>interval</b></td>
+        <td>string</td>
+        <td>
+          Interval defines how frequently to collect this data (e.g., "15m", "1h", "1d")<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.telemetryConfig.remoteReport
+<sup><sup>[↩ Parent](#humioclusterspectelemetryconfig)</sup></sup>
+
+
+
+RemoteReport defines the configuration for sending telemetry data to a remote cluster
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humioclusterspectelemetryconfigremotereporttoken">token</a></b></td>
+        <td>object</td>
+        <td>
+          Token contains the authentication token for the telemetry cluster<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          URL is the endpoint URL for the telemetry cluster HEC endpoint<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.telemetryConfig.remoteReport.token
+<sup><sup>[↩ Parent](#humioclusterspectelemetryconfigremotereport)</sup></sup>
+
+
+
+Token contains the authentication token for the telemetry cluster
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humioclusterspectelemetryconfigremotereporttokensecretkeyref">secretKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeyRef allows specifying which secret and what key in that secret holds the value we want to use<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.telemetryConfig.remoteReport.token.secretKeyRef
+<sup><sup>[↩ Parent](#humioclusterspectelemetryconfigremotereporttoken)</sup></sup>
+
+
+
+SecretKeyRef allows specifying which secret and what key in that secret holds the value we want to use
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### HumioCluster.spec.tls
 <sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
 
@@ -36290,6 +36484,13 @@ HumioClusterStatus defines the observed state of HumioCluster.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterstatustelemetrystatus">telemetryStatus</a></b></td>
+        <td>object</td>
+        <td>
+          TelemetryStatus shows the status of telemetry collection for this cluster<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>version</b></td>
         <td>string</td>
         <td>
@@ -36439,6 +36640,172 @@ Deprecated: No longer being used.<br/>
         <td>string</td>
         <td>
           PvcName is the name of the persistent volume claim that is mounted in to the pod<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.status.telemetryStatus
+<sup><sup>[↩ Parent](#humioclusterstatus)</sup></sup>
+
+
+
+TelemetryStatus shows the status of telemetry collection for this cluster
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humioclusterstatustelemetrystatuscollectionerrorsindex">collectionErrors</a></b></td>
+        <td>[]object</td>
+        <td>
+          CollectionErrors contains any errors from data collection<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterstatustelemetrystatusexporterrorsindex">exportErrors</a></b></td>
+        <td>[]object</td>
+        <td>
+          ExportErrors contains any errors from data export<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastCollectionTime</b></td>
+        <td>string</td>
+        <td>
+          LastCollectionTime indicates when data was last collected<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastExportTime</b></td>
+        <td>string</td>
+        <td>
+          LastExportTime indicates when data was last exported successfully<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State represents the current state of telemetry collection<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>telemetryResourceName</b></td>
+        <td>string</td>
+        <td>
+          TelemetryResourceName is the name of the HumioTelemetry resource managing this cluster's telemetry<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.status.telemetryStatus.collectionErrors[index]
+<sup><sup>[↩ Parent](#humioclusterstatustelemetrystatus)</sup></sup>
+
+
+
+TelemetryError represents an error that occurred during telemetry operations
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the human-readable error message<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>timestamp</b></td>
+        <td>string</td>
+        <td>
+          Timestamp indicates when this error occurred<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dataType</b></td>
+        <td>string</td>
+        <td>
+          DataType indicates which data type this error relates to (if applicable)<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.status.telemetryStatus.exportErrors[index]
+<sup><sup>[↩ Parent](#humioclusterstatustelemetrystatus)</sup></sup>
+
+
+
+TelemetryError represents an error that occurred during telemetry operations
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the human-readable error message<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>timestamp</b></td>
+        <td>string</td>
+        <td>
+          Timestamp indicates when this error occurred<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dataType</b></td>
+        <td>string</td>
+        <td>
+          DataType indicates which data type this error relates to (if applicable)<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -48335,6 +48702,569 @@ HumioSystemTokenStatus defines the observed state of HumioSystemToken.
         <td>string</td>
         <td>
           State reflects the current state of the HumioToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioTelemetry
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioTelemetry is the Schema for the humiotelemetries API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioTelemetry</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetryspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioTelemetrySpec defines the desired state of HumioTelemetry.<br/>
+          <br/>
+            <i>Validations</i>:<li>has(self.managedClusterName) && self.managedClusterName != "": Must specify managedClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetrystatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioTelemetryStatus defines the observed state of HumioTelemetry.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.spec
+<sup><sup>[↩ Parent](#humiotelemetry)</sup></sup>
+
+
+
+HumioTelemetrySpec defines the desired state of HumioTelemetry.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>clusterIdentifier</b></td>
+        <td>string</td>
+        <td>
+          ClusterIdentifier is a unique identifier for this cluster used in telemetry data<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetryspeccollectionsindex">collections</a></b></td>
+        <td>[]object</td>
+        <td>
+          Collections defines what data to collect and how frequently<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetryspecremotereport">remoteReport</a></b></td>
+        <td>object</td>
+        <td>
+          RemoteReport defines the configuration for sending telemetry data to a remote cluster<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.spec.collections[index]
+<sup><sup>[↩ Parent](#humiotelemetryspec)</sup></sup>
+
+
+
+CollectionConfig defines what data to collect and collection frequency
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>include</b></td>
+        <td>[]string</td>
+        <td>
+          Include defines which data types to collect in this collection<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>interval</b></td>
+        <td>string</td>
+        <td>
+          Interval defines how frequently to collect this data (e.g., "15m", "1h", "1d")<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.spec.remoteReport
+<sup><sup>[↩ Parent](#humiotelemetryspec)</sup></sup>
+
+
+
+RemoteReport defines the configuration for sending telemetry data to a remote cluster
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiotelemetryspecremotereporttoken">token</a></b></td>
+        <td>object</td>
+        <td>
+          Token contains the authentication token for the telemetry cluster<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          URL is the endpoint URL for the telemetry cluster HEC endpoint<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetryspecremotereporttls">tls</a></b></td>
+        <td>object</td>
+        <td>
+          TLS contains TLS configuration for the connection<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.spec.remoteReport.token
+<sup><sup>[↩ Parent](#humiotelemetryspecremotereport)</sup></sup>
+
+
+
+Token contains the authentication token for the telemetry cluster
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiotelemetryspecremotereporttokensecretkeyref">secretKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeyRef allows specifying which secret and what key in that secret holds the value we want to use<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.spec.remoteReport.token.secretKeyRef
+<sup><sup>[↩ Parent](#humiotelemetryspecremotereporttoken)</sup></sup>
+
+
+
+SecretKeyRef allows specifying which secret and what key in that secret holds the value we want to use
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.spec.remoteReport.tls
+<sup><sup>[↩ Parent](#humiotelemetryspecremotereport)</sup></sup>
+
+
+
+TLS contains TLS configuration for the connection
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>insecureSkipVerify</b></td>
+        <td>boolean</td>
+        <td>
+          InsecureSkipVerify controls whether the client verifies the server's certificate chain and hostname<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.status
+<sup><sup>[↩ Parent](#humiotelemetry)</sup></sup>
+
+
+
+HumioTelemetryStatus defines the observed state of HumioTelemetry.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiotelemetrystatuscollectionerrorsindex">collectionErrors</a></b></td>
+        <td>[]object</td>
+        <td>
+          CollectionErrors contains any errors from data collection<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetrystatuscollectionstatuskey">collectionStatus</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          CollectionStatus contains the status of individual collection types<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetrystatusexporterrorsindex">exportErrors</a></b></td>
+        <td>[]object</td>
+        <td>
+          ExportErrors contains any errors from data export<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastCollectionTime</b></td>
+        <td>string</td>
+        <td>
+          LastCollectionTime indicates when data was last collected<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastExportTime</b></td>
+        <td>string</td>
+        <td>
+          LastExportTime indicates when data was last exported successfully<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>nextScheduledCollection</b></td>
+        <td>map[string]string</td>
+        <td>
+          NextScheduledCollection contains the next scheduled collection times by type<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State represents the current state of the HumioTelemetry resource<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.status.collectionErrors[index]
+<sup><sup>[↩ Parent](#humiotelemetrystatus)</sup></sup>
+
+
+
+TelemetryError represents an error that occurred during telemetry operations
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the human-readable error message<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>timestamp</b></td>
+        <td>string</td>
+        <td>
+          Timestamp indicates when this error occurred<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dataType</b></td>
+        <td>string</td>
+        <td>
+          DataType indicates which data type this error relates to (if applicable)<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.status.collectionStatus[key]
+<sup><sup>[↩ Parent](#humiotelemetrystatus)</sup></sup>
+
+
+
+CollectionTypeStatus represents the status of a specific collection type
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>collectionCount</b></td>
+        <td>integer</td>
+        <td>
+          CollectionCount is the total number of successful collections for this type<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>exportCount</b></td>
+        <td>integer</td>
+        <td>
+          ExportCount is the total number of successful exports for this type<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastCollection</b></td>
+        <td>string</td>
+        <td>
+          LastCollection indicates when this data type was last collected<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetrystatuscollectionstatuskeylasterror">lastError</a></b></td>
+        <td>object</td>
+        <td>
+          LastError contains the most recent error for this collection type<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastExport</b></td>
+        <td>string</td>
+        <td>
+          LastExport indicates when this data type was last exported<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.status.collectionStatus[key].lastError
+<sup><sup>[↩ Parent](#humiotelemetrystatuscollectionstatuskey)</sup></sup>
+
+
+
+LastError contains the most recent error for this collection type
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the human-readable error message<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>timestamp</b></td>
+        <td>string</td>
+        <td>
+          Timestamp indicates when this error occurred<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dataType</b></td>
+        <td>string</td>
+        <td>
+          DataType indicates which data type this error relates to (if applicable)<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetry.status.exportErrors[index]
+<sup><sup>[↩ Parent](#humiotelemetrystatus)</sup></sup>
+
+
+
+TelemetryError represents an error that occurred during telemetry operations
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the human-readable error message<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>timestamp</b></td>
+        <td>string</td>
+        <td>
+          Timestamp indicates when this error occurred<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dataType</b></td>
+        <td>string</td>
+        <td>
+          DataType indicates which data type this error relates to (if applicable)<br/>
         </td>
         <td>false</td>
       </tr></tbody>

@@ -514,5 +514,16 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
 		os.Exit(1)
 	}
+	if err = (&controller.HumioTelemetryReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetry")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 }

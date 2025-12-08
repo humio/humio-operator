@@ -65,6 +65,7 @@ type Client interface {
 	SystemTokenClient
 	OrganizationTokenClient
 	SecurityPoliciesClient
+	TelemetryClient
 }
 
 type ClusterClient interface {
@@ -243,6 +244,12 @@ type OrganizationTokenClient interface {
 }
 type SecurityPoliciesClient interface {
 	EnableTokenUpdatePermissionsForTests(context.Context, *humioapi.Client) error
+}
+
+type TelemetryClient interface {
+	CollectLicenseData(context.Context, *humioapi.Client) (*TelemetryLicenseData, error)
+	CollectClusterInfo(context.Context, *humioapi.Client) (*TelemetryClusterInfo, error)
+	CollectTelemetryData(context.Context, *humioapi.Client, []string, string) ([]TelemetryPayload, error)
 }
 
 type ConnectionDetailsIncludingAPIToken struct {

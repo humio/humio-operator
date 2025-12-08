@@ -1,0 +1,85 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: humiocluster
+    app.kubernetes.io/instance: humiocluster-with-telemetry
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: humio-operator
+  name: example-humiocluster-with-telemetry
+spec:
+  image: "humio/humio-core:1.70.0"
+  targetReplicationFactor: 1
+  storagePartitionsCount: 24
+  digestPartitionsCount: 24
+
+  # Telemetry is enabled by providing telemetryConfig
+  telemetryConfig:
+    clusterIdentifier: "integration-test-cluster"
+    remoteReport:
+      url: "https://telemetry.example.com/api/v1/ingest/hec"
+      token:
+        secretKeyRef:
+          name: "integration-telemetry-token"
+          key: "token"
+    collections:
+      - interval: "1d"
+        include:
+          - "license"
+      - interval: "15m"
+        include:
+          - "cluster_info"
+
+  nodeCount: 1
+  dataVolumeSource:
+    persistentVolumeClaim:
+      claimName: humio-data
+
+  environmentVariables:
+    - name: "AUTHENTICATION_METHOD"
+      value: "oauth"
+    - name: "KAFKA_SERVERS"
+      value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+    - name: "HUMIO_KAFKA_TOPIC_PREFIX"
+      value: "example-humiocluster-with-telemetry"
+
+  license:
+    secretKeyRef:
+      name: "example-license"
+      key: "license"
+
+  ingress:
+    enabled: true
+    controller: "nginx"
+    hostname: "example.humio.com"
+    path: "/"
+    tls:
+      enabled: true
+      secretName: "example-tls"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: integration-telemetry-token
+  labels:
+    app.kubernetes.io/name: humiocluster
+    app.kubernetes.io/instance: humiocluster-with-telemetry
+    app.kubernetes.io/part-of: humio-operator
+type: Opaque
+stringData:
+  token: "integration-test-token-placeholder"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-license
+  labels:
+    app.kubernetes.io/name: humiocluster
+    app.kubernetes.io/instance: humiocluster-with-telemetry
+    app.kubernetes.io/part-of: humio-operator
+type: Opaque
+stringData:
+  license: "your-license-key-here"
