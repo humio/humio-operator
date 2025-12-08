@@ -310,7 +310,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 		})
 	}
 
-	if hnp.GetExtraKafkaConfigs() != "" {
+	if hnp.ShouldUseExtraKafkaConfigsFile() {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "EXTRA_KAFKA_CONFIGS_FILE",
 			Value: fmt.Sprintf("/var/lib/humio/extra-kafka-configs-configmap/%s", ExtraKafkaPropertiesFilename),

@@ -792,6 +792,19 @@ func (hnp *HumioNodePool) GetExtraKafkaConfigsConfigMapName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), extraKafkaConfigsConfigMapNameSuffix)
 }
 
+func (hnp *HumioNodePool) ShouldUseExtraKafkaConfigsFile() bool {
+	if hnp.GetExtraKafkaConfigs() == "" {
+		return false
+	}
+
+	humioVersion := HumioVersionFromString(hnp.GetImage())
+	if ok, _ := humioVersion.AtLeast(HumioVersionExtraKafkaConfigsRemoved); ok {
+		return false // Don't use for LogScale 1.225.0+ (prevents startup failure)
+	}
+
+	return true // Use for LogScale < 1.225.0
+}
+
 func (hnp *HumioNodePool) GetViewGroupPermissions() string {
 	return hnp.viewGroupPermissions
 }

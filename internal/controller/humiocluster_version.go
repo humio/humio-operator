@@ -8,7 +8,9 @@ import (
 )
 
 const (
-	HumioVersionMinimumSupported = "1.130.0"
+	HumioVersionMinimumSupported            = "1.130.0"
+	HumioVersionExtraKafkaConfigsDeprecated = "1.173.0"
+	HumioVersionExtraKafkaConfigsRemoved    = "1.225.0"
 )
 
 type HumioVersion struct {

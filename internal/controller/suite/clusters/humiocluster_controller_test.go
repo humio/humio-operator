@@ -3381,12 +3381,15 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	Context("Humio Cluster Extra Kafka Configs", Label("envtest", "dummy", "real"), func() {
-		It("Should correctly handle extra kafka configs", func() {
+		It("Should correctly handle extra kafka configs (version-aware behavior)", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-extrakafkaconfigs",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			// This test validates version-aware EXTRA_KAFKA_CONFIGS_FILE behavior
+			// - LogScale < 1.225.0: Uses file-based Kafka configuration (backward compatibility)
+			// - LogScale >= 1.225.0: Skips file-based config to prevent startup failures
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully with extra kafka configs")
 			ctx := context.Background()
@@ -3467,7 +3470,8 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			suite.UsingClusterBy(key.Name, "Confirming pods do not have environment variable enabling extra kafka configs")
+			suite.UsingClusterBy(key.Name, "Confirming pods do not have environment variable when config is removed")
+			// When ExtraKafkaConfigs is empty, EXTRA_KAFKA_CONFIGS_FILE should be absent regardless of LogScale version
 			Eventually(func() []corev1.EnvVar {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 				for _, pod := range clusterPods {

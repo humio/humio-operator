@@ -8,7 +8,11 @@ metadata:
     app.kubernetes.io/instance: 'example-humiocluster'
     app.kubernetes.io/managed-by: 'manual'
 spec:
-  extraKafkaConfigs: "security.protocol=PLAINTEXT"
+  # DEPRECATED: extraKafkaConfigs will be ignored in LogScale 1.225.0+ to prevent startup failure
+  # The operator automatically handles this transition based on the LogScale version
+  # For new installations, use commonEnvironmentVariables instead (see examples below)
+  # extraKafkaConfigs: "bootstrap.servers=kafka:9092"
+
   tls:
     enabled: false
   #image: "humio/humio-core:1.171.1"
@@ -23,6 +27,33 @@ spec:
       value: "humio-cp-kafka-0.humio-cp-kafka-headless:9092"
     - name: "SINGLE_USER_PASSWORD"
       value: "develop3r"
+
+  # RECOMMENDED: Use individual Kafka environment variables instead of extraKafkaConfigs
+  # These work with all LogScale versions and are the future-proof approach
+  commonEnvironmentVariables:
+    # Example: Basic Kafka connection (replace extraKafkaConfigs: "bootstrap.servers=...")
+    # - name: KAFKA_COMMON_BOOTSTRAP_SERVERS
+    #   value: kafka-1:9092,kafka-2:9092,kafka-3:9092
+
+    # Example: SSL/TLS Configuration (recommended for production)
+    # - name: KAFKA_COMMON_SECURITY_PROTOCOL
+    #   value: SSL
+    # - name: KAFKA_COMMON_SSL_TRUSTSTORE_LOCATION
+    #   value: /etc/ssl/certs/truststore.jks
+    # - name: KAFKA_COMMON_SSL_TRUSTSTORE_PASSWORD
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: kafka-ssl-secrets
+    #       key: truststore-password
+
+    # Example: Performance tuning with client-specific settings
+    # - name: KAFKA_GLOBAL_PRODUCER_COMPRESSION_TYPE
+    #   value: gzip
+    # - name: KAFKA_GLOBAL_PRODUCER_BATCH_SIZE
+    #   value: "16384"
+
+    # See docs/kafka-config-migration.md for complete migration guide
+
   dataVolumePersistentVolumeClaimSpecTemplate:
     storageClassName: standard
     accessModes: [ReadWriteOnce]

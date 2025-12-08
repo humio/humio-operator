@@ -231,6 +231,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.ensureInitContainerPermissions,
 			r.ensureHumioNodeCertificates,
 			r.ensureExtraKafkaConfigsConfigMap,
+			r.logExtraKafkaConfigsDeprecationInfo,
 			r.ensureViewGroupPermissionsConfigMap,
 			r.ensureRolePermissionsConfigMap,
 			r.reconcileSinglePDB,
@@ -524,10 +525,12 @@ func (r *HumioClusterReconciler) validateNodeCount(hc *humiov1alpha1.HumioCluste
 // ensureExtraKafkaConfigsConfigMap creates a configmap containing configs specified in extraKafkaConfigs which will be mounted
 // into the Humio container and pointed to by Humio's configuration option EXTRA_KAFKA_CONFIGS_FILE
 func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
-	extraKafkaConfigsConfigMapData := hnp.GetExtraKafkaConfigs()
-	if extraKafkaConfigsConfigMapData == "" {
+	// Skip ConfigMap creation for LogScale 1.225.0+ or when no config provided
+	if !hnp.ShouldUseExtraKafkaConfigsFile() {
 		return nil
 	}
+
+	extraKafkaConfigsConfigMapData := hnp.GetExtraKafkaConfigs()
 
 	desiredConfigMap := kubernetes.ConstructExtraKafkaConfigsConfigMap(
 		hnp.GetExtraKafkaConfigsConfigMapName(),
@@ -559,6 +562,29 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 		if updateErr := r.Update(ctx, &existingConfigMap); updateErr != nil {
 			return fmt.Errorf("unable to update extra kafka configs configmap: %w", updateErr)
 		}
+	}
+
+	return nil
+}
+
+// logExtraKafkaConfigsDeprecationInfo logs deprecation warnings and information about EXTRA_KAFKA_CONFIGS_FILE usage
+func (r *HumioClusterReconciler) logExtraKafkaConfigsDeprecationInfo(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	if hnp.GetExtraKafkaConfigs() == "" {
+		return nil
+	}
+
+	humioVersion := HumioVersionFromString(hnp.GetImage())
+
+	if ok, _ := humioVersion.AtLeast(HumioVersionExtraKafkaConfigsRemoved); ok {
+		r.Log.Info("Skipping EXTRA_KAFKA_CONFIGS_FILE for LogScale 1.225.0+ to prevent startup failure",
+			"cluster", hc.Name,
+			"version", humioVersion.SemVer().String(),
+			"recommendation", "Use spec.environmentVariables or spec.commonEnvironmentVariables with KAFKA_COMMON_ prefix")
+	} else if ok, _ := humioVersion.AtLeast(HumioVersionExtraKafkaConfigsDeprecated); ok {
+		r.Log.Info("EXTRA_KAFKA_CONFIGS_FILE is deprecated, consider migrating to individual Kafka environment variables",
+			"cluster", hc.Name,
+			"version", humioVersion.SemVer().String(),
+			"removal_version", "1.225.0")
 	}
 
 	return nil
