@@ -343,6 +343,7 @@ type HumioNodePoolSpec struct {
 
 // HumioPodDisruptionBudgetSpec defines the desired pod disruption budget configuration
 // +kubebuilder:validation:XValidation:rule="!has(self.minAvailable) || !has(self.maxUnavailable)",message="At most one of minAvailable or maxUnavailable can be specified"
+// +kubebuilder:validation:XValidation:rule="has(self.minAvailable) || has(self.maxUnavailable)",message="either minAvailable or maxUnavailable must be specified"
 type HumioPodDisruptionBudgetSpec struct {
 	// MinAvailable is the minimum number of pods that must be available during a disruption.
 	// +kubebuilder:validation:Type=string

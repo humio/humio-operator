@@ -156,6 +156,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			UpdateStrategy:                              hc.Spec.UpdateStrategy,
 			PriorityClassName:                           hc.Spec.PriorityClassName,
 			NodePoolFeatures:                            hc.Spec.NodePoolFeatures,
+			PodDisruptionBudget:                         hc.Spec.PodDisruptionBudget,
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -193,13 +194,14 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 	}
 
 	return &HumioNodePool{
-		namespace:        hc.Namespace,
-		clusterName:      hc.Name,
-		nodePoolName:     hnp.Name,
-		hostname:         hc.Spec.Hostname,
-		esHostname:       hc.Spec.ESHostname,
-		hostnameSource:   hc.Spec.HostnameSource,
-		esHostnameSource: hc.Spec.ESHostnameSource,
+		namespace:           hc.Namespace,
+		clusterName:         hc.Name,
+		nodePoolName:        hnp.Name,
+		hostname:            hc.Spec.Hostname,
+		esHostname:          hc.Spec.ESHostname,
+		hostnameSource:      hc.Spec.HostnameSource,
+		esHostnameSource:    hc.Spec.ESHostnameSource,
+		podDisruptionBudget: hc.Spec.PodDisruptionBudget,
 		humioNodeSpec: humiov1alpha1.HumioNodeSpec{
 			Image:     hnp.Image,
 			NodeCount: hnp.NodeCount,
@@ -240,6 +242,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			UpdateStrategy:                 hnp.UpdateStrategy,
 			PriorityClassName:              hnp.PriorityClassName,
 			NodePoolFeatures:               hnp.NodePoolFeatures,
+			PodDisruptionBudget:            hnp.PodDisruptionBudget,
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -362,6 +365,9 @@ func (hnp *HumioNodePool) IsDownscalingFeatureEnabled() bool {
 }
 
 func (hnp *HumioNodePool) GetPodDisruptionBudget() *humiov1alpha1.HumioPodDisruptionBudgetSpec {
+	if hnp.humioNodeSpec.PodDisruptionBudget != nil {
+		return hnp.humioNodeSpec.PodDisruptionBudget
+	}
 	return hnp.podDisruptionBudget
 }
 

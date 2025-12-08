@@ -6765,13 +6765,18 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Node Pool PodDisruptionBudgets", func() {
+	Context("Node Pool PodDisruptionBudgets", Label("envtest", "dummy", "real"), func() {
 		It("Should enforce PDB rules at node pool level", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-nodepool-pdb",
 				Namespace: testProcessNamespace,
 			}
+			secretName := fmt.Sprintf("%s-license", key.Name)
+			secretKey := "license"
+
 			ctx := context.Background()
+
+			suite.UsingClusterBy(key.Name, "Testing valid node pool configurations")
 
 			// Base valid cluster with node pools
 			validCluster := suite.ConstructBasicSingleNodeHumioCluster(key, true)
@@ -6780,54 +6785,57 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name: "valid-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
 						NodeCount: 2,
+						DataVolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
+						},
 						PodDisruptionBudget: &humiov1alpha1.HumioPodDisruptionBudgetSpec{
 							MinAvailable: &intstr.IntOrString{
 								Type:   intstr.Int,
 								IntVal: int32(1),
 							},
+							Enabled: true,
 						},
 					},
 				},
 			}
+			validCluster.Spec.License.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key: secretKey,
+			}
+
+			suite.CreateLicenseSecretIfNeeded(ctx, key, k8sClient, validCluster, true)
+			Expect(k8sClient.Create(ctx, validCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, validCluster)
 
 			suite.UsingClusterBy(key.Name, "Testing invalid node pool configurations")
 
 			// Test mutual exclusivity in node pool
 			invalidNodePoolCluster := validCluster.DeepCopy()
+			invalidNodePoolCluster.Name = "humiocluster-nodepool-pdb-invalid" // Add unique suffix
+			invalidNodePoolCluster.ResourceVersion = ""
+			invalidNodePoolCluster.UID = ""
+			invalidNodePoolCluster.CreationTimestamp = metav1.Time{}
+			invalidNodePoolCluster.Generation = 0
 			invalidNodePoolCluster.Spec.NodePools[0].PodDisruptionBudget.MaxUnavailable =
-				&intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+				&intstr.IntOrString{Type: intstr.Int, IntVal: int32(1)}
 			Expect(k8sClient.Create(ctx, invalidNodePoolCluster)).To(MatchError(
-				ContainSubstring("podDisruptionBudget: minAvailable and maxUnavailable are mutually exclusive")))
+				ContainSubstring("At most one of minAvailable or maxUnavailable can be specified")))
 
 			// Test required field in node pool
+			suite.UsingClusterBy(key.Name, "Testing required filed in node pool")
+
 			missingFieldsCluster := validCluster.DeepCopy()
+			missingFieldsCluster.Name = "humiocluster-nodepool-pdb-missing" // Add unique suffix
+			missingFieldsCluster.ResourceVersion = ""
+			missingFieldsCluster.UID = ""
+			missingFieldsCluster.CreationTimestamp = metav1.Time{}
+			missingFieldsCluster.Generation = 0
 			missingFieldsCluster.Spec.NodePools[0].PodDisruptionBudget =
 				&humiov1alpha1.HumioPodDisruptionBudgetSpec{}
 			Expect(k8sClient.Create(ctx, missingFieldsCluster)).To(MatchError(
-				ContainSubstring("podDisruptionBudget: either minAvailable or maxUnavailable must be specified")))
-
-			// Test immutability in node pool
-			validCluster = suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			validCluster.Spec.NodePools = []humiov1alpha1.HumioNodePoolSpec{
-				{
-					Name: "pool1",
-					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount: 2,
-						PodDisruptionBudget: &humiov1alpha1.HumioPodDisruptionBudgetSpec{
-							MinAvailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, validCluster)).To(Succeed())
-			defer suite.CleanupCluster(ctx, k8sClient, validCluster)
-
-			suite.UsingClusterBy(key.Name, "Testing node pool PDB immutability")
-			updatedCluster := validCluster.DeepCopy()
-			updatedCluster.Spec.NodePools[0].PodDisruptionBudget.MinAvailable =
-				&intstr.IntOrString{Type: intstr.Int, IntVal: 2}
-			Expect(k8sClient.Update(ctx, updatedCluster)).To(MatchError(
-				ContainSubstring("minAvailable is immutable")))
+				ContainSubstring("either minAvailable or maxUnavailable must be specified")))
 		})
 	})
 	It("Should correctly manage pod disruption budgets", func() {

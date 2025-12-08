@@ -4528,7 +4528,7 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>
           PodDisruptionBudget defines the PDB configuration for this node spec<br/>
           <br/>
-            <i>Validations</i>:<li>!has(self.minAvailable) || !has(self.maxUnavailable): At most one of minAvailable or maxUnavailable can be specified</li>
+            <i>Validations</i>:<li>!has(self.minAvailable) || !has(self.maxUnavailable): At most one of minAvailable or maxUnavailable can be specified</li><li>has(self.minAvailable) || has(self.maxUnavailable): either minAvailable or maxUnavailable must be specified</li>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16976,7 +16976,7 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>
           PodDisruptionBudget defines the PDB configuration for this node spec<br/>
           <br/>
-            <i>Validations</i>:<li>!has(self.minAvailable) || !has(self.maxUnavailable): At most one of minAvailable or maxUnavailable can be specified</li>
+            <i>Validations</i>:<li>!has(self.minAvailable) || !has(self.maxUnavailable): At most one of minAvailable or maxUnavailable can be specified</li><li>has(self.minAvailable) || has(self.maxUnavailable): either minAvailable or maxUnavailable must be specified</li>
         </td>
         <td>false</td>
       </tr><tr>

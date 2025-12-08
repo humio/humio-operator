@@ -11958,6 +11958,9 @@ spec:
                           - message: At most one of minAvailable or maxUnavailable
                               can be specified
                             rule: '!has(self.minAvailable) || !has(self.maxUnavailable)'
+                          - message: either minAvailable or maxUnavailable must be
+                              specified
+                            rule: has(self.minAvailable) || has(self.maxUnavailable)
                         podLabels:
                           additionalProperties:
                             type: string
@@ -14046,6 +14049,8 @@ spec:
                 x-kubernetes-validations:
                 - message: At most one of minAvailable or maxUnavailable can be specified
                   rule: '!has(self.minAvailable) || !has(self.maxUnavailable)'
+                - message: either minAvailable or maxUnavailable must be specified
+                  rule: has(self.minAvailable) || has(self.maxUnavailable)
               podLabels:
                 additionalProperties:
                   type: string
