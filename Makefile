@@ -367,3 +367,11 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	go generate ./...
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+.PHONY: release
+release:
+	hack/create-release.sh $(filter-out $@,$(MAKECMDGOALS))
+
+# Dummy target to prevent make from trying to build arguments as targets
+%:
+	@:
