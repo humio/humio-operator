@@ -131,9 +131,29 @@ func (r *HumioTelemetryReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	now := metav1.Now()
 	ht.Status.LastCollectionTime = &now
 
+	// Initialize collection status map if it doesn't exist
+	if ht.Status.CollectionStatus == nil {
+		ht.Status.CollectionStatus = make(map[string]humiov1alpha1.CollectionTypeStatus)
+	}
+
+	// Update collection status for each data type
+	for _, dataType := range collectionTypes {
+		status := ht.Status.CollectionStatus[dataType]
+		status.LastCollection = &now
+		status.CollectionCount++
+
+		if len(exportErrors) == 0 {
+			status.LastExport = &now
+			status.ExportCount++
+		}
+
+		ht.Status.CollectionStatus[dataType] = status
+	}
+
 	if len(exportErrors) == 0 {
 		ht.Status.LastExportTime = &now
 		ht.Status.ExportErrors = nil
+		ht.Status.CollectionErrors = nil
 		return r.updateStatus(ctx, ht, humiov1alpha1.HumioTelemetryStateEnabled)
 	} else {
 		ht.Status.ExportErrors = exportErrors

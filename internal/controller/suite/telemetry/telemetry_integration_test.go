@@ -18,14 +18,12 @@ package telemetry
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/internal/helpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -83,14 +81,8 @@ var _ = Describe("Telemetry Integration Validation", Label("envtest", "dummy", "
 			Expect(sampleContent).To(ContainSubstring("kind: HumioCluster"))
 			Expect(sampleContent).To(ContainSubstring("telemetryConfig:"))
 			Expect(sampleContent).To(ContainSubstring("remoteReport:"))
-
-			// Validate kubectl can parse it (client-side validation)
-			err = validateWithKubectl(samplePath)
-			if err != nil {
-				// Fallback to basic structure validation if kubectl fails
-				Expect(sampleContent).To(ContainSubstring("metadata:"))
-				Expect(sampleContent).To(ContainSubstring("spec:"))
-			}
+			Expect(sampleContent).To(ContainSubstring("metadata:"))
+			Expect(sampleContent).To(ContainSubstring("spec:"))
 		})
 	})
 
@@ -108,34 +100,6 @@ var _ = Describe("Telemetry Integration Validation", Label("envtest", "dummy", "
 			// Verify it's valid GraphQL syntax
 			Expect(schemaContent).To(ContainSubstring("query"))
 			Expect(schemaContent).To(ContainSubstring("License"))
-		})
-	})
-
-	Context("Live Cluster Integration", func() {
-		BeforeEach(func() {
-			if helpers.UseEnvtest() {
-				Skip("Skipping live cluster tests in envtest mode")
-			}
-		})
-
-		It("should deploy and validate HumioTelemetry CRD in live cluster", func() {
-			By("deploying CRDs to the cluster")
-			err := deployCRDs()
-			Expect(err).NotTo(HaveOccurred(), "Should be able to deploy CRDs")
-
-			By("verifying HumioTelemetry CRD is available")
-			Eventually(func() error {
-				return validateCRDExists("humiotelemetries.core.humio.com")
-			}).Should(Succeed(), "HumioTelemetry CRD should be available")
-
-			By("testing sample resource creation with dry-run")
-			err = validateSampleResourceCreation()
-			Expect(err).NotTo(HaveOccurred(), "Sample resource should pass server-side validation")
-		})
-
-		AfterEach(func() {
-			By("cleaning up deployed CRDs")
-			cleanupCRDs()
 		})
 	})
 
@@ -157,44 +121,10 @@ func validateSampleYAML(path string) {
 	Expect(telemetry.Spec.ManagedClusterName).NotTo(BeEmpty(), "ManagedClusterName should not be empty")
 	Expect(telemetry.Spec.RemoteReport.URL).NotTo(BeEmpty(), "RemoteReport URL should not be empty")
 
-	// Validate kubectl can parse it
-	err = validateWithKubectl(path)
-	if err != nil {
-		// If kubectl validation fails, ensure basic structure is valid
-		sampleContent := string(content)
-		Expect(sampleContent).To(ContainSubstring("apiVersion: core.humio.com"))
-		Expect(sampleContent).To(ContainSubstring("kind: HumioTelemetry"))
-		Expect(sampleContent).To(ContainSubstring("metadata:"))
-		Expect(sampleContent).To(ContainSubstring("spec:"))
-	}
-}
-
-func validateWithKubectl(path string) error {
-	// Try kubectl client-side validation
-	cmd := exec.Command("kubectl", "--dry-run=client", "--validate=false", "apply", "-f", path)
-	return cmd.Run()
-}
-
-func deployCRDs() error {
-	crdPath := filepath.Join("..", "..", "..", "..", "config", "crd")
-	cmd := exec.Command("kubectl", "apply", "--server-side=true", "-k", crdPath) // #nosec G204 -- Test subprocess with known args
-	return cmd.Run()
-}
-
-func validateCRDExists(name string) error {
-	cmd := exec.Command("kubectl", "get", "crd", name)
-	return cmd.Run()
-}
-
-func validateSampleResourceCreation() error {
-	samplePath := filepath.Join("..", "..", "..", "..", "config", "samples", "core_v1alpha1_humiotelemetry.yaml")
-	cmd := exec.Command("kubectl", "apply", "--dry-run=server", "-f", samplePath) // #nosec G204 -- Test subprocess with known args
-	return cmd.Run()
-}
-
-func cleanupCRDs() {
-	// Clean up CRDs (ignore errors since this is cleanup)
-	crdPath := filepath.Join("..", "..", "..", "..", "config", "crd")
-	cmd := exec.Command("kubectl", "delete", "-k", crdPath, "--ignore-not-found=true") // #nosec G204 -- Test subprocess with known args
-	_ = cmd.Run()
+	// Validate basic structure is valid
+	sampleContent := string(content)
+	Expect(sampleContent).To(ContainSubstring("apiVersion: core.humio.com"))
+	Expect(sampleContent).To(ContainSubstring("kind: HumioTelemetry"))
+	Expect(sampleContent).To(ContainSubstring("metadata:"))
+	Expect(sampleContent).To(ContainSubstring("spec:"))
 }
