@@ -166,6 +166,15 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	// ensure service accounts exist for all node pools before creating bootstrap token
+	// the bootstrap pod needs to reference the service account, so it must exist first
+	for _, pool := range humioNodePools.Items {
+		if err := r.ensureHumioPodPermissions(ctx, hc, pool); err != nil {
+			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				withMessage(err.Error()))
+		}
+	}
+
 	// create HumioBootstrapToken and block until we have a hashed bootstrap token
 	if result, err := r.ensureHumioClusterBootstrapToken(ctx, hc); result != emptyResult || err != nil {
 		if err != nil {

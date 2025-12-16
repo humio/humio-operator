@@ -148,6 +148,16 @@ func (b *HumioBootstrapTokenConfig) resources() corev1.ResourceRequirements {
 	}
 }
 
+func (b *HumioBootstrapTokenConfig) humioServiceAccountName() string {
+	// If the HumioCluster spec has a service account name set, use that
+	if b.ManagedHumioCluster.Spec.HumioServiceAccountName != "" {
+		return b.ManagedHumioCluster.Spec.HumioServiceAccountName
+	}
+	// Otherwise, generate the default service account name based on cluster name
+	// This matches the default behavior when no node pool name is specified
+	return fmt.Sprintf("%s-%s", b.ManagedHumioCluster.Name, HumioServiceAccountNameSuffix)
+}
+
 func (b *HumioBootstrapTokenConfig) PodName() string {
 	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, bootstrapTokenPodNameSuffix)
 }

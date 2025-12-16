@@ -442,9 +442,10 @@ func (r *HumioBootstrapTokenReconciler) constructBootstrapPod(ctx context.Contex
 			Namespace: bootstrapConfig.Namespace(),
 		},
 		Spec: corev1.PodSpec{
-			ImagePullSecrets: bootstrapConfig.imagePullSecrets(),
-			Affinity:         bootstrapConfig.affinity(),
-			Tolerations:      bootstrapConfig.tolerations(),
+			ServiceAccountName: bootstrapConfig.humioServiceAccountName(),
+			ImagePullSecrets:   bootstrapConfig.imagePullSecrets(),
+			Affinity:           bootstrapConfig.affinity(),
+			Tolerations:        bootstrapConfig.tolerations(),
 			Containers: []corev1.Container{
 				{
 					Name:    HumioContainerName,
