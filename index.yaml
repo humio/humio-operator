@@ -6,7 +6,7 @@ entries:
     created: "2025-12-16T08:18:05.013892Z"
     description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
       notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
-    digest: ec515f2d88a5b3de7f9527ea4d621aba2c3466671740e51aa1d635a2824b707d
+    digest: 6a037f95f7e1139aa83d6db8d4ffccafb8f4bc7b322afc0c7fac6461ede008a8
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
     maintainers:
