@@ -114,6 +114,7 @@ rules:
   - humioparsers
   - humiopdfrenderservices
   - humiorepositories
+  - humiosavedqueries
   - humioscheduledsearches
   - humiosystempermissionroles
   - humiosystemtokens
@@ -152,6 +153,7 @@ rules:
   - humioparsers/finalizers
   - humiopdfrenderservices/finalizers
   - humiorepositories/finalizers
+  - humiosavedqueries/finalizers
   - humioscheduledsearches/finalizers
   - humiosystempermissionroles/finalizers
   - humiosystemtokens/finalizers
@@ -184,6 +186,7 @@ rules:
   - humioparsers/status
   - humiopdfrenderservices/status
   - humiorepositories/status
+  - humiosavedqueries/status
   - humioscheduledsearches/status
   - humiosystempermissionroles/status
   - humiosystemtokens/status

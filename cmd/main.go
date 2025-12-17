@@ -384,6 +384,17 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioScheduledSearch")
 		os.Exit(1)
 	}
+	if err = (&controller.HumioSavedQueryReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioSavedQuery")
+		os.Exit(1)
+	}
 	if err = (&controller.HumioViewReconciler{
 		Client: mgr.GetClient(),
 		CommonConfig: controller.CommonConfig{

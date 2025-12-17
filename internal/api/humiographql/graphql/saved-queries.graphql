@@ -1,0 +1,76 @@
+fragment SavedQueryDetails on SavedQuery {
+    id
+    name
+    displayName
+    description
+    labels
+    query {
+        queryString
+    }
+}
+
+query ListSavedQueries(
+    $ViewName: String!
+) {
+    searchDomain(
+        name: $ViewName
+    ) {
+        savedQueries {
+            ...SavedQueryDetails
+        }
+    }
+}
+
+mutation CreateSavedQuery(
+    $ViewName: String!
+    $Name: String!
+    $QueryString: String!
+    $Description: String
+    $Labels: [String!]
+) {
+    createSavedQuery(input: {
+        viewName: $ViewName
+        name: $Name
+        queryString: $QueryString
+        description: $Description
+        labels: $Labels
+    }) {
+        savedQuery {
+            ...SavedQueryDetails
+        }
+    }
+}
+
+mutation UpdateSavedQuery(
+    $ViewName: String!
+    $SavedQueryID: String!
+    $Name: String
+    $QueryString: String
+    $Description: String
+    $Labels: [String!]
+) {
+    updateSavedQuery(input: {
+        viewName: $ViewName
+        id: $SavedQueryID
+        name: $Name
+        queryString: $QueryString
+        description: $Description
+        labels: $Labels
+    }) {
+        savedQuery {
+            ...SavedQueryDetails
+        }
+    }
+}
+
+mutation DeleteSavedQuery(
+    $ViewName: String!
+    $SavedQueryID: String!
+) {
+    deleteSavedQuery(input: {
+        viewName: $ViewName
+        id: $SavedQueryID
+    }) {
+        result
+    }
+}

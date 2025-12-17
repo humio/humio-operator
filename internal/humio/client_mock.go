@@ -67,6 +67,7 @@ type ClientMock struct {
 	AggregateAlert         map[resourceKey]humiographql.AggregateAlertDetails
 	ScheduledSearch        map[resourceKey]humiographql.ScheduledSearchDetails
 	ScheduledSearchV2      map[resourceKey]humiographql.ScheduledSearchDetailsV2
+	SavedQuery             map[resourceKey]humiographql.SavedQueryDetails
 	User                   map[resourceKey]humiographql.UserDetails
 	AdminUserID            map[resourceKey]string
 	Role                   map[resourceKey]humiographql.RoleDetails
@@ -98,6 +99,7 @@ func NewMockClient() *MockClientConfig {
 			AggregateAlert:         make(map[resourceKey]humiographql.AggregateAlertDetails),
 			ScheduledSearch:        make(map[resourceKey]humiographql.ScheduledSearchDetails),
 			ScheduledSearchV2:      make(map[resourceKey]humiographql.ScheduledSearchDetailsV2),
+			SavedQuery:             make(map[resourceKey]humiographql.SavedQueryDetails),
 			User:                   make(map[resourceKey]humiographql.UserDetails),
 			AdminUserID:            make(map[resourceKey]string),
 			Role:                   make(map[resourceKey]humiographql.RoleDetails),
@@ -1693,6 +1695,90 @@ func (h *MockClientConfig) ValidateActionsForScheduledSearch(context.Context, *h
 }
 
 func (h *MockClientConfig) ValidateActionsForScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error {
+	return nil
+}
+
+func (h *MockClientConfig) AddSavedQuery(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hsq.Spec.ViewName) {
+		return fmt.Errorf("view or repository %s does not exist", hsq.Spec.ViewName)
+	}
+
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	h.apiClient.SavedQuery[key] = humiographql.SavedQueryDetails{
+		Id:          kubernetes.RandomString(),
+		Name:        hsq.Spec.Name,
+		DisplayName: hsq.Spec.Name,
+		Description: &hsq.Spec.Description,
+		Labels:      hsq.Spec.Labels,
+		Query: humiographql.SavedQueryDetailsQueryHumioQuery{
+			QueryString: hsq.Spec.QueryString,
+		},
+	}
+	return nil
+}
+
+func (h *MockClientConfig) GetSavedQuery(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName),
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	savedQuery, found := h.apiClient.SavedQuery[key]
+	if !found {
+		return nil, humioapi.SavedQueryNotFound(hsq.Spec.Name)
+	}
+
+	return &savedQuery, nil
+}
+
+func (h *MockClientConfig) UpdateSavedQuery(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName),
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	savedQuery, found := h.apiClient.SavedQuery[key]
+	if !found {
+		return humioapi.SavedQueryNotFound(hsq.Spec.Name)
+	}
+
+	savedQuery.Description = &hsq.Spec.Description
+	savedQuery.Labels = hsq.Spec.Labels
+	savedQuery.Query = humiographql.SavedQueryDetailsQueryHumioQuery{
+		QueryString: hsq.Spec.QueryString,
+	}
+	h.apiClient.SavedQuery[key] = savedQuery
+	return nil
+}
+
+func (h *MockClientConfig) DeleteSavedQuery(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName),
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	delete(h.apiClient.SavedQuery, key)
 	return nil
 }
 

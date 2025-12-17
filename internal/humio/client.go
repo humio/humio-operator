@@ -67,6 +67,7 @@ type Client interface {
 	AggregateAlertsClient
 	ScheduledSearchClient
 	ScheduledSearchClientV2
+	SavedQueriesClient
 	UsersClient
 	OrganizationPermissionRolesClient
 	SystemPermissionRolesClient
@@ -186,6 +187,13 @@ type ScheduledSearchClientV2 interface {
 	UpdateScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error
 	DeleteScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error
 	ValidateActionsForScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error
+}
+
+type SavedQueriesClient interface {
+	AddSavedQuery(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) error
+	GetSavedQuery(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetails, error)
+	UpdateSavedQuery(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) error
+	DeleteSavedQuery(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) error
 }
 
 type LicenseClient interface {
@@ -2366,6 +2374,76 @@ func (h *ClientConfig) DeleteScheduledSearchV2(ctx context.Context, client *humi
 		client,
 		hss.Spec.ViewName,
 		currentScheduledSearch.GetId(),
+	)
+	return err
+}
+
+func (h *ClientConfig) AddSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	_, err := humiographql.CreateSavedQuery(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+		hsq.Spec.Name,
+		hsq.Spec.QueryString,
+		helpers.StringPtr(hsq.Spec.Description),
+		hsq.Spec.Labels,
+	)
+	return err
+}
+
+func (h *ClientConfig) GetSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetails, error) {
+	resp, err := humiographql.ListSavedQueries(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the saved query by name
+	for _, sq := range resp.GetSearchDomain().GetSavedQueries() {
+		if sq.GetName() == hsq.Spec.Name {
+			return &sq.SavedQueryDetails, nil
+		}
+	}
+
+	return nil, humioapi.SavedQueryNotFound(hsq.Spec.Name)
+}
+
+func (h *ClientConfig) UpdateSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	currentSavedQuery, err := h.GetSavedQuery(ctx, client, hsq)
+	if err != nil {
+		return err
+	}
+
+	_, err = humiographql.UpdateSavedQuery(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+		currentSavedQuery.GetId(),
+		helpers.StringPtr(hsq.Spec.Name),
+		helpers.StringPtr(hsq.Spec.QueryString),
+		helpers.StringPtr(hsq.Spec.Description),
+		hsq.Spec.Labels,
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	currentSavedQuery, err := h.GetSavedQuery(ctx, client, hsq)
+	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			return nil
+		}
+		return err
+	}
+
+	_, err = humiographql.DeleteSavedQuery(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+		currentSavedQuery.GetId(),
 	)
 	return err
 }

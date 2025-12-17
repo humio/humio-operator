@@ -19,6 +19,7 @@ const (
 	entityTypeFeatureFlag                entityType = "feature-flag"
 	entityTypeScheduledSearch            entityType = "scheduled-search"
 	entityTypeAggregateAlert             entityType = "aggregate-alert"
+	entityTypeSavedQuery                 entityType = "saved-query"
 	entityTypeUser                       entityType = "user"
 	entityTypeSystemPermissionRole       entityType = "system-permission-role"
 	entityTypeOrganizationPermissionRole entityType = "organization-permission-role"
@@ -130,6 +131,13 @@ func ScheduledSearchNotFound(name string) error {
 func AggregateAlertNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeAggregateAlert,
+		key:        name,
+	}
+}
+
+func SavedQueryNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeSavedQuery,
 		key:        name,
 	}
 }

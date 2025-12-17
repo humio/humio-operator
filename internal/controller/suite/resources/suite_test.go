@@ -932,6 +932,18 @@ func registerControllers(k8sOperatorManager ctrl.Manager, log logr.Logger) {
 	err = (humioPackageRegistryReconciler).SetupWithManager(k8sOperatorManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioSavedQueryReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controller.HumioPackageReconciler{
 		Client: k8sOperatorManager.GetClient(),
 		CommonConfig: controller.CommonConfig{

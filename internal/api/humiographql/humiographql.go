@@ -3021,6 +3021,126 @@ type CreateRoleResponse struct {
 // GetCreateRole returns CreateRoleResponse.CreateRole, and is useful for accessing the field via an interface.
 func (v *CreateRoleResponse) GetCreateRole() CreateRoleCreateRoleAddRoleMutation { return v.CreateRole }
 
+// CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload includes the requested fields of the GraphQL type CreateSavedQueryPayload.
+type CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload struct {
+	// Stability: Long-term
+	SavedQuery CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery `json:"savedQuery"`
+}
+
+// GetSavedQuery returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload.SavedQuery, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload) GetSavedQuery() CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery {
+	return v.SavedQuery
+}
+
+// CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery struct {
+	SavedQueryDetails `json:"-"`
+}
+
+// GetId returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetId() string {
+	return v.SavedQueryDetails.Id
+}
+
+// GetName returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetName() string {
+	return v.SavedQueryDetails.Name
+}
+
+// GetDisplayName returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetails.DisplayName
+}
+
+// GetDescription returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.Description, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetDescription() *string {
+	return v.SavedQueryDetails.Description
+}
+
+// GetLabels returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.Labels, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetLabels() []string {
+	return v.SavedQueryDetails.Labels
+}
+
+// GetQuery returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetQuery() SavedQueryDetailsQueryHumioQuery {
+	return v.SavedQueryDetails.Query
+}
+
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Description *string `json:"description"`
+
+	Labels []string `json:"labels"`
+
+	Query SavedQueryDetailsQueryHumioQuery `json:"query"`
+}
+
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) __premarshalJSON() (*__premarshalCreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery, error) {
+	var retval __premarshalCreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery
+
+	retval.Id = v.SavedQueryDetails.Id
+	retval.Name = v.SavedQueryDetails.Name
+	retval.DisplayName = v.SavedQueryDetails.DisplayName
+	retval.Description = v.SavedQueryDetails.Description
+	retval.Labels = v.SavedQueryDetails.Labels
+	retval.Query = v.SavedQueryDetails.Query
+	return &retval, nil
+}
+
+// CreateSavedQueryResponse is returned by CreateSavedQuery on success.
+type CreateSavedQueryResponse struct {
+	// Create a saved query.
+	// Stability: Long-term
+	CreateSavedQuery CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload `json:"createSavedQuery"`
+}
+
+// GetCreateSavedQuery returns CreateSavedQueryResponse.CreateSavedQuery, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryResponse) GetCreateSavedQuery() CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload {
+	return v.CreateSavedQuery
+}
+
 // CreateScheduledSearchCreateScheduledSearch includes the requested fields of the GraphQL type ScheduledSearch.
 // The GraphQL type's documentation follows.
 //
@@ -3740,6 +3860,27 @@ type DeleteRoleByIDResponse struct {
 // GetRemoveRole returns DeleteRoleByIDResponse.RemoveRole, and is useful for accessing the field via an interface.
 func (v *DeleteRoleByIDResponse) GetRemoveRole() DeleteRoleByIDRemoveRoleBooleanResultType {
 	return v.RemoveRole
+}
+
+// DeleteSavedQueryDeleteSavedQueryBooleanResultType includes the requested fields of the GraphQL type BooleanResultType.
+type DeleteSavedQueryDeleteSavedQueryBooleanResultType struct {
+	// Stability: Long-term
+	Result bool `json:"result"`
+}
+
+// GetResult returns DeleteSavedQueryDeleteSavedQueryBooleanResultType.Result, and is useful for accessing the field via an interface.
+func (v *DeleteSavedQueryDeleteSavedQueryBooleanResultType) GetResult() bool { return v.Result }
+
+// DeleteSavedQueryResponse is returned by DeleteSavedQuery on success.
+type DeleteSavedQueryResponse struct {
+	// Deletes a saved query.
+	// Stability: Long-term
+	DeleteSavedQuery DeleteSavedQueryDeleteSavedQueryBooleanResultType `json:"deleteSavedQuery"`
+}
+
+// GetDeleteSavedQuery returns DeleteSavedQueryResponse.DeleteSavedQuery, and is useful for accessing the field via an interface.
+func (v *DeleteSavedQueryResponse) GetDeleteSavedQuery() DeleteSavedQueryDeleteSavedQueryBooleanResultType {
+	return v.DeleteSavedQuery
 }
 
 // DeleteScheduledSearchByIDResponse is returned by DeleteScheduledSearchByID on success.
@@ -13847,6 +13988,293 @@ func (v *ListRolesRolesRole) __premarshalJSON() (*__premarshalListRolesRolesRole
 	return &retval, nil
 }
 
+// ListSavedQueriesResponse is returned by ListSavedQueries on success.
+type ListSavedQueriesResponse struct {
+	// Stability: Long-term
+	SearchDomain ListSavedQueriesSearchDomain `json:"-"`
+}
+
+// GetSearchDomain returns ListSavedQueriesResponse.SearchDomain, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesResponse) GetSearchDomain() ListSavedQueriesSearchDomain {
+	return v.SearchDomain
+}
+
+func (v *ListSavedQueriesResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListSavedQueriesResponse
+		SearchDomain json.RawMessage `json:"searchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListSavedQueriesResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomain
+		src := firstPass.SearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalListSavedQueriesSearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal ListSavedQueriesResponse.SearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalListSavedQueriesResponse struct {
+	SearchDomain json.RawMessage `json:"searchDomain"`
+}
+
+func (v *ListSavedQueriesResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListSavedQueriesResponse) __premarshalJSON() (*__premarshalListSavedQueriesResponse, error) {
+	var retval __premarshalListSavedQueriesResponse
+
+	{
+
+		dst := &retval.SearchDomain
+		src := v.SearchDomain
+		var err error
+		*dst, err = __marshalListSavedQueriesSearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal ListSavedQueriesResponse.SearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// ListSavedQueriesSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// ListSavedQueriesSearchDomain is implemented by the following types:
+// ListSavedQueriesSearchDomainRepository
+// ListSavedQueriesSearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type ListSavedQueriesSearchDomain interface {
+	implementsGraphQLInterfaceListSavedQueriesSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetSavedQueries returns the interface-field "savedQueries" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetSavedQueries() []ListSavedQueriesSearchDomainSavedQueriesSavedQuery
+}
+
+func (v *ListSavedQueriesSearchDomainRepository) implementsGraphQLInterfaceListSavedQueriesSearchDomain() {
+}
+func (v *ListSavedQueriesSearchDomainView) implementsGraphQLInterfaceListSavedQueriesSearchDomain() {}
+
+func __unmarshalListSavedQueriesSearchDomain(b []byte, v *ListSavedQueriesSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(ListSavedQueriesSearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(ListSavedQueriesSearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for ListSavedQueriesSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalListSavedQueriesSearchDomain(v *ListSavedQueriesSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *ListSavedQueriesSearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSavedQueriesSearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *ListSavedQueriesSearchDomainView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSavedQueriesSearchDomainView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for ListSavedQueriesSearchDomain: "%T"`, v)
+	}
+}
+
+// ListSavedQueriesSearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListSavedQueriesSearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	SavedQueries []ListSavedQueriesSearchDomainSavedQueriesSavedQuery `json:"savedQueries"`
+}
+
+// GetTypename returns ListSavedQueriesSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainRepository) GetTypename() *string { return v.Typename }
+
+// GetSavedQueries returns ListSavedQueriesSearchDomainRepository.SavedQueries, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainRepository) GetSavedQueries() []ListSavedQueriesSearchDomainSavedQueriesSavedQuery {
+	return v.SavedQueries
+}
+
+// ListSavedQueriesSearchDomainSavedQueriesSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type ListSavedQueriesSearchDomainSavedQueriesSavedQuery struct {
+	SavedQueryDetails `json:"-"`
+}
+
+// GetId returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetId() string {
+	return v.SavedQueryDetails.Id
+}
+
+// GetName returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetName() string {
+	return v.SavedQueryDetails.Name
+}
+
+// GetDisplayName returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetails.DisplayName
+}
+
+// GetDescription returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.Description, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetDescription() *string {
+	return v.SavedQueryDetails.Description
+}
+
+// GetLabels returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.Labels, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetLabels() []string {
+	return v.SavedQueryDetails.Labels
+}
+
+// GetQuery returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetQuery() SavedQueryDetailsQueryHumioQuery {
+	return v.SavedQueryDetails.Query
+}
+
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListSavedQueriesSearchDomainSavedQueriesSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListSavedQueriesSearchDomainSavedQueriesSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalListSavedQueriesSearchDomainSavedQueriesSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Description *string `json:"description"`
+
+	Labels []string `json:"labels"`
+
+	Query SavedQueryDetailsQueryHumioQuery `json:"query"`
+}
+
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) __premarshalJSON() (*__premarshalListSavedQueriesSearchDomainSavedQueriesSavedQuery, error) {
+	var retval __premarshalListSavedQueriesSearchDomainSavedQueriesSavedQuery
+
+	retval.Id = v.SavedQueryDetails.Id
+	retval.Name = v.SavedQueryDetails.Name
+	retval.DisplayName = v.SavedQueryDetails.DisplayName
+	retval.Description = v.SavedQueryDetails.Description
+	retval.Labels = v.SavedQueryDetails.Labels
+	retval.Query = v.SavedQueryDetails.Query
+	return &retval, nil
+}
+
+// ListSavedQueriesSearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type ListSavedQueriesSearchDomainView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	SavedQueries []ListSavedQueriesSearchDomainSavedQueriesSavedQuery `json:"savedQueries"`
+}
+
+// GetTypename returns ListSavedQueriesSearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainView) GetTypename() *string { return v.Typename }
+
+// GetSavedQueries returns ListSavedQueriesSearchDomainView.SavedQueries, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainView) GetSavedQueries() []ListSavedQueriesSearchDomainSavedQueriesSavedQuery {
+	return v.SavedQueries
+}
+
 // ListScheduledSearchesResponse is returned by ListScheduledSearches on success.
 type ListScheduledSearchesResponse struct {
 	// Stability: Long-term
@@ -16452,6 +16880,55 @@ var AllS3ArchivingFormat = []S3ArchivingFormat{
 	S3ArchivingFormatRaw,
 	S3ArchivingFormatNdjson,
 }
+
+// SavedQueryDetails includes the GraphQL fields of SavedQuery requested by the fragment SavedQueryDetails.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type SavedQueryDetails struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Stability: Long-term
+	DisplayName string `json:"displayName"`
+	// Stability: Long-term
+	Description *string `json:"description"`
+	// Stability: Long-term
+	Labels []string `json:"labels"`
+	// Stability: Long-term
+	Query SavedQueryDetailsQueryHumioQuery `json:"query"`
+}
+
+// GetId returns SavedQueryDetails.Id, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetId() string { return v.Id }
+
+// GetName returns SavedQueryDetails.Name, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetName() string { return v.Name }
+
+// GetDisplayName returns SavedQueryDetails.DisplayName, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetDisplayName() string { return v.DisplayName }
+
+// GetDescription returns SavedQueryDetails.Description, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetDescription() *string { return v.Description }
+
+// GetLabels returns SavedQueryDetails.Labels, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetLabels() []string { return v.Labels }
+
+// GetQuery returns SavedQueryDetails.Query, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetQuery() SavedQueryDetailsQueryHumioQuery { return v.Query }
+
+// SavedQueryDetailsQueryHumioQuery includes the requested fields of the GraphQL type HumioQuery.
+// The GraphQL type's documentation follows.
+//
+// A LogScale query
+type SavedQueryDetailsQueryHumioQuery struct {
+	// Stability: Long-term
+	QueryString string `json:"queryString"`
+}
+
+// GetQueryString returns SavedQueryDetailsQueryHumioQuery.QueryString, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsQueryHumioQuery) GetQueryString() string { return v.QueryString }
 
 // ScheduledSearchDetails includes the GraphQL fields of ScheduledSearch requested by the fragment ScheduledSearchDetails.
 // The GraphQL type's documentation follows.
@@ -20032,6 +20509,126 @@ func (v *UpdateS3ArchivingConfigurationS3ConfigureArchivingBooleanResultType) Ge
 	return v.Typename
 }
 
+// UpdateSavedQueryResponse is returned by UpdateSavedQuery on success.
+type UpdateSavedQueryResponse struct {
+	// Updates a saved query.
+	// Stability: Long-term
+	UpdateSavedQuery UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload `json:"updateSavedQuery"`
+}
+
+// GetUpdateSavedQuery returns UpdateSavedQueryResponse.UpdateSavedQuery, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryResponse) GetUpdateSavedQuery() UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload {
+	return v.UpdateSavedQuery
+}
+
+// UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload includes the requested fields of the GraphQL type UpdateSavedQueryPayload.
+type UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload struct {
+	// Stability: Long-term
+	SavedQuery UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery `json:"savedQuery"`
+}
+
+// GetSavedQuery returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload.SavedQuery, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload) GetSavedQuery() UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery {
+	return v.SavedQuery
+}
+
+// UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery struct {
+	SavedQueryDetails `json:"-"`
+}
+
+// GetId returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetId() string {
+	return v.SavedQueryDetails.Id
+}
+
+// GetName returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetName() string {
+	return v.SavedQueryDetails.Name
+}
+
+// GetDisplayName returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetails.DisplayName
+}
+
+// GetDescription returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Description, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetDescription() *string {
+	return v.SavedQueryDetails.Description
+}
+
+// GetLabels returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Labels, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetLabels() []string {
+	return v.SavedQueryDetails.Labels
+}
+
+// GetQuery returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetQuery() SavedQueryDetailsQueryHumioQuery {
+	return v.SavedQueryDetails.Query
+}
+
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Description *string `json:"description"`
+
+	Labels []string `json:"labels"`
+
+	Query SavedQueryDetailsQueryHumioQuery `json:"query"`
+}
+
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) __premarshalJSON() (*__premarshalUpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery, error) {
+	var retval __premarshalUpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery
+
+	retval.Id = v.SavedQueryDetails.Id
+	retval.Name = v.SavedQueryDetails.Name
+	retval.DisplayName = v.SavedQueryDetails.DisplayName
+	retval.Description = v.SavedQueryDetails.Description
+	retval.Labels = v.SavedQueryDetails.Labels
+	retval.Query = v.SavedQueryDetails.Query
+	return &retval, nil
+}
+
 // UpdateScheduledSearchResponse is returned by UpdateScheduledSearch on success.
 type UpdateScheduledSearchResponse struct {
 	// Update a scheduled search.
@@ -21939,6 +22536,30 @@ func (v *__CreateRoleInput) GetOrganizationPermissions() []OrganizationPermissio
 // GetSystemPermissions returns __CreateRoleInput.SystemPermissions, and is useful for accessing the field via an interface.
 func (v *__CreateRoleInput) GetSystemPermissions() []SystemPermission { return v.SystemPermissions }
 
+// __CreateSavedQueryInput is used internally by genqlient
+type __CreateSavedQueryInput struct {
+	ViewName    string   `json:"ViewName"`
+	Name        string   `json:"Name"`
+	QueryString string   `json:"QueryString"`
+	Description *string  `json:"Description"`
+	Labels      []string `json:"Labels"`
+}
+
+// GetViewName returns __CreateSavedQueryInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryInput) GetViewName() string { return v.ViewName }
+
+// GetName returns __CreateSavedQueryInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryInput) GetName() string { return v.Name }
+
+// GetQueryString returns __CreateSavedQueryInput.QueryString, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryInput) GetQueryString() string { return v.QueryString }
+
+// GetDescription returns __CreateSavedQueryInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryInput) GetDescription() *string { return v.Description }
+
+// GetLabels returns __CreateSavedQueryInput.Labels, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryInput) GetLabels() []string { return v.Labels }
+
 // __CreateScheduledSearchInput is used internally by genqlient
 type __CreateScheduledSearchInput struct {
 	SearchDomainName   string              `json:"SearchDomainName"`
@@ -22341,6 +22962,18 @@ type __DeleteRoleByIDInput struct {
 // GetRoleID returns __DeleteRoleByIDInput.RoleID, and is useful for accessing the field via an interface.
 func (v *__DeleteRoleByIDInput) GetRoleID() string { return v.RoleID }
 
+// __DeleteSavedQueryInput is used internally by genqlient
+type __DeleteSavedQueryInput struct {
+	ViewName     string `json:"ViewName"`
+	SavedQueryID string `json:"SavedQueryID"`
+}
+
+// GetViewName returns __DeleteSavedQueryInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__DeleteSavedQueryInput) GetViewName() string { return v.ViewName }
+
+// GetSavedQueryID returns __DeleteSavedQueryInput.SavedQueryID, and is useful for accessing the field via an interface.
+func (v *__DeleteSavedQueryInput) GetSavedQueryID() string { return v.SavedQueryID }
+
 // __DeleteScheduledSearchByIDInput is used internally by genqlient
 type __DeleteScheduledSearchByIDInput struct {
 	SearchDomainName  string `json:"SearchDomainName"`
@@ -22610,6 +23243,14 @@ type __ListParsersInput struct {
 
 // GetRepositoryName returns __ListParsersInput.RepositoryName, and is useful for accessing the field via an interface.
 func (v *__ListParsersInput) GetRepositoryName() string { return v.RepositoryName }
+
+// __ListSavedQueriesInput is used internally by genqlient
+type __ListSavedQueriesInput struct {
+	ViewName string `json:"ViewName"`
+}
+
+// GetViewName returns __ListSavedQueriesInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__ListSavedQueriesInput) GetViewName() string { return v.ViewName }
 
 // __ListScheduledSearchesInput is used internally by genqlient
 type __ListScheduledSearchesInput struct {
@@ -23256,6 +23897,34 @@ func (v *__UpdateS3ArchivingConfigurationInput) GetBucketRegion() string { retur
 
 // GetFormat returns __UpdateS3ArchivingConfigurationInput.Format, and is useful for accessing the field via an interface.
 func (v *__UpdateS3ArchivingConfigurationInput) GetFormat() S3ArchivingFormat { return v.Format }
+
+// __UpdateSavedQueryInput is used internally by genqlient
+type __UpdateSavedQueryInput struct {
+	ViewName     string   `json:"ViewName"`
+	SavedQueryID string   `json:"SavedQueryID"`
+	Name         *string  `json:"Name"`
+	QueryString  *string  `json:"QueryString"`
+	Description  *string  `json:"Description"`
+	Labels       []string `json:"Labels"`
+}
+
+// GetViewName returns __UpdateSavedQueryInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetViewName() string { return v.ViewName }
+
+// GetSavedQueryID returns __UpdateSavedQueryInput.SavedQueryID, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetSavedQueryID() string { return v.SavedQueryID }
+
+// GetName returns __UpdateSavedQueryInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetName() *string { return v.Name }
+
+// GetQueryString returns __UpdateSavedQueryInput.QueryString, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetQueryString() *string { return v.QueryString }
+
+// GetDescription returns __UpdateSavedQueryInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetDescription() *string { return v.Description }
+
+// GetLabels returns __UpdateSavedQueryInput.Labels, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetLabels() []string { return v.Labels }
 
 // __UpdateScheduledSearchInput is used internally by genqlient
 type __UpdateScheduledSearchInput struct {
@@ -24758,6 +25427,60 @@ func CreateRole(
 	return data_, err_
 }
 
+// The mutation executed by CreateSavedQuery.
+const CreateSavedQuery_Operation = `
+mutation CreateSavedQuery ($ViewName: String!, $Name: String!, $QueryString: String!, $Description: String, $Labels: [String!]) {
+	createSavedQuery(input: {viewName:$ViewName,name:$Name,queryString:$QueryString,description:$Description,labels:$Labels}) {
+		savedQuery {
+			... SavedQueryDetails
+		}
+	}
+}
+fragment SavedQueryDetails on SavedQuery {
+	id
+	name
+	displayName
+	description
+	labels
+	query {
+		queryString
+	}
+}
+`
+
+func CreateSavedQuery(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	Name string,
+	QueryString string,
+	Description *string,
+	Labels []string,
+) (data_ *CreateSavedQueryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateSavedQuery",
+		Query:  CreateSavedQuery_Operation,
+		Variables: &__CreateSavedQueryInput{
+			ViewName:    ViewName,
+			Name:        Name,
+			QueryString: QueryString,
+			Description: Description,
+			Labels:      Labels,
+		},
+	}
+
+	data_ = &CreateSavedQueryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateScheduledSearch.
 const CreateScheduledSearch_Operation = `
 mutation CreateScheduledSearch ($SearchDomainName: String!, $Name: String!, $Description: String, $QueryString: String!, $QueryStart: String!, $QueryEnd: String!, $Schedule: String!, $TimeZone: String!, $BackfillLimit: Int!, $Enabled: Boolean!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $QueryOwnershipType: QueryOwnershipType) {
@@ -25526,6 +26249,42 @@ func DeleteRoleByID(
 	}
 
 	data_ = &DeleteRoleByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteSavedQuery.
+const DeleteSavedQuery_Operation = `
+mutation DeleteSavedQuery ($ViewName: String!, $SavedQueryID: String!) {
+	deleteSavedQuery(input: {viewName:$ViewName,id:$SavedQueryID}) {
+		result
+	}
+}
+`
+
+func DeleteSavedQuery(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	SavedQueryID string,
+) (data_ *DeleteSavedQueryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteSavedQuery",
+		Query:  DeleteSavedQuery_Operation,
+		Variables: &__DeleteSavedQueryInput{
+			ViewName:     ViewName,
+			SavedQueryID: SavedQueryID,
+		},
+	}
+
+	data_ = &DeleteSavedQueryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -27331,6 +28090,53 @@ func ListRoles(
 	return data_, err_
 }
 
+// The query executed by ListSavedQueries.
+const ListSavedQueries_Operation = `
+query ListSavedQueries ($ViewName: String!) {
+	searchDomain(name: $ViewName) {
+		__typename
+		savedQueries {
+			... SavedQueryDetails
+		}
+	}
+}
+fragment SavedQueryDetails on SavedQuery {
+	id
+	name
+	displayName
+	description
+	labels
+	query {
+		queryString
+	}
+}
+`
+
+func ListSavedQueries(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+) (data_ *ListSavedQueriesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListSavedQueries",
+		Query:  ListSavedQueries_Operation,
+		Variables: &__ListSavedQueriesInput{
+			ViewName: ViewName,
+		},
+	}
+
+	data_ = &ListSavedQueriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ListScheduledSearches.
 const ListScheduledSearches_Operation = `
 query ListScheduledSearches ($SearchDomainName: String!) {
@@ -28838,6 +29644,62 @@ func UpdateS3ArchivingConfiguration(
 	}
 
 	data_ = &UpdateS3ArchivingConfigurationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateSavedQuery.
+const UpdateSavedQuery_Operation = `
+mutation UpdateSavedQuery ($ViewName: String!, $SavedQueryID: String!, $Name: String, $QueryString: String, $Description: String, $Labels: [String!]) {
+	updateSavedQuery(input: {viewName:$ViewName,id:$SavedQueryID,name:$Name,queryString:$QueryString,description:$Description,labels:$Labels}) {
+		savedQuery {
+			... SavedQueryDetails
+		}
+	}
+}
+fragment SavedQueryDetails on SavedQuery {
+	id
+	name
+	displayName
+	description
+	labels
+	query {
+		queryString
+	}
+}
+`
+
+func UpdateSavedQuery(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	SavedQueryID string,
+	Name *string,
+	QueryString *string,
+	Description *string,
+	Labels []string,
+) (data_ *UpdateSavedQueryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSavedQuery",
+		Query:  UpdateSavedQuery_Operation,
+		Variables: &__UpdateSavedQueryInput{
+			ViewName:     ViewName,
+			SavedQueryID: SavedQueryID,
+			Name:         Name,
+			QueryString:  QueryString,
+			Description:  Description,
+			Labels:       Labels,
+		},
+	}
+
+	data_ = &UpdateSavedQueryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

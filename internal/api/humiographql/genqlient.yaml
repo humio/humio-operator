@@ -29,6 +29,7 @@ operations:
   - graphql/organization-tokens.graphql
   - graphql/security-policies.graphql
   - graphql/packages.graphql
+  - graphql/saved-queries.graphql
 generated: humiographql.go
 
 bindings:
