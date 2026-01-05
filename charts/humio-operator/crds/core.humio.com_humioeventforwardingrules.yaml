@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.0
-  name: humiosavedqueries.core.humio.com
+  name: humioeventforwardingrules.core.humio.com
   labels:
     app: 'humio-operator'
     app.kubernetes.io/name: 'humio-operator'
@@ -17,30 +17,38 @@ spec:
     categories:
     - humio
     - all
-    kind: HumioSavedQuery
-    listKind: HumioSavedQueryList
-    plural: humiosavedqueries
+    kind: HumioEventForwardingRule
+    listKind: HumioEventForwardingRuleList
+    plural: humioeventforwardingrules
     shortNames:
-    - hsq
-    singular: humiosavedquery
+    - hefr
+    singular: humioeventforwardingrule
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: Status of the saved query
+    - description: Whether the event forwarding rule is ready
       jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: Ready
       type: string
-    - description: The view containing the saved query
-      jsonPath: .spec.viewName
-      name: View
+    - description: The repository name
+      jsonPath: .spec.repositoryName
+      name: Repository
       type: string
-    - jsonPath: .metadata.creationTimestamp
+    - description: The event forwarder name
+      jsonPath: .status.eventForwarderName
+      name: Forwarder
+      type: string
+    - description: Creation timestamp
+      jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioSavedQuery is the Schema for the humiosavedqueries API.
+        description: |-
+          HumioEventForwardingRule is the Schema for the humioeventforwardingrules API.
+          It configures a rule that filters and forwards events from a LogScale repository to an external system.
+          NOTE: Event forwarding rules can only be applied to repositories, not views. This is a LogScale API limitation.
         properties:
           apiVersion:
             description: |-
@@ -60,30 +68,52 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioSavedQuerySpec defines the desired state of HumioSavedQuery.
+            description: HumioEventForwardingRuleSpec defines the desired state of
+              HumioEventForwardingRule.
             properties:
-              description:
+              eventForwarderID:
                 description: |-
-                  Description is the description of the SavedQuery.
-                  This field is only supported in LogScale 1.200.0 and later.
-                  For earlier versions, a warning condition is set but reconciliation continues.
-                maxLength: 4096
+                  EventForwarderID is the ID of a pre-configured event forwarder to use.
+                  Use this for externally-managed forwarders (configured outside the operator).
+                  Mutually exclusive with EventForwarderRef.
+                minLength: 1
                 type: string
+              eventForwarderRef:
+                description: |-
+                  EventForwarderRef references a HumioEventForwarder resource managed by the operator.
+                  Use this to reference a forwarder created via the HumioEventForwarder CRD.
+                  Mutually exclusive with EventForwarderID.
+                properties:
+                  name:
+                    description: Name of the HumioEventForwarder resource.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace of the HumioEventForwarder resource.
+                      If empty, defaults to the same namespace as the HumioEventForwardingRule.
+                    type: string
+                required:
+                - name
+                type: object
               externalClusterName:
                 description: |-
                   ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
                   This conflicts with ManagedClusterName.
                 minLength: 1
                 type: string
-              labels:
+              languageVersion:
                 description: |-
-                  Labels are a set of labels on the SavedQuery (maximum 10 labels allowed by LogScale).
-                  This field is only supported in LogScale 1.200.0 and later.
-                  For earlier versions, a warning condition is set but reconciliation continues.
-                items:
-                  type: string
-                maxItems: 10
-                type: array
+                  LanguageVersion specifies the query language version to use.
+                  Valid values: legacy, xdr1, xdrdetects1, filteralert, federated1
+                  If not specified, the default version for the LogScale cluster will be used.
+                enum:
+                - legacy
+                - xdr1
+                - xdrdetects1
+                - filteralert
+                - federated1
+                type: string
               managedClusterName:
                 description: |-
                   ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
@@ -92,37 +122,51 @@ spec:
                 minLength: 1
                 type: string
               name:
-                description: Name is the name of the saved query inside Humio
+                description: |-
+                  Name is the Kubernetes-friendly identifier for this rule within the operator.
+                  NOTE: This is NOT the LogScale rule ID. LogScale auto-generates UUIDs for event
+                  forwarding rules, which are stored in the core.humio.com/event-forwarding-rule-id annotation.
                 minLength: 1
                 type: string
                 x-kubernetes-validations:
                 - message: Value is immutable
                   rule: self == oldSelf
               queryString:
-                description: QueryString is the actual query that will be saved
+                description: |-
+                  QueryString is the LogScale query language (LQL) query that filters and transforms events to forward.
+                  This query determines which events are forwarded and how they are transformed before forwarding.
                 maxLength: 1048576
                 minLength: 1
                 type: string
-              viewName:
-                description: ViewName is the name of the Humio View under which the
-                  SavedQuery will be managed. This can also be a Repository
+              repositoryName:
+                description: |-
+                  RepositoryName defines the repository where this event forwarding rule should be managed.
+                  NOTE: Event forwarding rules can only be applied to repositories, not views.
+                  This field must reference a HumioRepository resource or an existing repository in LogScale.
                 minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
             required:
             - name
             - queryString
-            - viewName
+            - repositoryName
             type: object
             x-kubernetes-validations:
             - message: Must specify exactly one of managedClusterName or externalClusterName
               rule: (has(self.managedClusterName) && self.managedClusterName != "")
                 != (has(self.externalClusterName) && self.externalClusterName != "")
+            - message: Must specify exactly one of eventForwarderID or eventForwarderRef
+              rule: (has(self.eventForwarderID) && self.eventForwarderID != "") !=
+                (has(self.eventForwarderRef) && self.eventForwarderRef != null)
           status:
-            description: HumioSavedQueryStatus defines the observed state of HumioSavedQuery.
+            description: HumioEventForwardingRuleStatus defines the observed state
+              of HumioEventForwardingRule.
             properties:
               conditions:
                 description: Conditions represent the latest available observations
-                  of the saved query's state
+                  of the event forwarding rule's state.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -181,18 +225,15 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              lastSyncedViewName:
+              eventForwarderName:
                 description: |-
-                  LastSyncedViewName tracks the view name where the saved query was last successfully synced.
-                  This is used to detect and handle view migrations.
+                  EventForwarderName is the human-readable name of the configured event forwarder.
+                  This is fetched from LogScale and populated by the controller for better visibility.
                 type: string
-              managedByOperator:
-                description: |-
-                  ManagedByOperator indicates whether the operator successfully owns this LogScale saved query.
-                  Set to true when the operator creates a new query or successfully adopts an existing one.
-                  Set to false when adoption is rejected.
-                  When false, the finalizer will not delete the query from LogScale.
-                type: boolean
+              resolvedEventForwarderID:
+                description: ResolvedEventForwarderID is the actual forwarder ID resolved
+                  from either eventForwarderID or eventForwarderRef.
+                type: string
             type: object
         required:
         - spec

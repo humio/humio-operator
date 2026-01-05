@@ -100,6 +100,8 @@ rules:
   - humioalerts
   - humiobootstraptokens
   - humioclusters
+  - humioeventforwarders
+  - humioeventforwardingrules
   - humioexternalclusters
   - humiofeatureflags
   - humiofilteralerts
@@ -139,6 +141,8 @@ rules:
   - humioalerts/finalizers
   - humiobootstraptokens/finalizers
   - humioclusters/finalizers
+  - humioeventforwarders/finalizers
+  - humioeventforwardingrules/finalizers
   - humioexternalclusters/finalizers
   - humiofeatureflags/finalizers
   - humiofilteralerts/finalizers
@@ -172,6 +176,8 @@ rules:
   - humioalerts/status
   - humiobootstraptokens/status
   - humioclusters/status
+  - humioeventforwarders/status
+  - humioeventforwardingrules/status
   - humioexternalclusters/status
   - humiofeatureflags/status
   - humiofilteralerts/status

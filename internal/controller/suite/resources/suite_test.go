@@ -957,6 +957,28 @@ func registerControllers(k8sOperatorManager ctrl.Manager, log logr.Logger) {
 	}).SetupWithManager(k8sOperatorManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioEventForwarderReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioEventForwardingRuleReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	// we create the namespace as other resources depend on it
 	testScheme = k8sOperatorManager.GetScheme()
 	k8sClient = k8sOperatorManager.GetClient()

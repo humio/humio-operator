@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.0
-  name: humiosavedqueries.core.humio.com
+  name: humioeventforwarders.core.humio.com
   labels:
     app: 'humio-operator'
     app.kubernetes.io/name: 'humio-operator'
@@ -17,30 +17,40 @@ spec:
     categories:
     - humio
     - all
-    kind: HumioSavedQuery
-    listKind: HumioSavedQueryList
-    plural: humiosavedqueries
+    kind: HumioEventForwarder
+    listKind: HumioEventForwarderList
+    plural: humioeventforwarders
     shortNames:
-    - hsq
-    singular: humiosavedquery
+    - heff
+    singular: humioeventforwarder
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: Status of the saved query
+    - description: Ready status
       jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: Ready
       type: string
-    - description: The view containing the saved query
-      jsonPath: .spec.viewName
-      name: View
+    - description: Forwarder type
+      jsonPath: .spec.forwarderType
+      name: Type
       type: string
+    - description: Kafka topic (if kafka type)
+      jsonPath: .spec.kafkaConfig.topic
+      name: Topic
+      type: string
+    - description: Whether forwarder is enabled
+      jsonPath: .spec.enabled
+      name: Enabled
+      type: boolean
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioSavedQuery is the Schema for the humiosavedqueries API.
+        description: |-
+          HumioEventForwarder is the Schema for the humioeventforwarders API.
+          It manages event forwarder destinations in LogScale where events can be forwarded.
         properties:
           apiVersion:
             description: |-
@@ -60,30 +70,82 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioSavedQuerySpec defines the desired state of HumioSavedQuery.
+            description: HumioEventForwarderSpec defines the desired state of HumioEventForwarder.
             properties:
               description:
-                description: |-
-                  Description is the description of the SavedQuery.
-                  This field is only supported in LogScale 1.200.0 and later.
-                  For earlier versions, a warning condition is set but reconciliation continues.
-                maxLength: 4096
+                description: Description of the event forwarder.
                 type: string
+              enabled:
+                default: true
+                description: |-
+                  Enabled controls whether the forwarder is active.
+                  When disabled, events will not be forwarded to this destination.
+                type: boolean
               externalClusterName:
                 description: |-
                   ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
                   This conflicts with ManagedClusterName.
                 minLength: 1
                 type: string
-              labels:
+              forwarderType:
+                default: kafka
                 description: |-
-                  Labels are a set of labels on the SavedQuery (maximum 10 labels allowed by LogScale).
-                  This field is only supported in LogScale 1.200.0 and later.
-                  For earlier versions, a warning condition is set but reconciliation continues.
-                items:
-                  type: string
-                maxItems: 10
-                type: array
+                  ForwarderType specifies the type of forwarder.
+                  Currently only "kafka" is supported.
+                enum:
+                - kafka
+                type: string
+              kafkaConfig:
+                description: |-
+                  KafkaConfig contains Kafka-specific configuration.
+                  Required when forwarderType is "kafka".
+                properties:
+                  properties:
+                    description: |-
+                      Properties contains non-sensitive Kafka configuration in x.y.z=abc format.
+                      Newline-separated list of properties.
+                      For sensitive properties (passwords, keys), use PropertiesSecretRef instead.
+                      See: https://library.humio.com/falcon-logscale-self-hosted/ingesting-data-event-forwarders.html#ingesting-data-event-forwarders-kafka
+                      Example:
+                        bootstrap.servers=kafka.example.com:9092
+                        security.protocol=SASL_SSL
+                        sasl.mechanism=PLAIN
+                    maxLength: 1048576
+                    type: string
+                  propertiesSecretRef:
+                    description: |-
+                      PropertiesSecretRef references a Kubernetes Secret containing sensitive Kafka properties.
+                      The secret data should be in the same x.y.z=abc format as Properties.
+                      Properties from both fields are merged, with PropertiesSecretRef taking precedence.
+                      This is the recommended way to provide sensitive configuration like passwords and SSL keys.
+                    properties:
+                      key:
+                        description: Key within the Secret containing the data.
+                        minLength: 1
+                        type: string
+                      name:
+                        description: Name of the Secret.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the Secret. If empty, defaults to
+                          the same namespace as the HumioEventForwarder.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  topic:
+                    description: Topic is the Kafka topic to forward events to.
+                    minLength: 1
+                    type: string
+                required:
+                - topic
+                type: object
+                x-kubernetes-validations:
+                - message: At least one of properties or propertiesSecretRef must
+                    be specified
+                  rule: has(self.properties) || has(self.propertiesSecretRef)
               managedClusterName:
                 description: |-
                   ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
@@ -92,37 +154,32 @@ spec:
                 minLength: 1
                 type: string
               name:
-                description: Name is the name of the saved query inside Humio
+                description: |-
+                  Name of the event forwarder in LogScale.
+                  This is the human-readable name that will be displayed in the UI.
                 minLength: 1
                 type: string
                 x-kubernetes-validations:
                 - message: Value is immutable
                   rule: self == oldSelf
-              queryString:
-                description: QueryString is the actual query that will be saved
-                maxLength: 1048576
-                minLength: 1
-                type: string
-              viewName:
-                description: ViewName is the name of the Humio View under which the
-                  SavedQuery will be managed. This can also be a Repository
-                minLength: 1
-                type: string
             required:
+            - description
+            - enabled
+            - forwarderType
             - name
-            - queryString
-            - viewName
             type: object
             x-kubernetes-validations:
             - message: Must specify exactly one of managedClusterName or externalClusterName
               rule: (has(self.managedClusterName) && self.managedClusterName != "")
                 != (has(self.externalClusterName) && self.externalClusterName != "")
+            - message: kafkaConfig is required when forwarderType is kafka
+              rule: self.forwarderType != 'kafka' || has(self.kafkaConfig)
           status:
-            description: HumioSavedQueryStatus defines the observed state of HumioSavedQuery.
+            description: HumioEventForwarderStatus defines the observed state of HumioEventForwarder.
             properties:
               conditions:
                 description: Conditions represent the latest available observations
-                  of the saved query's state
+                  of the forwarder's state.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -181,17 +238,17 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              lastSyncedViewName:
+              eventForwarderID:
                 description: |-
-                  LastSyncedViewName tracks the view name where the saved query was last successfully synced.
-                  This is used to detect and handle view migrations.
+                  EventForwarderID is the LogScale-generated ID for this forwarder.
+                  This ID is used internally by LogScale to reference the forwarder.
                 type: string
               managedByOperator:
                 description: |-
-                  ManagedByOperator indicates whether the operator successfully owns this LogScale saved query.
-                  Set to true when the operator creates a new query or successfully adopts an existing one.
+                  ManagedByOperator indicates whether the operator successfully owns this LogScale event forwarder.
+                  Set to true when the operator creates a new forwarder or successfully adopts an existing one.
                   Set to false when adoption is rejected.
-                  When false, the finalizer will not delete the query from LogScale.
+                  When false, the finalizer will not delete the forwarder from LogScale.
                 type: boolean
             type: object
         required:

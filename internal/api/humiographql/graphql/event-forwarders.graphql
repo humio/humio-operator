@@ -1,0 +1,77 @@
+# Event Forwarders GraphQL Operations
+# These operations manage LogScale event forwarders which define destinations for forwarded events.
+# Event forwarders are organization-level resources.
+
+# Fragment for Kafka event forwarder details
+fragment KafkaEventForwarderDetails on KafkaEventForwarder {
+    id
+    name
+    description
+    enabled
+    topic
+    properties
+}
+
+# Query to list all event forwarders
+query GetEventForwarders {
+    eventForwarders {
+        ... on KafkaEventForwarder {
+            ...KafkaEventForwarderDetails
+        }
+    }
+}
+
+# Create a new Kafka event forwarder
+mutation CreateKafkaEventForwarder(
+    $Name: String!
+    $Description: String!
+    $Topic: String!
+    $Properties: String!
+    $Enabled: Boolean
+) {
+    createKafkaEventForwarder(input: {
+        name: $Name
+        description: $Description
+        topic: $Topic
+        properties: $Properties
+        enabled: $Enabled
+    }) {
+        ...KafkaEventForwarderDetails
+    }
+}
+
+# Update an existing Kafka event forwarder
+mutation UpdateKafkaEventForwarder(
+    $ID: String!
+    $Name: String!
+    $Description: String!
+    $Topic: String!
+    $Properties: String!
+    $Enabled: Boolean
+) {
+    updateKafkaEventForwarder(input: {
+        id: $ID
+        name: $Name
+        description: $Description
+        topic: $Topic
+        properties: $Properties
+        enabled: $Enabled
+    }) {
+        ...KafkaEventForwarderDetails
+    }
+}
+
+# Delete an event forwarder
+mutation DeleteEventForwarder($ID: String!) {
+    deleteEventForwarder(input: { id: $ID })
+}
+
+# Enable an event forwarder
+mutation EnableEventForwarder($ID: String!) {
+    enableEventForwarder(input: { id: $ID })
+}
+
+# Disable an event forwarder
+mutation DisableEventForwarder($ID: String!) {
+    disableEventForwarder(input: { id: $ID })
+}
