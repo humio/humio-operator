@@ -16517,6 +16517,366 @@ func (v *ListScheduledSearchesV2SearchDomainView) GetScheduledSearches() []ListS
 	return v.ScheduledSearches
 }
 
+// ListSearchDomainsForTelemetryResponse is returned by ListSearchDomainsForTelemetry on success.
+type ListSearchDomainsForTelemetryResponse struct {
+	// Stability: Long-term
+	SearchDomains []ListSearchDomainsForTelemetrySearchDomainsSearchDomain `json:"-"`
+}
+
+// GetSearchDomains returns ListSearchDomainsForTelemetryResponse.SearchDomains, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetryResponse) GetSearchDomains() []ListSearchDomainsForTelemetrySearchDomainsSearchDomain {
+	return v.SearchDomains
+}
+
+func (v *ListSearchDomainsForTelemetryResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListSearchDomainsForTelemetryResponse
+		SearchDomains []json.RawMessage `json:"searchDomains"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListSearchDomainsForTelemetryResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomains
+		src := firstPass.SearchDomains
+		*dst = make(
+			[]ListSearchDomainsForTelemetrySearchDomainsSearchDomain,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = __unmarshalListSearchDomainsForTelemetrySearchDomainsSearchDomain(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal ListSearchDomainsForTelemetryResponse.SearchDomains: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalListSearchDomainsForTelemetryResponse struct {
+	SearchDomains []json.RawMessage `json:"searchDomains"`
+}
+
+func (v *ListSearchDomainsForTelemetryResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListSearchDomainsForTelemetryResponse) __premarshalJSON() (*__premarshalListSearchDomainsForTelemetryResponse, error) {
+	var retval __premarshalListSearchDomainsForTelemetryResponse
+
+	{
+
+		dst := &retval.SearchDomains
+		src := v.SearchDomains
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalListSearchDomainsForTelemetrySearchDomainsSearchDomain(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal ListSearchDomainsForTelemetryResponse.SearchDomains: %w", err)
+			}
+		}
+	}
+	return &retval, nil
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListSearchDomainsForTelemetrySearchDomainsRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+	// Common interface for Repositories and Views.
+	Description *string `json:"description"`
+	// Common interface for Repositories and Views.
+	AutomaticSearch bool `json:"automaticSearch"`
+	// Total size of data. Size is measured as the size after compression.
+	// Stability: Long-term
+	CompressedByteSize int64 `json:"compressedByteSize"`
+	// The maximum time (in days) to keep data. Data old than this will be deleted.
+	// Stability: Long-term
+	TimeBasedRetention *float64 `json:"timeBasedRetention"`
+	// Retention (in Gigabytes) based on the size of data when in storage, that is, after parsing and compression. LogScale will keep `at least` this amount of data, but as close to this number as possible.
+	// Stability: Long-term
+	StorageSizeBasedRetention *float64 `json:"storageSizeBasedRetention"`
+	// Retention (in Gigabytes) based on the size of data when it arrives to LogScale, that is before parsing and compression. LogScale will keep `at most` this amount of data.
+	// Stability: Long-term
+	IngestSizeBasedRetention *float64 `json:"ingestSizeBasedRetention"`
+}
+
+// GetTypename returns ListSearchDomainsForTelemetrySearchDomainsRepository.Typename, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetTypename() *string {
+	return v.Typename
+}
+
+// GetId returns ListSearchDomainsForTelemetrySearchDomainsRepository.Id, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetId() string { return v.Id }
+
+// GetName returns ListSearchDomainsForTelemetrySearchDomainsRepository.Name, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetName() string { return v.Name }
+
+// GetDescription returns ListSearchDomainsForTelemetrySearchDomainsRepository.Description, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetDescription() *string {
+	return v.Description
+}
+
+// GetAutomaticSearch returns ListSearchDomainsForTelemetrySearchDomainsRepository.AutomaticSearch, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetAutomaticSearch() bool {
+	return v.AutomaticSearch
+}
+
+// GetCompressedByteSize returns ListSearchDomainsForTelemetrySearchDomainsRepository.CompressedByteSize, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetCompressedByteSize() int64 {
+	return v.CompressedByteSize
+}
+
+// GetTimeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsRepository.TimeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetTimeBasedRetention() *float64 {
+	return v.TimeBasedRetention
+}
+
+// GetStorageSizeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsRepository.StorageSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetStorageSizeBasedRetention() *float64 {
+	return v.StorageSizeBasedRetention
+}
+
+// GetIngestSizeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsRepository.IngestSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetIngestSizeBasedRetention() *float64 {
+	return v.IngestSizeBasedRetention
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// ListSearchDomainsForTelemetrySearchDomainsSearchDomain is implemented by the following types:
+// ListSearchDomainsForTelemetrySearchDomainsRepository
+// ListSearchDomainsForTelemetrySearchDomainsView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type ListSearchDomainsForTelemetrySearchDomainsSearchDomain interface {
+	implementsGraphQLInterfaceListSearchDomainsForTelemetrySearchDomainsSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetId returns the interface-field "id" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetId() string
+	// GetName returns the interface-field "name" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetName() string
+	// GetDescription returns the interface-field "description" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetDescription() *string
+	// GetAutomaticSearch returns the interface-field "automaticSearch" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetAutomaticSearch() bool
+}
+
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) implementsGraphQLInterfaceListSearchDomainsForTelemetrySearchDomainsSearchDomain() {
+}
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) implementsGraphQLInterfaceListSearchDomainsForTelemetrySearchDomainsSearchDomain() {
+}
+
+func __unmarshalListSearchDomainsForTelemetrySearchDomainsSearchDomain(b []byte, v *ListSearchDomainsForTelemetrySearchDomainsSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(ListSearchDomainsForTelemetrySearchDomainsRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(ListSearchDomainsForTelemetrySearchDomainsView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for ListSearchDomainsForTelemetrySearchDomainsSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalListSearchDomainsForTelemetrySearchDomainsSearchDomain(v *ListSearchDomainsForTelemetrySearchDomainsSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *ListSearchDomainsForTelemetrySearchDomainsRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSearchDomainsForTelemetrySearchDomainsRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *ListSearchDomainsForTelemetrySearchDomainsView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSearchDomainsForTelemetrySearchDomainsView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for ListSearchDomainsForTelemetrySearchDomainsSearchDomain: "%T"`, v)
+	}
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type ListSearchDomainsForTelemetrySearchDomainsView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+	// Common interface for Repositories and Views.
+	Description *string `json:"description"`
+	// Common interface for Repositories and Views.
+	AutomaticSearch bool `json:"automaticSearch"`
+	// True if the view is federated, false otherwise.
+	// Stability: Preview
+	IsFederated bool `json:"isFederated"`
+	// Stability: Long-term
+	Connections []ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection `json:"connections"`
+}
+
+// GetTypename returns ListSearchDomainsForTelemetrySearchDomainsView.Typename, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetTypename() *string { return v.Typename }
+
+// GetId returns ListSearchDomainsForTelemetrySearchDomainsView.Id, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetId() string { return v.Id }
+
+// GetName returns ListSearchDomainsForTelemetrySearchDomainsView.Name, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetName() string { return v.Name }
+
+// GetDescription returns ListSearchDomainsForTelemetrySearchDomainsView.Description, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetDescription() *string {
+	return v.Description
+}
+
+// GetAutomaticSearch returns ListSearchDomainsForTelemetrySearchDomainsView.AutomaticSearch, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetAutomaticSearch() bool {
+	return v.AutomaticSearch
+}
+
+// GetIsFederated returns ListSearchDomainsForTelemetrySearchDomainsView.IsFederated, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetIsFederated() bool { return v.IsFederated }
+
+// GetConnections returns ListSearchDomainsForTelemetrySearchDomainsView.Connections, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetConnections() []ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection {
+	return v.Connections
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection includes the requested fields of the GraphQL type ViewConnection.
+// The GraphQL type's documentation follows.
+//
+// Represents the connection between a view and an underlying repository.
+type ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection struct {
+	// The underlying repository
+	// Stability: Long-term
+	Repository ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository `json:"repository"`
+}
+
+// GetRepository returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection.Repository, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection) GetRepository() ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository {
+	return v.Repository
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository struct {
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Total size of data. Size is measured as the size after compression.
+	// Stability: Long-term
+	CompressedByteSize int64 `json:"compressedByteSize"`
+	// The maximum time (in days) to keep data. Data old than this will be deleted.
+	// Stability: Long-term
+	TimeBasedRetention *float64 `json:"timeBasedRetention"`
+	// Retention (in Gigabytes) based on the size of data when in storage, that is, after parsing and compression. LogScale will keep `at least` this amount of data, but as close to this number as possible.
+	// Stability: Long-term
+	StorageSizeBasedRetention *float64 `json:"storageSizeBasedRetention"`
+	// Retention (in Gigabytes) based on the size of data when it arrives to LogScale, that is before parsing and compression. LogScale will keep `at most` this amount of data.
+	// Stability: Long-term
+	IngestSizeBasedRetention *float64 `json:"ingestSizeBasedRetention"`
+}
+
+// GetName returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.Name, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetName() string {
+	return v.Name
+}
+
+// GetCompressedByteSize returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.CompressedByteSize, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetCompressedByteSize() int64 {
+	return v.CompressedByteSize
+}
+
+// GetTimeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.TimeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetTimeBasedRetention() *float64 {
+	return v.TimeBasedRetention
+}
+
+// GetStorageSizeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.StorageSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetStorageSizeBasedRetention() *float64 {
+	return v.StorageSizeBasedRetention
+}
+
+// GetIngestSizeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.IngestSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetIngestSizeBasedRetention() *float64 {
+	return v.IngestSizeBasedRetention
+}
+
 // ListSearchDomainsResponse is returned by ListSearchDomains on success.
 type ListSearchDomainsResponse struct {
 	// Stability: Long-term
@@ -30771,6 +31131,58 @@ func ListSearchDomains(
 	}
 
 	data_ = &ListSearchDomainsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListSearchDomainsForTelemetry.
+const ListSearchDomainsForTelemetry_Operation = `
+query ListSearchDomainsForTelemetry {
+	searchDomains {
+		__typename
+		id
+		name
+		description
+		automaticSearch
+		... on Repository {
+			compressedByteSize
+			timeBasedRetention
+			storageSizeBasedRetention
+			ingestSizeBasedRetention
+		}
+		... on View {
+			isFederated
+			connections {
+				repository {
+					name
+					compressedByteSize
+					timeBasedRetention
+					storageSizeBasedRetention
+					ingestSizeBasedRetention
+				}
+			}
+		}
+	}
+}
+`
+
+func ListSearchDomainsForTelemetry(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *ListSearchDomainsForTelemetryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListSearchDomainsForTelemetry",
+		Query:  ListSearchDomainsForTelemetry_Operation,
+	}
+
+	data_ = &ListSearchDomainsForTelemetryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

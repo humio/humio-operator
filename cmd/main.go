@@ -251,325 +251,328 @@ func main() {
 	}
 }
 
-// setupController is a helper function that sets up a controller and exits on error
-func setupController(name string, setupFunc func() error) {
-	if err := setupFunc(); err != nil {
-		ctrl.Log.Error(err, "unable to create controller", "controller", name)
-		os.Exit(1)
-	}
-}
-
-// setupControllerNoExit is a helper function that sets up a controller and logs errors without exiting
-func setupControllerNoExit(name string, setupFunc func() error) {
-	if err := setupFunc(); err != nil {
-		ctrl.Log.Error(err, "unable to create controller", "controller", name)
-	}
-}
-
+//nolint:gocyclo // Long function setting up all controllers, acceptable complexity for setup code
 func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Duration) {
+	var err error
 	userAgent := fmt.Sprintf("humio-operator/%s (%s on %s)", version, commit, date)
 
-	setupController("HumioAction", func() error {
-		return (&controller.HumioActionReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioAggregateAlert", func() error {
-		return (&controller.HumioAggregateAlertReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioAlert", func() error {
-		return (&controller.HumioAlertReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioBootstrapToken", func() error {
-		return (&controller.HumioBootstrapTokenReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			BaseLogger: log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioCluster", func() error {
-		return (&controller.HumioClusterReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioExternalCluster", func() error {
-		return (&controller.HumioExternalClusterReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioEventForwardingRule", func() error {
-		return (&controller.HumioEventForwardingRuleReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioEventForwarder", func() error {
-		return (&controller.HumioEventForwarderReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupControllerNoExit("HumioFilterAlert", func() error {
-		return (&controller.HumioFilterAlertReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupControllerNoExit("HumioFeatureFlag", func() error {
-		return (&controller.HumioFeatureFlagReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioIngestToken", func() error {
-		return (&controller.HumioIngestTokenReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioParser", func() error {
-		return (&controller.HumioParserReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioRepository", func() error {
-		return (&controller.HumioRepositoryReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioScheduledSearch", func() error {
-		return (&controller.HumioScheduledSearchReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioSavedQuery", func() error {
-		return (&controller.HumioSavedQueryReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioView", func() error {
-		return (&controller.HumioViewReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioUser", func() error {
-		return (&controller.HumioUserReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioGroup", func() error {
-		return (&controller.HumioGroupReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioViewPermissionRole", func() error {
-		return (&controller.HumioViewPermissionRoleReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioSystemPermissionRole", func() error {
-		return (&controller.HumioSystemPermissionRoleReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioOrganizationPermissionRole", func() error {
-		return (&controller.HumioOrganizationPermissionRoleReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioMultiClusterSearchView", func() error {
-		return (&controller.HumioMultiClusterSearchViewReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioIPFilter", func() error {
-		return (&controller.HumioIPFilterReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioViewToken", func() error {
-		return (&controller.HumioViewTokenReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioSystemToken", func() error {
-		return (&controller.HumioSystemTokenReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioOrganizationToken", func() error {
-		return (&controller.HumioOrganizationTokenReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioPdfRenderService", func() error {
-		return (&controller.HumioPdfRenderServiceReconciler{
-			Client:     mgr.GetClient(),
-			Scheme:     mgr.GetScheme(),
-			BaseLogger: log,
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-		}).SetupWithManager(mgr)
-	})
-	setupController("HumioTelemetry", func() error {
-		return (&controller.HumioTelemetryReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
+	if err = (&controller.HumioActionReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAction")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioAggregateAlertReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAggregateAlert")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioAlertReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAlert")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioBootstrapTokenReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		BaseLogger: log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioBootstrapToken")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioClusterReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioCluster")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioExternalClusterReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioExternalCluster")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioFilterAlertReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFilterAlert")
+	}
+	if err = (&controller.HumioFeatureFlagReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFeatureFlag")
+	}
+	if err = (&controller.HumioIngestTokenReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioIngestToken")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioParserReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioParser")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioRepositoryReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioRepository")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioScheduledSearchReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioScheduledSearch")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioSavedQueryReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioSavedQuery")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioViewReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioView")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioUserReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioUser")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioGroupReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioGroup")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioViewPermissionRoleReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioViewPermissionRole")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioSystemPermissionRoleReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioSystemPermissionRole")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioOrganizationPermissionRoleReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioOrganizationPermissionRole")
+		os.Exit(1)
+	}
+	if err := (&controller.HumioMultiClusterSearchViewReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioMultiClusterSearchView")
+		os.Exit(1)
+	}
+	if err := (&controller.HumioIPFilterReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioIPFilter")
+		os.Exit(1)
+	}
+	if err := (&controller.HumioViewTokenReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioViewToken")
+		os.Exit(1)
+	}
+	if err := (&controller.HumioSystemTokenReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioSystemToken")
+		os.Exit(1)
+	}
+	if err := (&controller.HumioOrganizationTokenReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioOrganizationToken")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioPdfRenderServiceReconciler{
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		BaseLogger: log,
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioTelemetryCollectionReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetryCollection")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioTelemetryExportReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		BaseLogger: log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetryExport")
+		os.Exit(1)
+	}
 	httpClient := registries.NewHTTPClient(api.Config{Insecure: false})
-	setupController("HumioPackageRegistry", func() error {
-		return (&controller.HumioPackageRegistryReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HTTPClient: httpClient,
-			BaseLogger: log,
-		}).SetupWithManager(mgr)
-	})
+	if err := (&controller.HumioPackageRegistryReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HTTPClient: httpClient,
+		BaseLogger: log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPackageRegistry")
+		os.Exit(1)
+	}
 
-	setupController("HumioPackage", func() error {
-		return (&controller.HumioPackageReconciler{
-			Client: mgr.GetClient(),
-			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
-			},
-			HumioClient: humio.NewClient(log, userAgent),
-			HTTPClient:  httpClient,
-			BaseLogger:  log,
-		}).SetupWithManager(mgr)
-	})
+	if err := (&controller.HumioPackageReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		HTTPClient:  httpClient,
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPackage")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 }

@@ -295,13 +295,27 @@ spec:
           name: "telemetry-token-secret"
           key: "token"
     collections:
-      - interval: "1m"  # Frequent collection for testing
+      # GraphQL API collections (frequent for testing)
+      - interval: "1m"
         include:
           - "license"
           - "cluster_info"
+      # LogScale search query collections (for comprehensive testing)
+      - interval: "2m"
+        include:
+          - "ingestion_metrics"
+          - "repository_usage"
+      - interval: "3m"
+        include:
+          - "user_activity"
+      - interval: "4m"
+        include:
+          - "detailed_analytics"
+      # Mixed collections for testing hybrid functionality
       - interval: "5m"
         include:
           - "license"
+          - "ingestion_metrics"
 
   environmentVariables:
     - name: "AUTHENTICATION_METHOD"
@@ -474,11 +488,11 @@ show_cluster_status() {
     echo ""
 
     echo "=== LogScale Cluster ==="
-    kubectl get humiocluster,humiotelemetry,pods -n ${HUMIO_NAMESPACE} -l app.kubernetes.io/name=humio
+    kubectl get humiocluster,humiotelemetrycollection,humiotelemetryexport,pods -n ${HUMIO_NAMESPACE} -l app.kubernetes.io/name=humio
     echo ""
 
     echo "=== Telemetry Resources ==="
-    kubectl get humiotelemetry -n ${HUMIO_NAMESPACE} || echo "No HumioTelemetry resources found yet"
+    kubectl get humiotelemetrycollection,humiotelemetryexport -n ${HUMIO_NAMESPACE} || echo "No Telemetry resources found yet"
 }
 
 # Cleanup cluster using existing function
@@ -505,7 +519,7 @@ ${GREEN}🎉 Telemetry Test Cluster Setup Complete!${NC}
 ${BLUE}Next Steps:${NC}
 
 1. ${YELLOW}Check the telemetry setup:${NC}
-   kubectl get humiocluster,humiorepository,humioingesttoken,humiotelemetry,pods -n ${HUMIO_NAMESPACE}
+   kubectl get humiocluster,humiorepository,humioingesttoken,humiotelemetrycollection,humiotelemetryexport,pods -n ${HUMIO_NAMESPACE}
 
 2. ${YELLOW}Access LogScale UI:${NC}
    kubectl port-forward -n ${HUMIO_NAMESPACE} svc/logscale-test 8080:8080
@@ -519,18 +533,26 @@ ${BLUE}Next Steps:${NC}
 4. ${YELLOW}Check telemetry logs:${NC}
    kubectl logs -n ${HUMIO_NAMESPACE} -l app.kubernetes.io/name=humio -f
 
-5. ${YELLOW}View HumioTelemetry resource:${NC}
-   kubectl get humiotelemetry -n ${HUMIO_NAMESPACE} -o yaml
+5. ${YELLOW}View Telemetry Collection resource:${NC}
+   kubectl get humiotelemetrycollection -n ${HUMIO_NAMESPACE} -o yaml
 
-6. ${YELLOW}Monitor telemetry collection:${NC}
-   kubectl describe humiotelemetry -n ${HUMIO_NAMESPACE}
+6. ${YELLOW}View Telemetry Export resource:${NC}
+   kubectl get humiotelemetryexport -n ${HUMIO_NAMESPACE} -o yaml
 
-7. ${YELLOW}Check operator logs:${NC}
+7. ${YELLOW}Monitor telemetry collection:${NC}
+   kubectl describe humiotelemetrycollection -n ${HUMIO_NAMESPACE}
+
+8. ${YELLOW}Monitor telemetry export:${NC}
+   kubectl describe humiotelemetryexport -n ${HUMIO_NAMESPACE}
+
+9. ${YELLOW}Check operator logs:${NC}
    kubectl logs -n ${HUMIO_NAMESPACE} deployment/humio-operator-controller-manager -f
 
 ${BLUE}Telemetry Configuration:${NC}
 - ${YELLOW}Cluster Identifier:${NC} telemetry-test-cluster
-- ${YELLOW}Collection Intervals:${NC} 1m for license/cluster_info, 5m for license
+- ${YELLOW}Collection Intervals:${NC} 1m for GraphQL API (license/cluster_info), 2-5m for search-based
+- ${YELLOW}GraphQL API Collections:${NC} license, cluster_info
+- ${YELLOW}Search-based Collections:${NC} ingestion_metrics, repository_usage, user_activity, detailed_analytics (LogScale search)
 - ${YELLOW}Target Repository:${NC} telemetry (in local LogScale cluster)
 - ${YELLOW}HEC Endpoint:${NC} http://logscale-test.${HUMIO_NAMESPACE}.svc.cluster.local:8080/api/v1/ingest/hec
 - ${YELLOW}Debug Mode:${NC} Enabled via TELEMETRY_DEBUG=true
@@ -539,7 +561,8 @@ ${BLUE}Resources Created:${NC}
 - ${YELLOW}HumioCluster:${NC} logscale-test (target cluster for telemetry data)
 - ${YELLOW}HumioRepository:${NC} telemetry-repo (repository for telemetry data)
 - ${YELLOW}HumioIngestToken:${NC} telemetry-ingest-token (ingest token for HEC)
-- ${YELLOW}HumioTelemetry:${NC} (created automatically by telemetryConfig)
+- ${YELLOW}HumioTelemetryCollection:${NC} (created automatically by telemetryConfig)
+- ${YELLOW}HumioTelemetryExport:${NC} (created automatically by telemetryConfig)
 
 ${BLUE}Testing Commands:${NC}
 - kubectl get events -n ${HUMIO_NAMESPACE} --sort-by='.lastTimestamp'

@@ -35,6 +35,7 @@ import (
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/helpers"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -280,9 +281,9 @@ type PackageClient interface {
 }
 
 type TelemetryClient interface {
-	CollectLicenseData(context.Context, *humioapi.Client) (*TelemetryLicenseData, error)
+	CollectLicenseData(context.Context, *humioapi.Client, client.Client, *humiov1alpha1.HumioCluster) (*TelemetryLicenseData, error)
 	CollectClusterInfo(context.Context, *humioapi.Client) (*TelemetryClusterInfo, error)
-	CollectTelemetryData(context.Context, *humioapi.Client, []string, string) ([]TelemetryPayload, error)
+	CollectTelemetryData(context.Context, *humioapi.Client, []string, string, bool, client.Client, *humiov1alpha1.HumioCluster) ([]TelemetryPayload, error)
 }
 
 type EventForwardingRulesClient interface {

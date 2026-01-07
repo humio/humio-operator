@@ -161,6 +161,9 @@ rules:
   - humioscheduledsearches
   - humioscheduledsearches/finalizers
   - humioscheduledsearches/status
+  - humiosavedqueries
+  - humiosavedqueries/finalizers
+  - humiosavedqueries/status
   - humiosystempermissionroles
   - humiosystempermissionroles/finalizers
   - humiosystempermissionroles/status
@@ -188,9 +191,12 @@ rules:
   - humiopdfrenderservices
   - humiopdfrenderservices/finalizers
   - humiopdfrenderservices/status
-  - humiotelemetries
-  - humiotelemetries/finalizers
-  - humiotelemetries/status
+  - humiotelemetrycollections
+  - humiotelemetrycollections/finalizers
+  - humiotelemetrycollections/status
+  - humiotelemetryexports
+  - humiotelemetryexports/finalizers
+  - humiotelemetryexports/status
   - humiopackageregistries
   - humiopackageregistries/finalizers
   - humiopackageregistries/status

@@ -32,6 +32,7 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -2899,8 +2900,12 @@ func (h *MockClientConfig) CheckPackage(ctx context.Context, client *humioapi.Cl
 }
 
 // Telemetry methods for mock client
-func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humioapi.Client) (*TelemetryLicenseData, error) {
+func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humioapi.Client, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) (*TelemetryLicenseData, error) {
 	// Return mock license data for testing
+	mockIngestLimit := 10.0 // 10 GB per day
+	mockCores := 4
+	mockValidUntil := time.Now().Add(365 * 24 * time.Hour) // 1 year from now
+
 	return &TelemetryLicenseData{
 		LicenseUID:     "mock-license-uid-123",
 		LicenseType:    "onprem",
@@ -2910,6 +2915,19 @@ func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humio
 		MaxUsers:       func() *int { i := 100; return &i }(),
 		IsSaaS:         helpers.BoolPtr(false),
 		IsOem:          helpers.BoolPtr(false),
+
+		// Mock JWT-extracted fields
+		MaxIngestGbPerDay:    &mockIngestLimit,
+		MaxCores:             &mockCores,
+		LicenseValidUntil:    &mockValidUntil,
+		LicenseSubject:       "MockOrganization",
+		JWTExtractionSuccess: true,
+
+		RawLicenseData: map[string]interface{}{
+			"extracted":  false,
+			"mock_phase": 1,
+			"note":       "Mock license data for testing with JWT fields",
+		},
 	}, nil
 }
 
@@ -2923,14 +2941,14 @@ func (h *MockClientConfig) CollectClusterInfo(ctx context.Context, client *humio
 	}, nil
 }
 
-func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *humioapi.Client, dataTypes []string, clusterID string) ([]TelemetryPayload, error) {
+func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *humioapi.Client, dataTypes []string, clusterID string, sendCollectionErrors bool, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) ([]TelemetryPayload, error) {
 	var payloads []TelemetryPayload
 	timestamp := time.Now()
 
 	for _, dataType := range dataTypes {
 		switch dataType {
 		case "license":
-			licenseData, err := h.CollectLicenseData(ctx, client)
+			licenseData, err := h.CollectLicenseData(ctx, client, k8sClient, hc)
 			if err != nil {
 				return nil, fmt.Errorf("failed to collect license data: %w", err)
 			}
@@ -2955,12 +2973,178 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *hum
 				Data:           clusterInfo,
 			})
 
+		case "user_info":
+			// Mock user info
+			userInfo := map[string]interface{}{
+				"total_users": 15,
+				"mock_phase":  1,
+				"note":        "Mock user info for testing",
+			}
+			payloads = append(payloads, TelemetryPayload{
+				Timestamp:      timestamp,
+				ClusterID:      clusterID,
+				CollectionType: "user_info",
+				SourceType:     "json",
+				Data:           userInfo,
+			})
+
+		case "repository_info":
+			// Mock repository info
+			repoInfo := map[string]interface{}{
+				"total_repositories": 8,
+				"mock_phase":         1,
+				"note":               "Mock repository info for testing",
+			}
+			payloads = append(payloads, TelemetryPayload{
+				Timestamp:      timestamp,
+				ClusterID:      clusterID,
+				CollectionType: "repository_info",
+				SourceType:     "json",
+				Data:           repoInfo,
+			})
 		default:
 			return nil, fmt.Errorf("unsupported data type: %s", dataType)
 		}
 	}
 
 	return payloads, nil
+}
+
+func (h *MockClientConfig) CollectIngestionMetrics(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryIngestionMetrics, error) {
+	now := time.Now()
+	startTime := now.Add(-30 * 24 * time.Hour)
+
+	return &TelemetryIngestionMetrics{
+		TimeRange: struct {
+			Start time.Time `json:"start"`
+			End   time.Time `json:"end"`
+		}{Start: startTime, End: now},
+		Daily: struct {
+			IngestVolumeGB    float64 `json:"ingest_volume_gb"`
+			EventCount        int64   `json:"event_count"`
+			AverageEventSizeB int64   `json:"average_event_size_bytes"`
+		}{
+			IngestVolumeGB:    15.5,
+			EventCount:        1500000,
+			AverageEventSizeB: 512,
+		},
+		Weekly: struct {
+			IngestVolumeGB    float64 `json:"ingest_volume_gb"`
+			EventCount        int64   `json:"event_count"`
+			GrowthRatePercent float64 `json:"growth_rate_percent"`
+		}{
+			IngestVolumeGB:    108.5,
+			EventCount:        10500000,
+			GrowthRatePercent: 3.2,
+		},
+		Monthly: struct {
+			IngestVolumeGB float64 `json:"ingest_volume_gb"`
+			EventCount     int64   `json:"event_count"`
+			TrendDirection string  `json:"trend_direction"`
+		}{
+			IngestVolumeGB: 465.0,
+			EventCount:     45000000,
+			TrendDirection: "increasing",
+		},
+	}, nil
+}
+
+func (h *MockClientConfig) CollectRepositoryUsage(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryRepositoryUsageMetrics, error) {
+	repositories := []RepositoryUsage{
+		{
+			Name:              "humio",
+			IngestVolumeGB24h: 8.5,
+			EventCount24h:     850000,
+			RetentionDays:     30,
+			StorageUsageGB:    250.0,
+			LastActivityTime:  time.Now().Add(-1 * time.Hour),
+			Dataspace:         "humio",
+		},
+		{
+			Name:              "sandbox",
+			IngestVolumeGB24h: 2.1,
+			EventCount24h:     210000,
+			RetentionDays:     7,
+			StorageUsageGB:    15.0,
+			LastActivityTime:  time.Now().Add(-30 * time.Minute),
+			Dataspace:         "sandbox",
+		},
+	}
+
+	return &TelemetryRepositoryUsageMetrics{
+		TotalRepositories: len(repositories),
+		Repositories:      repositories,
+		TopRepositories:   repositories, // All are top repositories in mock
+	}, nil
+}
+
+func (h *MockClientConfig) CollectUserActivity(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryUserActivityMetrics, error) {
+	now := time.Now()
+	startTime := now.Add(-30 * 24 * time.Hour)
+
+	return &TelemetryUserActivityMetrics{
+		TimeRange: struct {
+			Start time.Time `json:"start"`
+			End   time.Time `json:"end"`
+		}{Start: startTime, End: now},
+		ActiveUsers: struct {
+			Last24h int `json:"last_24h"`
+			Last7d  int `json:"last_7d"`
+			Last30d int `json:"last_30d"`
+		}{
+			Last24h: 12,
+			Last7d:  28,
+			Last30d: 45,
+		},
+		QueryActivity: struct {
+			TotalQueries  int64            `json:"total_queries"`
+			AvgQueryTime  float64          `json:"avg_query_time_seconds"`
+			TopQueryTypes []QueryTypeUsage `json:"top_query_types"`
+		}{
+			TotalQueries: 2150,
+			AvgQueryTime: 2.8,
+			TopQueryTypes: []QueryTypeUsage{
+				{Type: "search", Count: 1200, AvgDuration: 2.1},
+				{Type: "dashboard", Count: 650, AvgDuration: 3.5},
+				{Type: "alert", Count: 300, AvgDuration: 1.8},
+			},
+		},
+		LoginActivity: struct {
+			TotalLogins    int64 `json:"total_logins"`
+			UniqueUsers    int   `json:"unique_users"`
+			FailedAttempts int64 `json:"failed_attempts"`
+		}{
+			TotalLogins:    580,
+			UniqueUsers:    38,
+			FailedAttempts: 12,
+		},
+	}, nil
+}
+
+func (h *MockClientConfig) CollectDetailedAnalytics(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryDetailedAnalytics, error) {
+	now := time.Now()
+	startTime := now.Add(-4 * time.Hour)
+
+	return &TelemetryDetailedAnalytics{
+		TimeRange: struct {
+			Start time.Time `json:"start"`
+			End   time.Time `json:"end"`
+		}{Start: startTime, End: now},
+		PerformanceMetrics: map[string]interface{}{
+			"avg_query_response_time":    2.15,
+			"peak_concurrent_queries":    18,
+			"memory_usage_percent":       65.4,
+			"cpu_utilization_percent":    42.1,
+			"disk_io_operations_per_sec": 1250,
+		},
+		UsagePatterns: map[string]interface{}{
+			"most_active_hour":       "14:00",
+			"query_complexity_trend": "moderate",
+			"top_search_keywords":    []string{"error", "warn", "exception", "timeout"},
+			"avg_session_duration":   "45m",
+			"peak_concurrent_users":  8,
+		},
+	}, nil
 }
 
 func (h *MockClientConfig) AddEventForwardingRule(_ context.Context, _ *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) error {

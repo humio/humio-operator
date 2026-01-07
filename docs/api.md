@@ -36711,13 +36711,6 @@ TelemetryStatus shows the status of telemetry collection for this cluster
           State represents the current state of telemetry collection<br/>
         </td>
         <td>false</td>
-      </tr><tr>
-        <td><b>telemetryResourceName</b></td>
-        <td>string</td>
-        <td>
-          TelemetryResourceName is the name of the HumioTelemetry resource managing this cluster's telemetry<br/>
-        </td>
-        <td>false</td>
       </tr></tbody>
 </table>
 
