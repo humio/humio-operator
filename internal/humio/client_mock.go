@@ -31,6 +31,7 @@ import (
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -2941,16 +2942,65 @@ func (h *MockClientConfig) CollectClusterInfo(ctx context.Context, client *humio
 	}, nil
 }
 
-func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *humioapi.Client, dataTypes []string, clusterID string, sendCollectionErrors bool, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) ([]TelemetryPayload, error) {
+func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, apiClient *humioapi.Client, dataTypes []string, clusterID string, sendCollectionErrors bool, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) ([]TelemetryPayload, string, error) {
 	var payloads []TelemetryPayload
 	timestamp := time.Now()
+
+	// Use pod discovery logic to determine source info (similar to real implementation)
+	sourceInfo := "from https://test-cluster.test-namespace.svc.cluster.local:8080"
+	if hc != nil {
+		sourceInfo = fmt.Sprintf("from https://%s.%s.svc.cluster.local:8080", hc.Name, hc.Namespace)
+	}
+	if k8sClient != nil && hc != nil {
+		// Try to discover query-capable pods
+		pods := &corev1.PodList{}
+		matchingLabels := map[string]string{
+			"app.kubernetes.io/name":       "humio",
+			"app.kubernetes.io/instance":   hc.Name,
+			"app.kubernetes.io/managed-by": "humio-operator",
+		}
+
+		listOpts := []client.ListOption{
+			client.InNamespace(hc.Namespace),
+			client.MatchingLabels(matchingLabels),
+		}
+		if err := k8sClient.List(ctx, pods, listOpts...); err == nil {
+			// Find first query-capable pod
+			for _, pod := range pods.Items {
+				if pod.Status.Phase != corev1.PodRunning {
+					continue
+				}
+
+				// Check NODE_ROLES
+				isQueryCapable := true // Default to query-capable if no NODE_ROLES
+				for _, container := range pod.Spec.Containers {
+					for _, env := range container.Env {
+						if env.Name == EnvNodeRoles {
+							switch env.Value {
+							case NodeRoleIngestOnly:
+								isQueryCapable = false
+							case NodeRoleHTTPOnly, NodeRoleAll:
+								isQueryCapable = true
+							}
+							break
+						}
+					}
+				}
+
+				if isQueryCapable {
+					sourceInfo = fmt.Sprintf("from pod %s", pod.Name)
+					break
+				}
+			}
+		}
+	}
 
 	for _, dataType := range dataTypes {
 		switch dataType {
 		case "license":
-			licenseData, err := h.CollectLicenseData(ctx, client, k8sClient, hc)
+			licenseData, err := h.CollectLicenseData(ctx, apiClient, k8sClient, hc)
 			if err != nil {
-				return nil, fmt.Errorf("failed to collect license data: %w", err)
+				return nil, sourceInfo, fmt.Errorf("failed to collect license data: %w", err)
 			}
 			payloads = append(payloads, TelemetryPayload{
 				Timestamp:      timestamp,
@@ -2961,9 +3011,9 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *hum
 			})
 
 		case "cluster_info":
-			clusterInfo, err := h.CollectClusterInfo(ctx, client)
+			clusterInfo, err := h.CollectClusterInfo(ctx, apiClient)
 			if err != nil {
-				return nil, fmt.Errorf("failed to collect cluster info: %w", err)
+				return nil, sourceInfo, fmt.Errorf("failed to collect cluster info: %w", err)
 			}
 			payloads = append(payloads, TelemetryPayload{
 				Timestamp:      timestamp,
@@ -3003,11 +3053,11 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *hum
 				Data:           repoInfo,
 			})
 		default:
-			return nil, fmt.Errorf("unsupported data type: %s", dataType)
+			return nil, sourceInfo, fmt.Errorf("unsupported data type: %s", dataType)
 		}
 	}
 
-	return payloads, nil
+	return payloads, sourceInfo, nil
 }
 
 func (h *MockClientConfig) CollectIngestionMetrics(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryIngestionMetrics, error) {
@@ -3388,6 +3438,52 @@ func (h *MockClientConfig) UpdateEventForwarder(_ context.Context, _ *humioapi.C
 	}
 
 	return nil
+}
+
+func (h *MockClientConfig) supportsSearchExecution(_ context.Context, _ *humioapi.Client, hc *humiov1alpha1.HumioCluster) (bool, error) {
+	// Mock implementation: check node pools for search capability
+	if hc == nil {
+		// Fall back to legacy check - for mock, return false (ingest-only scenario)
+		return false, fmt.Errorf("mock: search not supported without cluster configuration")
+	}
+
+	// Check if we have any query-capable node pools
+	hasQueryCapable := false
+	for _, nodePool := range hc.Spec.NodePools {
+		if nodePool.NodeCount == 0 {
+			continue // Skip pools with no nodes
+		}
+
+		// Check NODE_ROLES environment variable
+		isQueryCapable := true // Default to query-capable if no NODE_ROLES is specified
+		for _, env := range nodePool.EnvironmentVariables {
+			if env.Name == EnvNodeRoles {
+				switch env.Value {
+				case NodeRoleIngestOnly:
+					isQueryCapable = false
+				case NodeRoleHTTPOnly, NodeRoleAll:
+					isQueryCapable = true
+				}
+				break
+			}
+		}
+
+		if isQueryCapable {
+			hasQueryCapable = true
+			break
+		}
+	}
+
+	// If no node pools defined, assume query-capable (fallback to main cluster service)
+	if len(hc.Spec.NodePools) == 0 {
+		hasQueryCapable = true
+	}
+
+	if !hasQueryCapable {
+		return false, fmt.Errorf("mock: no query-capable services found - all node pools are ingest-only")
+	}
+
+	return true, nil
 }
 
 func (h *MockClientConfig) DeleteEventForwarder(_ context.Context, _ *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) error {

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +33,14 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// Node role constants
+const (
+	NodeRoleIngestOnly = "ingestonly"
+	NodeRoleHTTPOnly   = "httponly"
+	NodeRoleAll        = "all"
+	EnvNodeRoles       = "NODE_ROLES"
 )
 
 // CollectLicenseData implements license data collection for telemetry following existing patterns
@@ -227,143 +236,43 @@ func (h *ClientConfig) CollectRepositoryID(ctx context.Context, client *api.Clie
 	return "", fmt.Errorf("repository ID not found in humio repository query results")
 }
 
-// CollectTelemetryData collects telemetry data based on the specified data types
-func (h *ClientConfig) CollectTelemetryData(ctx context.Context, client *api.Client, dataTypes []string, clusterID string, sendCollectionErrors bool, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) ([]TelemetryPayload, error) {
+// CollectTelemetryData collects telemetry data based on the specified data types and returns source information
+func (h *ClientConfig) CollectTelemetryData(ctx context.Context, client *api.Client, dataTypes []string, clusterID string, sendCollectionErrors bool, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) ([]TelemetryPayload, string, error) {
 	var payloads []TelemetryPayload
 	var allErrors []TelemetryError
-
 	timestamp := time.Now()
 
-	// Always collect repository ID since telemetry requires LogScale queries
-	// Check if search is supported first
-	searchSupported, err := h.supportsSearchExecution(ctx, client)
-	if err != nil {
-		return nil, fmt.Errorf("LogScale cluster does not support search execution required for telemetry collection: %w", err)
-	}
-	if !searchSupported {
-		return nil, fmt.Errorf("LogScale cluster search capability check failed - search execution is required for advanced telemetry data types (ingestion_metrics, repository_usage, user_activity, detailed_analytics)")
+	// Setup source tracking and client selection
+	actualClient, sourceInfo := h.setupClientAndSourceInfo(client, hc)
+
+	// Validate search capabilities
+	if err := h.validateSearchCapabilities(ctx, actualClient, hc); err != nil {
+		return nil, sourceInfo, err
 	}
 
-	// Collect the repository ID from the humio repository to use as cluster_guid
-	repositoryID, err := h.CollectRepositoryID(ctx, client, QuerySettings{MaxExecutionTime: 30 * time.Second})
+	// Collect the repository ID using the service-specific client (if available)
+	repositoryID, err := h.CollectRepositoryID(ctx, actualClient, QuerySettings{MaxExecutionTime: 30 * time.Second})
 	if err != nil {
-		return nil, fmt.Errorf("failed to collect repository ID for telemetry: %w", err)
+		return nil, sourceInfo, fmt.Errorf("failed to collect repository ID for telemetry: %w", err)
 	}
 
 	ctrl.Log.Info("Successfully collected repository ID for telemetry",
 		"repository_id", repositoryID,
 		"user_cluster_id", clusterID)
 
+	// Collect data for each requested data type
 	for _, dataType := range dataTypes {
-		var payload TelemetryPayload
-		var collectionErrors []TelemetryError
-
-		switch dataType {
-		case "license":
-			licenseData, err := h.CollectLicenseData(ctx, client, k8sClient, hc)
-			if err != nil {
-				collectionErrors = append(collectionErrors, TelemetryError{
-					Type:      TelemetryErrorTypeCollection,
-					Message:   fmt.Sprintf("Failed to collect license data: %v", err),
-					Timestamp: timestamp,
-				})
-			} else {
-				payload = TelemetryPayload{
-					Timestamp:        timestamp,
-					ClusterID:        clusterID,
-					ClusterGUID:      repositoryID,
-					CollectionType:   TelemetryCollectionTypeLicense,
-					SourceType:       TelemetrySourceTypeJSON,
-					Data:             licenseData,
-					CollectionErrors: collectionErrors,
-				}
-				payloads = append(payloads, payload)
-			}
-
-		case "cluster_info":
-			clusterInfo, err := h.CollectClusterInfo(ctx, client)
-			if err != nil {
-				collectionErrors = append(collectionErrors, TelemetryError{
-					Type:      TelemetryErrorTypeCollection,
-					Message:   fmt.Sprintf("Failed to collect cluster info: %v", err),
-					Timestamp: timestamp,
-				})
-			} else {
-				payload = TelemetryPayload{
-					Timestamp:        timestamp,
-					ClusterID:        clusterID,
-					ClusterGUID:      repositoryID,
-					CollectionType:   TelemetryCollectionTypeClusterInfo,
-					SourceType:       TelemetrySourceTypeJSON,
-					Data:             clusterInfo,
-					CollectionErrors: collectionErrors,
-				}
-				payloads = append(payloads, payload)
-			}
-
-		// Search-based collection types
-		case "ingestion_metrics":
-			ctrl.Log.Info("Starting ingestion_metrics collection",
-				"cluster_id", clusterID,
-				"collection_type", "ingestion_metrics")
-
-			// Check if organizational usage data is available (required for ingestion metrics)
-			usageAvailable, err := h.checkUsageDataAvailability(ctx, client)
-			if err != nil {
-				ctrl.Log.Error(err, "Failed to check organizational usage data availability for ingestion metrics",
-					"cluster_id", clusterID)
-				collectionErrors = append(collectionErrors, TelemetryError{
-					Type:      TelemetryErrorTypeCollection,
-					Message:   fmt.Sprintf("Cannot check organizational usage data availability for ingestion metrics: %v", err),
-					Timestamp: timestamp,
-				})
-			} else if !usageAvailable {
-				ctrl.Log.Info("Organizational usage data not available - skipping ingestion metrics collection",
-					"cluster_id", clusterID,
-					"message", "LogScale organizational usage job is required for ingestion metrics but no data found in last 24h")
-				collectionErrors = append(collectionErrors, TelemetryError{
-					Type:      TelemetryErrorTypeCollection,
-					Message:   "Ingestion metrics require LogScale organizational usage data but none found in last 24 hours. Please ensure the organizational usage job is configured and running.",
-					Timestamp: timestamp,
-				})
-			} else {
-				// Usage data is available, proceed with ingestion metrics collection
-				ingestionMetrics, err := h.CollectIngestionMetrics(ctx, client, DefaultQuerySettings)
-				if err != nil {
-					ctrl.Log.Error(err, "Failed to collect ingestion metrics",
-						"cluster_id", clusterID)
-					collectionErrors = append(collectionErrors, TelemetryError{
-						Type:      TelemetryErrorTypeCollection,
-						Message:   fmt.Sprintf("Failed to collect ingestion metrics: %v", err),
-						Timestamp: timestamp,
-					})
-				} else {
-					ctrl.Log.Info("Successfully collected ingestion metrics",
-						"cluster_id", clusterID,
-						"daily_volume_gb", ingestionMetrics.Daily.IngestVolumeGB,
-						"daily_events", ingestionMetrics.Daily.EventCount)
-					payload = TelemetryPayload{
-						Timestamp:        timestamp,
-						ClusterID:        clusterID,
-						ClusterGUID:      repositoryID,
-						CollectionType:   TelemetryCollectionTypeIngestionMetrics,
-						SourceType:       TelemetrySourceTypeJSON,
-						Data:             ingestionMetrics,
-						CollectionErrors: collectionErrors,
-					}
-					payloads = append(payloads, payload)
-				}
-			}
-
-		case "repository_usage":
+		if dataType == "repository_usage" {
+			// Handle repository usage specially since it returns multiple flattened payloads
 			ctrl.Log.Info("Starting repository_usage collection",
 				"cluster_id", clusterID,
 				"collection_type", "repository_usage")
-			repositoryUsage, err := h.CollectRepositoryUsage(ctx, client, DefaultQuerySettings)
+
+			repositoryUsage, err := h.CollectRepositoryUsage(ctx, actualClient, DefaultQuerySettings)
 			if err != nil {
 				ctrl.Log.Error(err, "Failed to collect repository usage",
 					"cluster_id", clusterID)
-				collectionErrors = append(collectionErrors, TelemetryError{
+				allErrors = append(allErrors, TelemetryError{
 					Type:      TelemetryErrorTypeCollection,
 					Message:   fmt.Sprintf("Failed to collect repository usage: %v", err),
 					Timestamp: timestamp,
@@ -373,88 +282,308 @@ func (h *ClientConfig) CollectTelemetryData(ctx context.Context, client *api.Cli
 					"cluster_id", clusterID,
 					"total_repositories", repositoryUsage.TotalRepositories)
 
-				// Instead of creating a single payload with nested arrays,
-				// flatten repository usage into multiple separate events
-				flattenedPayloads := h.FlattenRepositoryUsageData(timestamp, clusterID, repositoryID, repositoryUsage, collectionErrors)
+				// Flatten repository usage into multiple separate events
+				flattenedPayloads := h.FlattenRepositoryUsageData(timestamp, clusterID, repositoryID, repositoryUsage, []TelemetryError{})
 				payloads = append(payloads, flattenedPayloads...)
 			}
-
-		case "user_activity":
-			ctrl.Log.Info("Starting user_activity collection",
-				"cluster_id", clusterID,
-				"collection_type", "user_activity")
-			userActivity, err := h.CollectUserActivity(ctx, client, DefaultQuerySettings)
-			if err != nil {
-				ctrl.Log.Error(err, "Failed to collect user activity",
-					"cluster_id", clusterID)
-				collectionErrors = append(collectionErrors, TelemetryError{
-					Type:      TelemetryErrorTypeCollection,
-					Message:   fmt.Sprintf("Failed to collect user activity: %v", err),
-					Timestamp: timestamp,
-				})
-			} else {
-				ctrl.Log.Info("Successfully collected user activity",
-					"cluster_id", clusterID,
-					"active_users_24h", userActivity.ActiveUsers.Last24h,
-					"total_queries", userActivity.QueryActivity.TotalQueries)
-				payload = TelemetryPayload{
-					Timestamp:        timestamp,
-					ClusterID:        clusterID,
-					ClusterGUID:      repositoryID,
-					CollectionType:   TelemetryCollectionTypeUserActivity,
-					SourceType:       TelemetrySourceTypeJSON,
-					Data:             userActivity,
-					CollectionErrors: collectionErrors,
-				}
-				payloads = append(payloads, payload)
+		} else {
+			payload, errors := h.collectSingleDataType(ctx, dataType, actualClient, k8sClient, hc, timestamp, clusterID, repositoryID)
+			if payload != nil {
+				payloads = append(payloads, *payload)
 			}
-
-		case "detailed_analytics":
-			ctrl.Log.Info("Starting detailed_analytics collection",
-				"cluster_id", clusterID,
-				"collection_type", "detailed_analytics")
-			detailedAnalytics, err := h.CollectDetailedAnalytics(ctx, client, DefaultQuerySettings)
-			if err != nil {
-				ctrl.Log.Error(err, "Failed to collect detailed analytics",
-					"cluster_id", clusterID)
-				collectionErrors = append(collectionErrors, TelemetryError{
-					Type:      TelemetryErrorTypeCollection,
-					Message:   fmt.Sprintf("Failed to collect detailed analytics: %v", err),
-					Timestamp: timestamp,
-				})
-			} else {
-				ctrl.Log.Info("Successfully collected detailed analytics",
-					"cluster_id", clusterID,
-					"performance_metrics_count", len(detailedAnalytics.PerformanceMetrics),
-					"usage_patterns_count", len(detailedAnalytics.UsagePatterns))
-				payload = TelemetryPayload{
-					Timestamp:        timestamp,
-					ClusterID:        clusterID,
-					ClusterGUID:      repositoryID,
-					CollectionType:   TelemetryCollectionTypeDetailedAnalytics,
-					SourceType:       TelemetrySourceTypeJSON,
-					Data:             detailedAnalytics,
-					CollectionErrors: collectionErrors,
-				}
-				payloads = append(payloads, payload)
-			}
-
-		default:
-			collectionErrors = append(collectionErrors, TelemetryError{
-				Type:      TelemetryErrorTypeConfiguration,
-				Message:   fmt.Sprintf("Unknown data type: %s", dataType),
-				Timestamp: timestamp,
-			})
+			allErrors = append(allErrors, errors...)
 		}
-
-		// Collect all errors
-		allErrors = append(allErrors, collectionErrors...)
 	}
 
+	return h.finalizePayloads(payloads, allErrors, timestamp, clusterID, repositoryID, sendCollectionErrors, sourceInfo)
+}
+
+// setupClientAndSourceInfo sets up the client and source tracking information
+func (h *ClientConfig) setupClientAndSourceInfo(client *api.Client, hc *humiov1alpha1.HumioCluster) (*api.Client, string) {
+	// Determine source information for collection tracking
+	sourceURL := "cluster-wide-service"
+	sourceService := ""
+
+	// Try to get the actual endpoint from the API client
+	if client != nil {
+		config := client.Config()
+		if config.Address != nil {
+			sourceURL = config.Address.String()
+		}
+	}
+
+	// Try to discover query-capable services to get more specific source info
+	queryCapableServices, err := h.discoverQueryCapableServices(hc)
+	if err == nil && len(queryCapableServices) > 0 {
+		// We're using service-aware collection, update source information
+		firstService := queryCapableServices[0]
+		sourceURL = firstService.Endpoint
+		sourceService = firstService.Name
+
+		ctrl.Log.Info("Using service-aware telemetry collection",
+			"service", sourceService,
+			"endpoint", sourceURL,
+			"total_query_capable_services", len(queryCapableServices))
+	} else {
+		ctrl.Log.Info("Using cluster-wide telemetry collection",
+			"endpoint", sourceURL,
+			"service_discovery_error", err)
+	}
+
+	// Format source info for return
+	sourceInfo := fmt.Sprintf("from %s", sourceURL)
+	if sourceService != "" {
+		sourceInfo = fmt.Sprintf("from service %s (%s)", sourceService, sourceURL)
+	}
+
+	// Create service-specific client if we discovered query-capable services
+	actualClient := client
+	if len(queryCapableServices) > 0 {
+		serviceClient, err := h.createServiceSpecificClient(queryCapableServices[0], hc, client)
+		if err != nil {
+			ctrl.Log.Error(err, "Failed to create service-specific client, using cluster-wide client as fallback",
+				"service", queryCapableServices[0].Name)
+			// Continue with original client as fallback
+		} else {
+			actualClient = serviceClient
+			ctrl.Log.Info("Using service-specific client for telemetry collection",
+				"service", queryCapableServices[0].Name)
+		}
+	}
+
+	return actualClient, sourceInfo
+}
+
+// validateSearchCapabilities validates that search execution is supported
+func (h *ClientConfig) validateSearchCapabilities(ctx context.Context, actualClient *api.Client, hc *humiov1alpha1.HumioCluster) error {
+	searchSupported, err := h.supportsSearchExecution(ctx, actualClient, hc)
+	if err != nil {
+		return fmt.Errorf("LogScale cluster does not support search execution required for telemetry collection: %w", err)
+	}
+	if !searchSupported {
+		return fmt.Errorf("LogScale cluster search capability check failed - search execution is required for advanced telemetry data types (ingestion_metrics, repository_usage, user_activity, detailed_analytics)")
+	}
+	return nil
+}
+
+// collectSingleDataType collects data for a single telemetry data type
+func (h *ClientConfig) collectSingleDataType(ctx context.Context, dataType string, actualClient *api.Client, k8sClient client.Client, hc *humiov1alpha1.HumioCluster, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
+	var payload *TelemetryPayload
+	var collectionErrors []TelemetryError
+
+	switch dataType {
+	case "license":
+		payload, collectionErrors = h.collectLicenseData(ctx, actualClient, k8sClient, hc, timestamp, clusterID, repositoryID)
+	case "cluster_info":
+		payload, collectionErrors = h.collectClusterInfoData(ctx, actualClient, timestamp, clusterID, repositoryID)
+	case "ingestion_metrics":
+		payload, collectionErrors = h.collectIngestionMetricsData(ctx, actualClient, timestamp, clusterID, repositoryID)
+	case "user_activity":
+		payload, collectionErrors = h.collectUserActivityData(ctx, actualClient, timestamp, clusterID, repositoryID)
+	case "detailed_analytics":
+		payload, collectionErrors = h.collectDetailedAnalyticsData(ctx, actualClient, timestamp, clusterID, repositoryID)
+	default:
+		collectionErrors = append(collectionErrors, TelemetryError{
+			Type:      TelemetryErrorTypeConfiguration,
+			Message:   fmt.Sprintf("Unknown data type: %s", dataType),
+			Timestamp: timestamp,
+		})
+	}
+
+	return payload, collectionErrors
+}
+
+// collectLicenseData collects license telemetry data
+func (h *ClientConfig) collectLicenseData(ctx context.Context, actualClient *api.Client, k8sClient client.Client, hc *humiov1alpha1.HumioCluster, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
+	var collectionErrors []TelemetryError
+
+	licenseData, err := h.CollectLicenseData(ctx, actualClient, k8sClient, hc)
+	if err != nil {
+		collectionErrors = append(collectionErrors, TelemetryError{
+			Type:      TelemetryErrorTypeCollection,
+			Message:   fmt.Sprintf("Failed to collect license data: %v", err),
+			Timestamp: timestamp,
+		})
+		return nil, collectionErrors
+	}
+
+	payload := &TelemetryPayload{
+		Timestamp:        timestamp,
+		ClusterID:        clusterID,
+		ClusterGUID:      repositoryID,
+		CollectionType:   TelemetryCollectionTypeLicense,
+		SourceType:       TelemetrySourceTypeJSON,
+		Data:             licenseData,
+		CollectionErrors: collectionErrors,
+	}
+	return payload, collectionErrors
+}
+
+// collectClusterInfoData collects cluster info telemetry data
+func (h *ClientConfig) collectClusterInfoData(ctx context.Context, actualClient *api.Client, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
+	var collectionErrors []TelemetryError
+
+	clusterInfo, err := h.CollectClusterInfo(ctx, actualClient)
+	if err != nil {
+		collectionErrors = append(collectionErrors, TelemetryError{
+			Type:      TelemetryErrorTypeCollection,
+			Message:   fmt.Sprintf("Failed to collect cluster info: %v", err),
+			Timestamp: timestamp,
+		})
+		return nil, collectionErrors
+	}
+
+	payload := &TelemetryPayload{
+		Timestamp:        timestamp,
+		ClusterID:        clusterID,
+		ClusterGUID:      repositoryID,
+		CollectionType:   TelemetryCollectionTypeClusterInfo,
+		SourceType:       TelemetrySourceTypeJSON,
+		Data:             clusterInfo,
+		CollectionErrors: collectionErrors,
+	}
+	return payload, collectionErrors
+}
+
+// collectIngestionMetricsData collects ingestion metrics telemetry data
+func (h *ClientConfig) collectIngestionMetricsData(ctx context.Context, actualClient *api.Client, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
+	var collectionErrors []TelemetryError
+
+	ctrl.Log.Info("Starting ingestion_metrics collection",
+		"cluster_id", clusterID,
+		"collection_type", "ingestion_metrics")
+
+	// Check if organizational usage data is available (required for ingestion metrics)
+	usageAvailable, err := h.checkUsageDataAvailability(ctx, actualClient)
+	if err != nil {
+		ctrl.Log.Error(err, "Failed to check organizational usage data availability for ingestion metrics",
+			"cluster_id", clusterID)
+		collectionErrors = append(collectionErrors, TelemetryError{
+			Type:      TelemetryErrorTypeCollection,
+			Message:   fmt.Sprintf("Cannot check organizational usage data availability for ingestion metrics: %v", err),
+			Timestamp: timestamp,
+		})
+		return nil, collectionErrors
+	} else if !usageAvailable {
+		ctrl.Log.Info("Organizational usage data not available - skipping ingestion metrics collection",
+			"cluster_id", clusterID,
+			"message", "LogScale organizational usage job is required for ingestion metrics but no data found in last 24h")
+		collectionErrors = append(collectionErrors, TelemetryError{
+			Type:      TelemetryErrorTypeCollection,
+			Message:   "Ingestion metrics require LogScale organizational usage data but none found in last 24 hours. Please ensure the organizational usage job is configured and running.",
+			Timestamp: timestamp,
+		})
+		return nil, collectionErrors
+	}
+
+	// Usage data is available, proceed with ingestion metrics collection
+	ingestionMetrics, err := h.CollectIngestionMetrics(ctx, actualClient, DefaultQuerySettings)
+	if err != nil {
+		ctrl.Log.Error(err, "Failed to collect ingestion metrics",
+			"cluster_id", clusterID)
+		collectionErrors = append(collectionErrors, TelemetryError{
+			Type:      TelemetryErrorTypeCollection,
+			Message:   fmt.Sprintf("Failed to collect ingestion metrics: %v", err),
+			Timestamp: timestamp,
+		})
+		return nil, collectionErrors
+	}
+
+	ctrl.Log.Info("Successfully collected ingestion metrics",
+		"cluster_id", clusterID,
+		"daily_volume_gb", ingestionMetrics.Daily.IngestVolumeGB,
+		"daily_events", ingestionMetrics.Daily.EventCount)
+
+	payload := &TelemetryPayload{
+		Timestamp:        timestamp,
+		ClusterID:        clusterID,
+		ClusterGUID:      repositoryID,
+		CollectionType:   TelemetryCollectionTypeIngestionMetrics,
+		SourceType:       TelemetrySourceTypeJSON,
+		Data:             ingestionMetrics,
+		CollectionErrors: collectionErrors,
+	}
+	return payload, collectionErrors
+}
+
+// collectUserActivityData collects user activity telemetry data
+func (h *ClientConfig) collectUserActivityData(ctx context.Context, actualClient *api.Client, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
+	var collectionErrors []TelemetryError
+
+	ctrl.Log.Info("Starting user_activity collection",
+		"cluster_id", clusterID,
+		"collection_type", "user_activity")
+
+	userActivity, err := h.CollectUserActivity(ctx, actualClient, DefaultQuerySettings)
+	if err != nil {
+		ctrl.Log.Error(err, "Failed to collect user activity",
+			"cluster_id", clusterID)
+		collectionErrors = append(collectionErrors, TelemetryError{
+			Type:      TelemetryErrorTypeCollection,
+			Message:   fmt.Sprintf("Failed to collect user activity: %v", err),
+			Timestamp: timestamp,
+		})
+		return nil, collectionErrors
+	}
+
+	ctrl.Log.Info("Successfully collected user activity",
+		"cluster_id", clusterID,
+		"active_users_24h", userActivity.ActiveUsers.Last24h,
+		"total_queries", userActivity.QueryActivity.TotalQueries)
+
+	payload := &TelemetryPayload{
+		Timestamp:        timestamp,
+		ClusterID:        clusterID,
+		ClusterGUID:      repositoryID,
+		CollectionType:   TelemetryCollectionTypeUserActivity,
+		SourceType:       TelemetrySourceTypeJSON,
+		Data:             userActivity,
+		CollectionErrors: collectionErrors,
+	}
+	return payload, collectionErrors
+}
+
+// collectDetailedAnalyticsData collects detailed analytics telemetry data
+func (h *ClientConfig) collectDetailedAnalyticsData(ctx context.Context, actualClient *api.Client, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
+	var collectionErrors []TelemetryError
+
+	ctrl.Log.Info("Starting detailed_analytics collection",
+		"cluster_id", clusterID,
+		"collection_type", "detailed_analytics")
+
+	detailedAnalytics, err := h.CollectDetailedAnalytics(ctx, actualClient, DefaultQuerySettings)
+	if err != nil {
+		ctrl.Log.Error(err, "Failed to collect detailed analytics",
+			"cluster_id", clusterID)
+		collectionErrors = append(collectionErrors, TelemetryError{
+			Type:      TelemetryErrorTypeCollection,
+			Message:   fmt.Sprintf("Failed to collect detailed analytics: %v", err),
+			Timestamp: timestamp,
+		})
+		return nil, collectionErrors
+	}
+
+	ctrl.Log.Info("Successfully collected detailed analytics",
+		"cluster_id", clusterID,
+		"performance_metrics_count", len(detailedAnalytics.PerformanceMetrics),
+		"usage_patterns_count", len(detailedAnalytics.UsagePatterns))
+
+	payload := &TelemetryPayload{
+		Timestamp:        timestamp,
+		ClusterID:        clusterID,
+		ClusterGUID:      repositoryID,
+		CollectionType:   TelemetryCollectionTypeDetailedAnalytics,
+		SourceType:       TelemetrySourceTypeJSON,
+		Data:             detailedAnalytics,
+		CollectionErrors: collectionErrors,
+	}
+	return payload, collectionErrors
+}
+
+// finalizePayloads handles error payloads and final validation
+func (h *ClientConfig) finalizePayloads(payloads []TelemetryPayload, allErrors []TelemetryError, timestamp time.Time, clusterID string, repositoryID string, sendCollectionErrors bool, sourceInfo string) ([]TelemetryPayload, string, error) {
 	// If we have collection errors and sendCollectionErrors is enabled, create a payload to carry them
-	// This allows collection errors to be sent to the telemetry cluster for analysis
 	if len(allErrors) > 0 && sendCollectionErrors {
-		// Create an error payload to carry the collection errors
 		errorPayload := TelemetryPayload{
 			Timestamp:        timestamp,
 			ClusterID:        clusterID,
@@ -468,12 +597,11 @@ func (h *ClientConfig) CollectTelemetryData(ctx context.Context, client *api.Cli
 	}
 
 	// If we have errors but no successful payloads, return the errors
-	// Check for either an error-only payload or no payloads at all with errors
 	if len(allErrors) > 0 && (len(payloads) == 0 || (len(payloads) == 1 && payloads[0].CollectionType == TelemetryCollectionTypeCollectionErrors)) {
-		return nil, fmt.Errorf("failed to collect any telemetry data: %d errors occurred", len(allErrors))
+		return nil, sourceInfo, fmt.Errorf("failed to collect any telemetry data: %d errors occurred", len(allErrors))
 	}
 
-	return payloads, nil
+	return payloads, sourceInfo, nil
 }
 
 // FlattenRepositoryUsageData converts repository usage data into multiple separate events
@@ -633,8 +761,145 @@ table([timestamp, rawstring], limit=7500)`
 	DetailedAnalyticsQuery = `| head(10) | table([@timestamp, @rawstring])`
 )
 
-// supportsSearchExecution checks if the LogScale cluster supports search execution
-func (h *ClientConfig) supportsSearchExecution(ctx context.Context, client *api.Client) (bool, error) {
+// QueryCapableService represents a service for a node pool that can handle search queries
+type QueryCapableService struct {
+	Name         string // Service name
+	Namespace    string // Service namespace
+	NodePoolName string // Node pool name
+	Endpoint     string // Full endpoint URL for the service
+}
+
+// discoverQueryCapableServices finds all services for node pools that can handle search queries
+// Filters out node pools with NODE_ROLES=ingestonly and includes httponly, all, or unspecified roles
+func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioCluster) ([]QueryCapableService, error) {
+	if hc == nil {
+		return nil, fmt.Errorf("HumioCluster cannot be nil")
+	}
+
+	ctrl.Log.Info("Discovering query-capable node pool services",
+		"cluster", hc.Name,
+		"namespace", hc.Namespace,
+		"total_nodepools", len(hc.Spec.NodePools))
+
+	var queryCapableServices []QueryCapableService
+
+	// If no node pools are defined, fall back to the main cluster service
+	if len(hc.Spec.NodePools) == 0 {
+		mainService := QueryCapableService{
+			Name:         hc.Name, // Main cluster service typically uses cluster name
+			Namespace:    hc.Namespace,
+			NodePoolName: hc.Name, // Use cluster name as "node pool name" for main service
+			Endpoint:     fmt.Sprintf("https://%s.%s.svc.cluster.local:8080", hc.Name, hc.Namespace),
+		}
+		queryCapableServices = append(queryCapableServices, mainService)
+		ctrl.Log.Info("No node pools defined, using main cluster service",
+			"service", mainService.Name)
+		return queryCapableServices, nil
+	}
+
+	// Check each node pool to see if it's query-capable
+	for _, nodePool := range hc.Spec.NodePools {
+		// Skip node pools with no nodes
+		if nodePool.NodeCount == 0 {
+			ctrl.Log.V(1).Info("Skipping node pool with zero nodes",
+				"nodePool", nodePool.Name)
+			continue
+		}
+
+		// Check NODE_ROLES environment variable
+		isQueryCapable := true // Default to query-capable if no NODE_ROLES is specified
+		for _, envVar := range nodePool.EnvironmentVariables {
+			if envVar.Name == EnvNodeRoles {
+				switch envVar.Value {
+				case NodeRoleIngestOnly:
+					isQueryCapable = false
+					ctrl.Log.V(1).Info("Node pool is ingest-only, skipping",
+						"nodePool", nodePool.Name,
+						"nodeRoles", envVar.Value)
+				case NodeRoleHTTPOnly, NodeRoleAll:
+					isQueryCapable = true
+					ctrl.Log.V(1).Info("Node pool is query-capable",
+						"nodePool", nodePool.Name,
+						"nodeRoles", envVar.Value)
+				default:
+					ctrl.Log.V(1).Info("Unknown NODE_ROLES value, assuming query-capable",
+						"nodePool", nodePool.Name,
+						"nodeRoles", envVar.Value)
+				}
+				break
+			}
+		}
+
+		if isQueryCapable {
+			serviceName := fmt.Sprintf("%s-%s", hc.Name, nodePool.Name)
+			protocol := "https"
+			if !h.getTLSEnabledForCluster(hc) {
+				protocol = "http"
+			}
+			service := QueryCapableService{
+				Name:         serviceName,
+				Namespace:    hc.Namespace,
+				NodePoolName: nodePool.Name,
+				Endpoint:     fmt.Sprintf("%s://%s.%s.svc.cluster.local:8080", protocol, serviceName, hc.Namespace),
+			}
+			queryCapableServices = append(queryCapableServices, service)
+			ctrl.Log.V(1).Info("Added query-capable service",
+				"service", service.Name,
+				"nodePool", nodePool.Name,
+				"endpoint", service.Endpoint)
+		}
+	}
+
+	ctrl.Log.Info("Discovered query-capable services",
+		"cluster", hc.Name,
+		"total_services", len(queryCapableServices),
+		"services", func() []string {
+			var names []string
+			for _, svc := range queryCapableServices {
+				names = append(names, svc.Name)
+			}
+			return names
+		}())
+
+	return queryCapableServices, nil
+}
+
+// getTLSEnabledForCluster determines if TLS is enabled for the cluster
+// This is a helper function to avoid circular dependencies with the helpers package
+func (h *ClientConfig) getTLSEnabledForCluster(hc *humiov1alpha1.HumioCluster) bool {
+	// Simple check - if TLS is not explicitly disabled, assume it's enabled
+	// This matches the behavior in helpers/clusterinterface.go
+	return hc.Spec.TLS == nil || hc.Spec.TLS.Enabled == nil || *hc.Spec.TLS.Enabled
+}
+
+// createServiceSpecificClient creates an API client for a specific service endpoint
+// This enables direct communication with query-capable services rather than cluster-wide services
+func (h *ClientConfig) createServiceSpecificClient(service QueryCapableService, hc *humiov1alpha1.HumioCluster, existingClient *api.Client) (*api.Client, error) {
+	// Parse the service endpoint URL
+	serviceURL, err := url.Parse(service.Endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse service endpoint '%s': %w", service.Endpoint, err)
+	}
+
+	// Create API configuration for the specific service endpoint
+	config := &api.Config{
+		Address:   serviceURL,
+		UserAgent: h.userAgent,
+		Insecure:  !h.getTLSEnabledForCluster(hc),
+	}
+
+	// Copy authentication token from the existing client
+	if existingClient != nil {
+		config.Token = existingClient.Token()
+	}
+
+	// Create the API client with the service-specific configuration
+	return api.NewClient(*config), nil
+}
+
+// supportsSearchExecutionClusterWide checks if the LogScale cluster supports search execution
+// This is the fallback version that uses cluster-wide endpoint
+func (h *ClientConfig) supportsSearchExecutionClusterWide(ctx context.Context, client *api.Client) (bool, error) {
 	// Test search capability by attempting a simple query on the "humio" repository
 	// Use string time formats like the CLI does
 	testQuery := api.Query{
@@ -645,7 +910,7 @@ func (h *ClientConfig) supportsSearchExecution(ctx context.Context, client *api.
 	}
 
 	// Log the capability check attempt
-	ctrl.Log.Info("Testing LogScale search execution capability",
+	ctrl.Log.Info("Testing LogScale search execution capability (legacy cluster-wide)",
 		"repository", "humio",
 		"query", testQuery.QueryString,
 		"start", testQuery.Start,
@@ -653,7 +918,7 @@ func (h *ClientConfig) supportsSearchExecution(ctx context.Context, client *api.
 
 	result, err := client.ExecuteLogScaleSearch(ctx, "humio", testQuery)
 	if err != nil {
-		ctrl.Log.Error(err, "LogScale search execution capability check failed",
+		ctrl.Log.Error(err, "LogScale search execution capability check failed (legacy)",
 			"repository", "humio",
 			"query", testQuery.QueryString,
 			"start", testQuery.Start,
@@ -664,13 +929,88 @@ func (h *ClientConfig) supportsSearchExecution(ctx context.Context, client *api.
 
 	// Additional validation on the result
 	if result == nil {
-		ctrl.Log.Error(nil, "LogScale search returned nil result",
+		ctrl.Log.Error(nil, "LogScale search returned nil result (legacy)",
 			"repository", "humio",
 			"query", testQuery.QueryString)
 		return false, fmt.Errorf("search capability check returned nil result")
 	}
 
-	ctrl.Log.Info("LogScale search execution capability confirmed",
+	ctrl.Log.Info("LogScale search execution capability confirmed (legacy)",
+		"repository", "humio",
+		"result_events", len(result.Events),
+		"result_done", result.Done)
+
+	return true, nil
+}
+
+// supportsSearchExecution checks if the LogScale cluster supports search execution
+// Uses service-level validation to target query-capable services
+func (h *ClientConfig) supportsSearchExecution(ctx context.Context, client *api.Client, hc *humiov1alpha1.HumioCluster) (bool, error) {
+	// Try service-aware approach first
+	queryCapableServices, err := h.discoverQueryCapableServices(hc)
+	if err != nil {
+		ctrl.Log.Error(err, "Failed to discover query-capable services, falling back to cluster-wide approach")
+		return h.supportsSearchExecutionClusterWide(ctx, client)
+	}
+
+	if len(queryCapableServices) == 0 {
+		ctrl.Log.Info("No query-capable services found, falling back to cluster-wide approach")
+		return h.supportsSearchExecutionClusterWide(ctx, client)
+	}
+
+	ctrl.Log.Info("Testing search execution capability using query-capable services",
+		"service_count", len(queryCapableServices))
+
+	// Test search capability on the first available query-capable service
+	testService := queryCapableServices[0]
+
+	// Create a service-specific client for testing
+	serviceClient, err := h.createServiceSpecificClient(testService, hc, client)
+	if err != nil {
+		ctrl.Log.Error(err, "Failed to create service-specific client, falling back to cluster-wide approach",
+			"service", testService.Name)
+		return h.supportsSearchExecutionClusterWide(ctx, client)
+	}
+
+	// Test search capability by attempting a simple query on the "humio" repository
+	testQuery := api.Query{
+		QueryString: "| head(1)",
+		Start:       "1m", // Use relative time string like CLI
+		End:         "",   // Empty end means "now"
+		Live:        false,
+	}
+
+	ctrl.Log.Info("Testing LogScale search execution capability on specific service",
+		"service", testService.Name,
+		"endpoint", testService.Endpoint,
+		"repository", "humio",
+		"query", testQuery.QueryString,
+		"start", testQuery.Start,
+		"end", testQuery.End)
+
+	result, err := serviceClient.ExecuteLogScaleSearch(ctx, "humio", testQuery)
+	if err != nil {
+		ctrl.Log.Error(err, "LogScale search execution capability check failed on service",
+			"service", testService.Name,
+			"endpoint", testService.Endpoint,
+			"repository", "humio",
+			"query", testQuery.QueryString,
+			"error_type", fmt.Sprintf("%T", err))
+		return false, fmt.Errorf("search capability check failed on repository 'humio' using service '%s': %w", testService.Name, err)
+	}
+
+	// Additional validation on the result
+	if result == nil {
+		ctrl.Log.Error(nil, "LogScale search returned nil result from service",
+			"service", testService.Name,
+			"repository", "humio",
+			"query", testQuery.QueryString)
+		return false, fmt.Errorf("search capability check returned nil result from service '%s'", testService.Name)
+	}
+
+	ctrl.Log.Info("LogScale search execution capability confirmed using service",
+		"service", testService.Name,
+		"endpoint", testService.Endpoint,
 		"repository", "humio",
 		"result_events", len(result.Events),
 		"result_done", result.Done)

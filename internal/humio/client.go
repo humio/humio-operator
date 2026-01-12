@@ -283,7 +283,7 @@ type PackageClient interface {
 type TelemetryClient interface {
 	CollectLicenseData(context.Context, *humioapi.Client, client.Client, *humiov1alpha1.HumioCluster) (*TelemetryLicenseData, error)
 	CollectClusterInfo(context.Context, *humioapi.Client) (*TelemetryClusterInfo, error)
-	CollectTelemetryData(context.Context, *humioapi.Client, []string, string, bool, client.Client, *humiov1alpha1.HumioCluster) ([]TelemetryPayload, error)
+	CollectTelemetryData(context.Context, *humioapi.Client, []string, string, bool, client.Client, *humiov1alpha1.HumioCluster) ([]TelemetryPayload, string, error)
 }
 
 type EventForwardingRulesClient interface {

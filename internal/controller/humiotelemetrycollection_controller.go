@@ -132,7 +132,7 @@ func (r *HumioTelemetryCollectionReconciler) Reconcile(ctx context.Context, req 
 
 	// Perform telemetry collection
 	r.Log.Info("Starting telemetry data collection", "types", collectionTypes)
-	payloads, collectionErrors := r.collectTelemetryData(ctx, htc, hc, collectionTypes)
+	payloads, collectionErrors, sourceInfo := r.collectTelemetryData(ctx, htc, hc, collectionTypes)
 
 	// Discover registered exporters
 	exporters, err := r.discoverRegisteredExporters(ctx, htc)
@@ -149,7 +149,7 @@ func (r *HumioTelemetryCollectionReconciler) Reconcile(ctx context.Context, req 
 	now := metav1.Now()
 
 	// Determine which data types were successfully collected
-	successfulCollections := r.determineSuccessfulCollections(collectionTypes, collectionErrors)
+	successfulCollections := r.determineSuccessfulCollections(collectionTypes, collectionErrors, payloads)
 
 	// Update collection status
 	collectionStatus := r.buildCollectionStatus(htc, successfulCollections, collectionErrors, collectionTypes, now)
@@ -160,8 +160,8 @@ func (r *HumioTelemetryCollectionReconciler) Reconcile(ctx context.Context, req 
 	if len(collectionErrors) == 0 {
 		r.Log.Info("Telemetry collection completed successfully", "types", collectionTypes, "cluster", r.getClusterIdentifier(htc))
 		r.Recorder.Eventf(htc, corev1.EventTypeNormal, "TelemetryCollected",
-			"Successfully collected telemetry data for types: %v (cluster: %s)",
-			collectionTypes, r.getClusterIdentifier(htc))
+			"Successfully collected telemetry data for types: %v (cluster: %s) %s",
+			collectionTypes, r.getClusterIdentifier(htc), sourceInfo)
 		return r.updateStatusWithDetails(ctx, htc, humiov1alpha1.HumioTelemetryCollectionStateEnabled, collectionStatus, pushResults)
 	} else {
 		r.Log.Error(fmt.Errorf("telemetry collection failed"), "Telemetry collection completed with errors", "types", collectionTypes, "error_count", len(collectionErrors))
@@ -267,7 +267,7 @@ func (r *HumioTelemetryCollectionReconciler) ShouldRunTelemetryCollection(htc *h
 }
 
 // collectTelemetryData performs the actual telemetry collection
-func (r *HumioTelemetryCollectionReconciler) collectTelemetryData(ctx context.Context, htc *humiov1alpha1.HumioTelemetryCollection, hc *humiov1alpha1.HumioCluster, dataTypes []string) ([]humio.TelemetryPayload, []humiov1alpha1.HumioTelemetryCollectionError) {
+func (r *HumioTelemetryCollectionReconciler) collectTelemetryData(ctx context.Context, htc *humiov1alpha1.HumioTelemetryCollection, hc *humiov1alpha1.HumioCluster, dataTypes []string) ([]humio.TelemetryPayload, []humiov1alpha1.HumioTelemetryCollectionError, string) {
 	// Get Humio HTTP client
 	cluster, err := helpers.NewCluster(ctx, r.Client, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
@@ -275,26 +275,26 @@ func (r *HumioTelemetryCollectionReconciler) collectTelemetryData(ctx context.Co
 			Type:      humio.TelemetryErrorTypeClient,
 			Message:   fmt.Sprintf("Failed to get Humio client config for cluster '%s/%s': %v", hc.Namespace, hc.Name, err),
 			Timestamp: metav1.Now(),
-		}}
+		}}, ""
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), reconcile.Request{NamespacedName: types.NamespacedName{Name: hc.Name, Namespace: hc.Namespace}})
 
-	// Collect telemetry data
+	// Collect telemetry data with source tracking
 	r.Log.Info("Collecting telemetry data from Humio cluster", "types", dataTypes, "cluster", r.getClusterIdentifier(htc))
 	// Always collect collection errors during the collection phase - individual exporters
 	// can choose whether to include them based on their SendCollectionErrors setting
 	sendCollectionErrors := true
-	payloads, err := r.HumioClient.CollectTelemetryData(ctx, humioHttpClient, dataTypes, r.getClusterIdentifier(htc), sendCollectionErrors, r.Client, hc)
+	payloads, sourceInfo, err := r.HumioClient.CollectTelemetryData(ctx, humioHttpClient, dataTypes, r.getClusterIdentifier(htc), sendCollectionErrors, r.Client, hc)
 	if err != nil {
 		r.Log.Error(err, "Failed to collect telemetry data", "types", dataTypes, "cluster", r.getClusterIdentifier(htc))
 		return nil, []humiov1alpha1.HumioTelemetryCollectionError{{
 			Type:      humio.TelemetryErrorTypeCollection,
 			Message:   fmt.Sprintf("Failed to collect telemetry data for types %v from cluster '%s': %v", dataTypes, r.getClusterIdentifier(htc), err),
 			Timestamp: metav1.Now(),
-		}}
+		}}, ""
 	}
 
-	r.Log.Info("Successfully collected telemetry data", "payload_count", len(payloads), "types", dataTypes)
+	r.Log.Info("Successfully collected telemetry data", "payload_count", len(payloads), "types", dataTypes, "source", sourceInfo)
 
 	// Extract collection errors from payloads
 	var collectionErrors []humiov1alpha1.HumioTelemetryCollectionError
@@ -308,7 +308,7 @@ func (r *HumioTelemetryCollectionReconciler) collectTelemetryData(ctx context.Co
 		}
 	}
 
-	return payloads, collectionErrors
+	return payloads, collectionErrors, sourceInfo
 }
 
 // discoverRegisteredExporters finds all HumioTelemetryExport resources that reference this collection
@@ -500,22 +500,35 @@ func (r *HumioTelemetryCollectionReconciler) resolveTelemetryToken(ctx context.C
 }
 
 // Helper methods for processing results and status updates
-func (r *HumioTelemetryCollectionReconciler) determineSuccessfulCollections(requestedTypes []string, collectionErrors []humiov1alpha1.HumioTelemetryCollectionError) []string {
+func (r *HumioTelemetryCollectionReconciler) determineSuccessfulCollections(requestedTypes []string, collectionErrors []humiov1alpha1.HumioTelemetryCollectionError, payloads []humio.TelemetryPayload) []string {
+	// Determine which data types are present in the actual payloads
+	successfulTypes := make(map[string]bool)
+	for _, payload := range payloads {
+		if payload.CollectionType != "" {
+			successfulTypes[payload.CollectionType] = true
+		}
+	}
+
+	// For data types that were requested but not found in payloads, check if they had errors
 	failedTypes := make(map[string]bool)
-	for _, err := range collectionErrors {
-		for _, dataType := range requestedTypes {
-			if strings.Contains(err.Message, dataType) ||
-				strings.Contains(strings.ToLower(err.Message), strings.ToLower(dataType)) ||
-				(dataType == "ingestion_metrics" && strings.Contains(err.Message, "Ingestion metrics")) {
-				failedTypes[dataType] = true
-				break
+	for _, dataType := range requestedTypes {
+		if !successfulTypes[dataType] {
+			// Data type not in payloads, check if there were errors mentioning it
+			for _, err := range collectionErrors {
+				if strings.Contains(err.Message, dataType) ||
+					strings.Contains(strings.ToLower(err.Message), strings.ToLower(dataType)) ||
+					(dataType == "ingestion_metrics" && strings.Contains(err.Message, "Ingestion metrics")) {
+					failedTypes[dataType] = true
+					break
+				}
 			}
 		}
 	}
 
+	// Return data types that either have payloads OR were requested but have no specific errors
 	var successful []string
 	for _, dataType := range requestedTypes {
-		if !failedTypes[dataType] {
+		if successfulTypes[dataType] || !failedTypes[dataType] {
 			successful = append(successful, dataType)
 		}
 	}

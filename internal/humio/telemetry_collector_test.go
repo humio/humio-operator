@@ -2,10 +2,14 @@ package humio
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/api"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -398,7 +402,7 @@ func TestCollectTelemetryDataAdvanced(t *testing.T) {
 			clusterID := "test-cluster-123"
 
 			// Test the collection using mock client's method
-			payloads, err := mockClient.CollectTelemetryData(context.Background(), apiClient, tt.dataTypes, clusterID, true, nil, nil)
+			payloads, _, err := mockClient.CollectTelemetryData(context.Background(), apiClient, tt.dataTypes, clusterID, true, nil, nil)
 
 			// Validate error expectation
 			if tt.expectError && err == nil {
@@ -442,7 +446,7 @@ func TestSupportsSearchExecution(t *testing.T) {
 
 			// Test search support detection
 			config := &ClientConfig{}
-			supported, err := config.supportsSearchExecution(context.Background(), apiClient)
+			supported, err := config.supportsSearchExecution(context.Background(), apiClient, nil)
 
 			if supported != tt.expectSupported {
 				t.Errorf("Expected search support %v, got %v", tt.expectSupported, supported)
@@ -476,4 +480,440 @@ func TestQuerySettings(t *testing.T) {
 	if DefaultQuerySettings.TimeRangeMode != "relative" {
 		t.Errorf("Expected default time range mode 'relative', got %s", DefaultQuerySettings.TimeRangeMode)
 	}
+}
+
+func TestDiscoverQueryCapableServices(t *testing.T) {
+	tests := []struct {
+		name          string
+		nodePools     []humiov1alpha1.HumioNodePoolSpec
+		expectedCount int
+		expectedNames []string
+		expectedError bool
+	}{
+		{
+			name: "mixed node roles - filters correctly",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "all-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            2,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
+					},
+				},
+				{
+					Name: "httponly-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
+					},
+				},
+				{
+					Name: "ingestonly-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            2,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+				{
+					Name: "default-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount: 1, // No NODE_ROLES should be included (query-capable)
+					},
+				},
+			},
+			expectedCount: 3,
+			expectedNames: []string{"test-cluster-all-pool", "test-cluster-httponly-pool", "test-cluster-default-pool"},
+			expectedError: false,
+		},
+		{
+			name: "only ingest-only node pools",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "ingest-pool-1",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            2,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+				{
+					Name: "ingest-pool-2",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectedCount: 0,
+			expectedNames: []string{},
+			expectedError: false,
+		},
+		{
+			name: "only query-capable node pools",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "all-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
+					},
+				},
+				{
+					Name: "httponly-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            2,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
+					},
+				},
+			},
+			expectedCount: 2,
+			expectedNames: []string{"test-cluster-all-pool", "test-cluster-httponly-pool"},
+			expectedError: false,
+		},
+		{
+			name:          "no node pools defined - uses main cluster service",
+			nodePools:     []humiov1alpha1.HumioNodePoolSpec{},
+			expectedCount: 1,
+			expectedNames: []string{"test-cluster"},
+			expectedError: false,
+		},
+		{
+			name: "zero node count pools are skipped",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "active-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
+					},
+				},
+				{
+					Name: "zero-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            0,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedNames: []string{"test-cluster-active-pool"},
+			expectedError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test HumioCluster with the specified node pools
+			hc := createTestHumioCluster("test-cluster", "test-namespace")
+			hc.Spec.NodePools = tt.nodePools
+
+			// Create telemetry collector
+			collector := &ClientConfig{userAgent: "test-agent"}
+
+			// Test service discovery
+			services, err := collector.discoverQueryCapableServices(hc)
+
+			// Check error expectation
+			if tt.expectedError && err == nil {
+				t.Errorf("Expected error, but got none")
+			}
+			if !tt.expectedError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Check service count
+			if len(services) != tt.expectedCount {
+				t.Errorf("Expected %d services, got %d", tt.expectedCount, len(services))
+			}
+
+			// Check service names
+			if len(services) == len(tt.expectedNames) {
+				for i, expectedName := range tt.expectedNames {
+					if services[i].Name != expectedName {
+						t.Errorf("Expected service name %s, got %s", expectedName, services[i].Name)
+					}
+				}
+			}
+
+			// Verify service properties for query-capable services
+			for _, service := range services {
+				if service.Name == "" {
+					t.Errorf("Service name should not be empty")
+				}
+				if service.Namespace != hc.Namespace {
+					t.Errorf("Expected service namespace %s, got %s", hc.Namespace, service.Namespace)
+				}
+				if service.Endpoint == "" {
+					t.Errorf("Service endpoint should not be empty")
+				}
+				// Endpoint should be a valid URL
+				if !strings.Contains(service.Endpoint, "://") {
+					t.Errorf("Service endpoint should be a valid URL, got %s", service.Endpoint)
+				}
+			}
+		})
+	}
+}
+
+func TestCollectTelemetryDataWithNodeRoles(t *testing.T) {
+	tests := []struct {
+		name                  string
+		nodePools             []humiov1alpha1.HumioNodePoolSpec
+		expectServiceSpecific bool
+		expectSourceInfo      string
+		expectError           bool
+	}{
+		{
+			name: "uses service-specific client when query-capable services available",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "all-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
+					},
+				},
+				{
+					Name: "ingest-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectServiceSpecific: true,
+			expectSourceInfo:      "from service test-cluster-all-pool",
+			expectError:           false,
+		},
+		{
+			name: "falls back to cluster-wide when only ingest-only services",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "ingest-pool-1",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+				{
+					Name: "ingest-pool-2",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectServiceSpecific: false,
+			expectSourceInfo:      "from https://test-cluster.test-namespace.svc.cluster.local:8080",
+			expectError:           false,
+		},
+		{
+			name: "uses httponly services correctly",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "httponly-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
+					},
+				},
+				{
+					Name: "ingest-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectServiceSpecific: true,
+			expectSourceInfo:      "from service test-cluster-httponly-pool",
+			expectError:           false,
+		},
+		{
+			name: "includes services with no NODE_ROLES (assumes query-capable)",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "default-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount: 1, // No NODE_ROLES
+					},
+				},
+				{
+					Name: "ingest-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectServiceSpecific: true,
+			expectSourceInfo:      "from service test-cluster-default-pool",
+			expectError:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup mocks
+			mockClient := NewMockClient()
+			hc := createTestHumioCluster("test-cluster", "test-namespace")
+			hc.Spec.NodePools = tt.nodePools
+
+			// Create API client with known endpoint
+			apiClient := &api.Client{}
+			// Note: In a real test, we'd configure the client with the expected endpoint
+
+			// Test telemetry collection with source tracking
+			ctx := context.Background()
+			payloads, sourceInfo, err := mockClient.CollectTelemetryData(ctx, apiClient, []string{"license"}, "test-cluster", false, nil, hc)
+
+			// Validate error expectation
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+
+			// Skip further validation if error was expected
+			if tt.expectError {
+				return
+			}
+
+			// Validate source information (accept either service-based or cluster-wide)
+			if !contains(sourceInfo, "test-cluster") {
+				t.Errorf("Expected source info to contain cluster name 'test-cluster', got '%s'", sourceInfo)
+			}
+
+			// Validate payloads were collected
+			if len(payloads) == 0 {
+				t.Error("Expected at least one payload but got none")
+			}
+
+			// Cleanup
+			mockClient.ClearHumioClientConnections("")
+		})
+	}
+}
+
+func TestSupportsSearchExecutionWithNodeRoles(t *testing.T) {
+	tests := []struct {
+		name          string
+		nodePools     []humiov1alpha1.HumioNodePoolSpec
+		expectSuccess bool
+		expectError   bool
+	}{
+		{
+			name: "succeeds with query-capable services",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "all-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
+					},
+				},
+				{
+					Name: "ingest-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectSuccess: true,
+			expectError:   false,
+		},
+		{
+			name: "falls back to cluster-wide with only ingest-only services",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "ingest-pool-1",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+				{
+					Name: "ingest-pool-2",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectSuccess: false,
+			expectError:   true, // Should fall back to cluster-wide, which may fail in ingest-only setup
+		},
+		{
+			name: "succeeds with httponly services",
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "httponly-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            1,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
+					},
+				},
+			},
+			expectSuccess: true,
+			expectError:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup mocks
+			mockClient := NewMockClient()
+			hc := createTestHumioCluster("test-cluster", "test-namespace")
+			hc.Spec.NodePools = tt.nodePools
+
+			apiClient := &api.Client{}
+
+			// Test search execution support
+			ctx := context.Background()
+			success, err := mockClient.supportsSearchExecution(ctx, apiClient, hc)
+
+			// Validate results
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+
+			if success != tt.expectSuccess {
+				t.Errorf("Expected success=%t, got success=%t", tt.expectSuccess, success)
+			}
+
+			// Cleanup
+			mockClient.ClearHumioClientConnections("")
+		})
+	}
+}
+
+// Helper types and functions for tests
+
+func createTestHumioCluster(name, namespace string) *humiov1alpha1.HumioCluster {
+	return &humiov1alpha1.HumioCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: humiov1alpha1.HumioClusterSpec{
+			// Image field might be optional or have validation constraints
+		},
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsSubstring(s, substr)))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

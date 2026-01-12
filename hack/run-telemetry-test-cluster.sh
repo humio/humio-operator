@@ -280,16 +280,131 @@ metadata:
   namespace: ${HUMIO_NAMESPACE}
 spec:
   image: humio/humio-core:1.210.0
-  nodeCount: 1
   targetReplicationFactor: 1
   storagePartitionsCount: 12
   digestPartitionsCount: 12
+
+  # Multi-node pool configuration for testing node role-aware telemetry
+  nodePools:
+    - name: "query-digest"
+      spec:
+        nodeCount: 1
+        environmentVariables:
+          - name: NODE_ROLES
+            value: "all"
+          - name: "ORGANIZATION_MODE"
+            value: "single"
+          - name: "AUTHENTICATION_METHOD"
+            value: "static"
+          - name: "STATIC_USERS"
+            value: "admin:admin"
+          - name: "KAFKA_SERVERS"
+            value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+          - name: "ZOOKEEPER_URL"
+            value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+          - name: "HUMIO_KAFKA_TOPIC_PREFIX"
+            value: "logscale-test"
+          - name: "INGEST_QUEUE_INITIAL_REPLICATION_FACTOR"
+            value: "1"
+          - name: "CHATTER_INITIAL_REPLICATION_FACTOR"
+            value: "1"
+          - name: "GLOBAL_INITIAL_REPLICATION_FACTOR"
+            value: "1"
+          # Enable telemetry debugging
+          - name: "TELEMETRY_DEBUG"
+            value: "true"
+        resources:
+          requests:
+            cpu: "200m"
+            memory: 1Gi
+          limits:
+            cpu: "1000m"
+            memory: 2Gi
+        # Architecture-specific affinity for query-digest node
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                  - amd64
+                  - arm64
+                  - "${CLUSTER_ARCH}"
+                - key: kubernetes.io/os
+                  operator: In
+                  values:
+                  - linux
+        # Use persistent volume claim template for query-capable node
+        dataVolumePersistentVolumeClaimSpecTemplate:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: "10Gi"
+
+    - name: "ingest-only"
+      spec:
+        nodeCount: 1
+        environmentVariables:
+          - name: NODE_ROLES
+            value: "ingestonly"
+          - name: "ORGANIZATION_MODE"
+            value: "single"
+          - name: "AUTHENTICATION_METHOD"
+            value: "static"
+          - name: "STATIC_USERS"
+            value: "admin:admin"
+          - name: "KAFKA_SERVERS"
+            value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+          - name: "ZOOKEEPER_URL"
+            value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+          - name: "HUMIO_KAFKA_TOPIC_PREFIX"
+            value: "logscale-test"
+          - name: "INGEST_QUEUE_INITIAL_REPLICATION_FACTOR"
+            value: "1"
+          - name: "CHATTER_INITIAL_REPLICATION_FACTOR"
+            value: "1"
+          - name: "GLOBAL_INITIAL_REPLICATION_FACTOR"
+            value: "1"
+          # Enable telemetry debugging
+          - name: "TELEMETRY_DEBUG"
+            value: "true"
+        resources:
+          requests:
+            cpu: "200m"
+            memory: 1Gi
+          limits:
+            cpu: "1000m"
+            memory: 2Gi
+        # Architecture-specific affinity for ingest-only node
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                  - amd64
+                  - arm64
+                  - "${CLUSTER_ARCH}"
+                - key: kubernetes.io/os
+                  operator: In
+                  values:
+                  - linux
+        # Use persistent volume claim template for ingest-only node
+        dataVolumePersistentVolumeClaimSpecTemplate:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: "10Gi"
 
   # Telemetry configuration enabled
   telemetryConfig:
     clusterIdentifier: "telemetry-test-cluster"
     remoteReport:
-      url: "http://logscale-test.${HUMIO_NAMESPACE}.svc.cluster.local:8080/api/v1/ingest/hec"  # Local LogScale HEC endpoint
+      url: "http://logscale-test-ingest-only.${HUMIO_NAMESPACE}.svc.cluster.local:8080/api/v1/ingest/hec"  # Local LogScale HEC endpoint
       token:
         secretKeyRef:
           name: "telemetry-token-secret"
@@ -317,56 +432,10 @@ spec:
           - "license"
           - "ingestion_metrics"
 
-  environmentVariables:
-    - name: "AUTHENTICATION_METHOD"
-      value: "static"
-    - name: "STATIC_USERS"
-      value: "admin:admin"
-    - name: "KAFKA_SERVERS"
-      value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
-    - name: "ZOOKEEPER_URL"
-      value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
-    - name: "HUMIO_KAFKA_TOPIC_PREFIX"
-      value: "logscale-test"
-    - name: "INGEST_QUEUE_INITIAL_REPLICATION_FACTOR"
-      value: "1"
-    - name: "CHATTER_INITIAL_REPLICATION_FACTOR"
-      value: "1"
-    - name: "GLOBAL_INITIAL_REPLICATION_FACTOR"
-      value: "1"
-    # Enable telemetry debugging
+  # Common environment variables moved to commonEnvironmentVariables
+  commonEnvironmentVariables:
     - name: "TELEMETRY_DEBUG"
       value: "true"
-
-  resources:
-    requests:
-      cpu: "200m"
-      memory: 1Gi
-    limits:
-      cpu: "1000m"
-      memory: 2Gi
-
-  # Use persistent volume claim template for single-node cluster
-  dataVolumePersistentVolumeClaimSpecTemplate:
-    accessModes: ["ReadWriteOnce"]
-    resources:
-      requests:
-        storage: "10Gi"
-
-  # Architecture affinity - detect and set based on current cluster
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: kubernetes.io/arch
-            operator: In
-            values:
-            - "${CLUSTER_ARCH}"
-          - key: kubernetes.io/os
-            operator: In
-            values:
-            - linux
 
   # Disable TLS for simplicity in local testing
   tls:
