@@ -2,10 +2,25 @@ apiVersion: v1
 entries:
   humio-operator:
   - apiVersion: v1
+    appVersion: 0.33.1
+    created: '2026-01-13T08:59:41.000401Z'
+    description: Kubernetes Operator for running Humio on top of Kubernetes. Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes
+    digest: 18e32eb971751d4353177c772ed84da91ee28aaa076f452a9182559d852f0025
+    home: https://github.com/humio/humio-operator
+    icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
+    maintainers:
+    - name: jswoods
+    - name: schofield
+    name: humio-operator
+    sources:
+    - https://github.com/humio/humio-operator
+    urls:
+    - https://github.com/humio/humio-operator/releases/download/humio-operator-0.33.1/humio-operator-0.33.1.tgz
+    version: 0.33.1
+  - apiVersion: v1
     appVersion: 0.33.0
-    created: "2025-12-16T08:18:05.013892Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-12-16T08:18:05.013892Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: f50a3b5b455f67ece7d853035632fe7f0ebcf365226c24e70afa69e5d1c66efe
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -20,9 +35,8 @@ entries:
     version: 0.33.0
   - apiVersion: v1
     appVersion: 0.32.0
-    created: "2025-10-20T14:03:05.013892+03:00"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-10-20T14:03:05.013892+03:00'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 962a894f529a734603482047ce327934a65b254ef36ea724bd1f13d73ae15646
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -37,9 +51,8 @@ entries:
     version: 0.32.0
   - apiVersion: v1
     appVersion: 0.31.1
-    created: "2025-09-01T11:11:10.360317185Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-09-01T11:11:10.360317185Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 517d0e99317eaf10d996af891a34e335f2cdc5b31d42fef576a0ccd130d29ed1
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -55,9 +68,8 @@ entries:
     version: 0.31.1
   - apiVersion: v1
     appVersion: 0.31.0
-    created: "2025-08-25T17:49:03.314358706Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-08-25T17:49:03.314358706Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 4bd9febbd54620a083e809e56bd41a383ff3d4b268fcb0caad315d7427db7c50
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -73,9 +85,8 @@ entries:
     version: 0.31.0
   - apiVersion: v1
     appVersion: 0.30.0
-    created: "2025-07-14T16:46:05.290686325Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-07-14T16:46:05.290686325Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 033920b63e649996e7b791f91b3c7f6ed4fa48c368d69fcef35663a3a976e409
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -91,9 +102,8 @@ entries:
     version: 0.30.0
   - apiVersion: v1
     appVersion: 0.29.2
-    created: "2025-06-03T08:59:17.142000924Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-06-03T08:59:17.142000924Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 0e51d5ac9777e37006bd28161954176a6b437d2081a3046b65ba1e2921bc3a6c
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -109,9 +119,8 @@ entries:
     version: 0.29.2
   - apiVersion: v1
     appVersion: 0.29.1
-    created: "2025-06-02T13:55:42.936282672Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-06-02T13:55:42.936282672Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: c5cc92dfe6f40abf0ebd4f22a6efc59d3596b75040d67467232b0b97ea6c30db
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -127,9 +136,8 @@ entries:
     version: 0.29.1
   - apiVersion: v1
     appVersion: 0.29.0
-    created: "2025-05-27T10:17:26.851361248Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-05-27T10:17:26.851361248Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: c758499ac3cded21410cc1aad28f64be2aa7d0051138ff9cf22199910967401d
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -145,9 +153,8 @@ entries:
     version: 0.29.0
   - apiVersion: v1
     appVersion: 0.28.2
-    created: "2025-03-24T16:23:34.054032442Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-03-24T16:23:34.054032442Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 0fba105c65d8c898fd11bbce6dba18fbd7b5fabb14b4065a950a481b0a279070
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -163,9 +170,8 @@ entries:
     version: 0.28.2
   - apiVersion: v1
     appVersion: 0.28.1
-    created: "2025-03-18T22:04:51.549895958Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-03-18T22:04:51.549895958Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 8dff9abff455f8f4942db1e6a31ca65256c9e884e2e0bce32f44af549a619cb2
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -181,9 +187,8 @@ entries:
     version: 0.28.1
   - apiVersion: v1
     appVersion: 0.28.0
-    created: "2025-03-03T13:28:16.017112035Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-03-03T13:28:16.017112035Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 9f7c860fa36f7c7705a114a0c54d8c1061af66e887d3b26aa196920199776979
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -199,9 +204,8 @@ entries:
     version: 0.28.0
   - apiVersion: v1
     appVersion: 0.27.2
-    created: "2025-02-13T08:54:03.914065482Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-02-13T08:54:03.914065482Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 1b11c7b0ed29c7ed19cf5abe78035cc8327e46bf8c70e2636a201fcb7722cb27
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -217,9 +221,8 @@ entries:
     version: 0.27.2
   - apiVersion: v1
     appVersion: 0.27.1
-    created: "2025-02-06T08:59:26.768372213Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-02-06T08:59:26.768372213Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 93a2b130f051306aacbafe4af3bf994bd71bb24013972ffe28589cce5bc115b8
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -235,9 +238,8 @@ entries:
     version: 0.27.1
   - apiVersion: v1
     appVersion: 0.27.0
-    created: "2025-01-15T09:03:37.18935567Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2025-01-15T09:03:37.18935567Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 577fe67fbbae1dabe9418d51da8068703f4c87a7585d3e2d32938e35b2f2a97a
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -253,9 +255,8 @@ entries:
     version: 0.27.0
   - apiVersion: v1
     appVersion: 0.26.1
-    created: "2024-12-06T08:50:28.936534965Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-12-06T08:50:28.936534965Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 14269d6c75122489172cde8642f89cfce9186946566290833cd62cb2b52e88e9
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -271,9 +272,8 @@ entries:
     version: 0.26.1
   - apiVersion: v1
     appVersion: 0.26.0
-    created: "2024-11-05T11:01:38.627876389Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-11-05T11:01:38.627876389Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: ae1f8b2b1df6888d33441f4e0c9a44dff7157631fc482c1b5d9f93889ec5688a
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -289,9 +289,8 @@ entries:
     version: 0.26.0
   - apiVersion: v1
     appVersion: 0.25.0
-    created: "2024-09-17T17:18:10.50585604Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-09-17T17:18:10.50585604Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: ff491b97fd442f099929e49bbdcb7db8a34e81ae54cb022c4a9533894c5f81d9
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -307,9 +306,8 @@ entries:
     version: 0.25.0
   - apiVersion: v1
     appVersion: 0.24.0
-    created: "2024-08-26T08:01:38.891737824Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-08-26T08:01:38.891737824Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 0f679191d3f15058127fd94955d6acf78ae48bc460c2cc0b15feec5214d715fb
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -325,9 +323,8 @@ entries:
     version: 0.24.0
   - apiVersion: v1
     appVersion: 0.23.0
-    created: "2024-07-11T20:39:26.800397023Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-07-11T20:39:26.800397023Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 10899371dd5531b75456f9260bcdab47d0485f033e4cea77b9a2b718d38680a9
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -343,9 +340,8 @@ entries:
     version: 0.23.0
   - apiVersion: v1
     appVersion: 0.22.0
-    created: "2024-06-25T20:33:32.959992725Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-06-25T20:33:32.959992725Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: b13dc1af6555bb366c5a5991c1b7af142df016598567ab4952d740d1dcb8905b
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -361,9 +357,8 @@ entries:
     version: 0.22.0
   - apiVersion: v1
     appVersion: 0.21.0
-    created: "2024-05-08T09:30:26.300973413Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-05-08T09:30:26.300973413Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 69799c4760ca0b5332f01def080f78f9785468cb600067797f24b10648ca6eab
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -379,9 +374,8 @@ entries:
     version: 0.21.0
   - apiVersion: v1
     appVersion: 0.20.3
-    created: "2024-03-19T14:42:22.080222571Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-03-19T14:42:22.080222571Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: e632185c99c9590a31abc77edd5b1dfcd580d71a48f29dcf68f91bdb1acddc0f
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -397,9 +391,8 @@ entries:
     version: 0.20.3
   - apiVersion: v1
     appVersion: 0.20.2
-    created: "2024-01-31T08:43:35.228999025Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2024-01-31T08:43:35.228999025Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 3ac36ce98876fe83ee47e10520104f9446ef4f5d6661ce485c0661cb7b54c6ae
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -415,9 +408,8 @@ entries:
     version: 0.20.2
   - apiVersion: v1
     appVersion: 0.20.1
-    created: "2023-11-16T23:43:09.084615715Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2023-11-16T23:43:09.084615715Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 29353188f58149cb80e980c48b932a8603eca4e4e8c76dc1521aba449342810f
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -433,9 +425,8 @@ entries:
     version: 0.20.1
   - apiVersion: v1
     appVersion: 0.20.0
-    created: "2023-09-06T07:37:35.798224976Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2023-09-06T07:37:35.798224976Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 97c1fdee8398f5866846e2a6d761e5462b30162fd3e62b4939abf558e15e47d8
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -451,9 +442,8 @@ entries:
     version: 0.20.0
   - apiVersion: v1
     appVersion: 0.19.0
-    created: "2023-08-30T18:03:09.218796347Z"
-    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade
-      notes can be found at https://library.humio.com/falcon-logscale/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
+    created: '2023-08-30T18:03:09.218796347Z'
+    description: 'Kubernetes Operator for running Humio on top of Kubernetes Upgrade notes can be found at https://library.humio.com/falcon-logscale/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes '
     digest: 040d698eb40a718054111cc9cf370784834ec857fc30c475fe9b5214550c6c65
     home: https://github.com/humio/humio-operator
     icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
@@ -469,7 +459,7 @@ entries:
     version: 0.19.1
   - apiVersion: v1
     appVersion: 0.19.0
-    created: "2023-05-18T21:33:39.712146851Z"
+    created: '2023-05-18T21:33:39.712146851Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: b45d0e6bdf53249f2ce1f1bf7e3c67d3018420fc64ef51e25a2d675982c52b26
     home: https://github.com/humio/humio-operator
@@ -486,7 +476,7 @@ entries:
     version: 0.19.0
   - apiVersion: v1
     appVersion: 0.18.0
-    created: "2023-04-06T21:09:49.151893629Z"
+    created: '2023-04-06T21:09:49.151893629Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 1734db618224be4636b2728dfd0baba14448fbb3b15539686863033f6d3894bb
     home: https://github.com/humio/humio-operator
@@ -503,7 +493,7 @@ entries:
     version: 0.18.0
   - apiVersion: v1
     appVersion: 0.17.0
-    created: "2023-02-06T21:53:37.671849321Z"
+    created: '2023-02-06T21:53:37.671849321Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: fdb73fa49c74cd59286da28a6a5882e5a8bb152d9a263814db8b6797a50da1dc
     home: https://github.com/humio/humio-operator
@@ -520,7 +510,7 @@ entries:
     version: 0.17.0
   - apiVersion: v1
     appVersion: 0.16.0
-    created: "2022-11-07T23:01:04.467766086Z"
+    created: '2022-11-07T23:01:04.467766086Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: ca538235ae5570f525be81155833db3e3ef6a6ccc2305fa032a07a04a1281e27
     home: https://github.com/humio/humio-operator
@@ -537,7 +527,7 @@ entries:
     version: 0.16.0
   - apiVersion: v1
     appVersion: 0.15.0
-    created: "2022-07-19T18:31:42.429033211Z"
+    created: '2022-07-19T18:31:42.429033211Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 1311a58cbcaadc00fd6cc5a133fd17456e99ad65ad3d309c374d2e44a95d1e85
     home: https://github.com/humio/humio-operator
@@ -554,7 +544,7 @@ entries:
     version: 0.15.0
   - apiVersion: v1
     appVersion: 0.14.2
-    created: "2022-04-20T17:31:55.081985839Z"
+    created: '2022-04-20T17:31:55.081985839Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 1b414ef8f1539a69442a4f5d7b9a5417d36ba515948414ce2324c44244fe5645
     home: https://github.com/humio/humio-operator
@@ -571,7 +561,7 @@ entries:
     version: 0.14.2
   - apiVersion: v1
     appVersion: 0.14.1
-    created: "2022-02-09T16:32:56.865243309Z"
+    created: '2022-02-09T16:32:56.865243309Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: a38d805d4004df8ccc40992ed397a0ffda6ee5efb474536073ac19726b942588
     home: https://github.com/humio/humio-operator
@@ -588,7 +578,7 @@ entries:
     version: 0.14.1
   - apiVersion: v1
     appVersion: 0.14.0
-    created: "2022-02-02T00:37:41.00274473Z"
+    created: '2022-02-02T00:37:41.00274473Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 9e1f4b4cd10b4cea117e64c0e034db3a65b88d9298c9c0a1f9dec433ea70aa4a
     home: https://github.com/humio/humio-operator
@@ -605,7 +595,7 @@ entries:
     version: 0.14.0
   - apiVersion: v1
     appVersion: 0.13.0
-    created: "2021-11-09T23:25:20.441100602Z"
+    created: '2021-11-09T23:25:20.441100602Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 18fceebce818367f222192b3556e6f3a17a892ecbc2163bdbbd3f5d375129e91
     home: https://github.com/humio/humio-operator
@@ -622,7 +612,7 @@ entries:
     version: 0.13.0
   - apiVersion: v1
     appVersion: 0.12.0
-    created: "2021-10-11T22:50:52.34347631Z"
+    created: '2021-10-11T22:50:52.34347631Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 7fd22adde571f430290a14a1fcd2409ed883f00fb78d4796abdd9565d6739ee9
     home: https://github.com/humio/humio-operator
@@ -639,7 +629,7 @@ entries:
     version: 0.12.0
   - apiVersion: v1
     appVersion: 0.11.0
-    created: "2021-09-14T17:27:31.975950023Z"
+    created: '2021-09-14T17:27:31.975950023Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: d16f361d8f71f373ffd01c627143e5da1c1e3d1fd1ab9e8315d986f47a21a715
     home: https://github.com/humio/humio-operator
@@ -656,7 +646,7 @@ entries:
     version: 0.11.0
   - apiVersion: v1
     appVersion: 0.10.2
-    created: "2021-08-24T17:11:03.583519447Z"
+    created: '2021-08-24T17:11:03.583519447Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 502d8ca5dfad75772879a845c94f1db8dee2fc111ca02bf46d4bfb5e7e05533a
     home: https://github.com/humio/humio-operator
@@ -673,7 +663,7 @@ entries:
     version: 0.10.2
   - apiVersion: v1
     appVersion: 0.10.1
-    created: "2021-07-27T17:00:19.845740264Z"
+    created: '2021-07-27T17:00:19.845740264Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 31ac880495b7334be2fd98f2c56b0c41a806265120962c92e21f39a2706736c3
     home: https://github.com/humio/humio-operator
@@ -690,7 +680,7 @@ entries:
     version: 0.10.1
   - apiVersion: v1
     appVersion: 0.10.0
-    created: "2021-07-08T10:02:57.989961225Z"
+    created: '2021-07-08T10:02:57.989961225Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 56606fc2e06ae28c99a944dc47847361cec54b831144b90325a51511ec166198
     home: https://github.com/humio/humio-operator
@@ -707,7 +697,7 @@ entries:
     version: 0.10.0
   - apiVersion: v1
     appVersion: 0.9.1
-    created: "2021-06-18T11:00:44.602326876Z"
+    created: '2021-06-18T11:00:44.602326876Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: f5fbe8f01ed3f30cdfb52ac48a52d6c6111c358451abc9c7772f6e7e6ff7fdcb
     home: https://github.com/humio/humio-operator
@@ -724,7 +714,7 @@ entries:
     version: 0.9.1
   - apiVersion: v1
     appVersion: 0.8.1
-    created: "2021-05-26T08:21:22.978983287Z"
+    created: '2021-05-26T08:21:22.978983287Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 4538297d9eb3b61448e9f01648161d59eaf060565a87d075bac60d836b1c9c42
     home: https://github.com/humio/humio-operator
@@ -741,7 +731,7 @@ entries:
     version: 0.8.1
   - apiVersion: v1
     appVersion: 0.8.0
-    created: "2021-05-19T22:13:04.03683388Z"
+    created: '2021-05-19T22:13:04.03683388Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: d90d4f3d2d6205eac00d0fcc556798d765ddf26c549ecb8f5c298396ae1a1f3f
     home: https://github.com/humio/humio-operator
@@ -758,7 +748,7 @@ entries:
     version: 0.8.0
   - apiVersion: v1
     appVersion: 0.7.0
-    created: "2021-05-11T21:14:27.212765679Z"
+    created: '2021-05-11T21:14:27.212765679Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 3088679dd67a06c5f370352be40b53f4f2c102c8c49e7dcdcb70b85cda3a0443
     home: https://github.com/humio/humio-operator
@@ -775,7 +765,7 @@ entries:
     version: 0.7.0
   - apiVersion: v1
     appVersion: 0.6.0
-    created: "2021-03-16T16:09:15.449615962Z"
+    created: '2021-03-16T16:09:15.449615962Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: bcd772a226a58e7a11ebe2edf414a6863464617b0975bf27d0d5aacc4aee9e73
     home: https://github.com/humio/humio-operator
@@ -792,7 +782,7 @@ entries:
     version: 0.6.1
   - apiVersion: v1
     appVersion: 0.6.0
-    created: "2021-03-15T22:05:00.988493035Z"
+    created: '2021-03-15T22:05:00.988493035Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: d529e419349cf604af88afab8e2f524eede55ff1c5f9818b495b893d1be846db
     home: https://github.com/humio/humio-operator
@@ -809,7 +799,7 @@ entries:
     version: 0.6.0
   - apiVersion: v1
     appVersion: 0.5.1
-    created: "2021-02-26T21:51:37.918603193Z"
+    created: '2021-02-26T21:51:37.918603193Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 62ba002a65acda39cbf3a2b2ff38eb503de2bdc838acb8a5a91ac5ef15869dfc
     home: https://github.com/humio/humio-operator
@@ -825,7 +815,7 @@ entries:
     version: 0.5.1
   - apiVersion: v1
     appVersion: 0.5.0
-    created: "2021-02-10T16:21:13.378278426Z"
+    created: '2021-02-10T16:21:13.378278426Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: b14ebd9c1f62e721dfe6176efbfaa2b635a4e357a09bb9dd35e6b8aefd4402a7
     home: https://github.com/humio/humio-operator
@@ -841,7 +831,7 @@ entries:
     version: 0.5.0
   - apiVersion: v1
     appVersion: 0.4.0
-    created: "2021-02-02T22:20:05.469352932Z"
+    created: '2021-02-02T22:20:05.469352932Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 5d9a6f526d434fd57653280a7c6b8ae4232a866fe1ab756c9215ecca4c860b0b
     home: https://github.com/humio/humio-operator
@@ -857,7 +847,7 @@ entries:
     version: 0.4.0
   - apiVersion: v1
     appVersion: 0.3.0
-    created: "2020-12-02T22:04:42.403727449Z"
+    created: '2020-12-02T22:04:42.403727449Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 790fe42f5e1fad33dca595ac1c61bdbf842f74480b46a65681d13751c3346b84
     home: https://github.com/humio/humio-operator
@@ -873,7 +863,7 @@ entries:
     version: 0.3.0
   - apiVersion: v1
     appVersion: 0.2.0
-    created: "2020-11-13T19:30:39.431488344Z"
+    created: '2020-11-13T19:30:39.431488344Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 2b486584ec5a6ee72228adbec637c198dbe574f9c65f7a37a453b6ed4a85f10a
     home: https://github.com/humio/humio-operator
@@ -889,7 +879,7 @@ entries:
     version: 0.2.0
   - apiVersion: v1
     appVersion: 0.1.1
-    created: "2020-11-02T19:56:14.054750263Z"
+    created: '2020-11-02T19:56:14.054750263Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 542a0844033facc41e99112dbeec7b1583780fa43ca0f025405646d6bac31a88
     home: https://github.com/humio/humio-operator
@@ -905,7 +895,7 @@ entries:
     version: 0.1.2
   - apiVersion: v1
     appVersion: 0.1.0
-    created: "2020-10-29T16:35:00.795923666Z"
+    created: '2020-10-29T16:35:00.795923666Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 7ad58ae2181055b591f1f05c58d67065242213cf5e4860234230634cd23ff6da
     home: https://github.com/humio/humio-operator
@@ -921,7 +911,7 @@ entries:
     version: 0.1.1
   - apiVersion: v1
     appVersion: 0.1.0
-    created: "2020-10-28T19:07:55.262327673Z"
+    created: '2020-10-28T19:07:55.262327673Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 3cb97ab719c86e8b79e5643950313e927e60adb787e611ce81cea2362187e6ca
     home: https://github.com/humio/humio-operator
@@ -937,7 +927,7 @@ entries:
     version: 0.1.0
   - apiVersion: v1
     appVersion: 0.0.14
-    created: "2020-10-14T21:18:50.82056102Z"
+    created: '2020-10-14T21:18:50.82056102Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 9f2ba06ef8cb5357139ce93bfbd6d9000c1968bc7ecdc5c7a0fc7ce2da0393e5
     home: https://github.com/humio/humio-operator
@@ -953,7 +943,7 @@ entries:
     version: 0.0.14
   - apiVersion: v1
     appVersion: 0.0.13
-    created: "2020-10-13T19:15:17.053457559Z"
+    created: '2020-10-13T19:15:17.053457559Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 1df3c5d700fedd0ef28f09dba6bf5fd7b2c2f664f11fc96c29662b70e3a8be23
     home: https://github.com/humio/humio-operator
@@ -969,7 +959,7 @@ entries:
     version: 0.0.13
   - apiVersion: v1
     appVersion: 0.0.12
-    created: "2020-09-09T16:46:51.437335637Z"
+    created: '2020-09-09T16:46:51.437335637Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 859ac27171899457755f47ba595061a2749951880eab8f399e1246ed9bf58e86
     home: https://github.com/humio/humio-operator
@@ -985,7 +975,7 @@ entries:
     version: 0.0.12
   - apiVersion: v1
     appVersion: 0.0.11
-    created: "2020-08-13T22:45:25.665982373Z"
+    created: '2020-08-13T22:45:25.665982373Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 40adff43bcefdf961fac1c160b9bdc0d5d5100b8819831b158892b403d0ac0db
     home: https://github.com/humio/humio-operator
@@ -1001,7 +991,7 @@ entries:
     version: 0.0.11
   - apiVersion: v1
     appVersion: 0.0.10
-    created: "2020-08-11T17:19:14.223328894Z"
+    created: '2020-08-11T17:19:14.223328894Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 500a8190ca211222ca9d18b3b5248921ea9181c6655d1feab7278e85d842cce8
     home: https://github.com/humio/humio-operator
@@ -1017,7 +1007,7 @@ entries:
     version: 0.0.10
   - apiVersion: v1
     appVersion: 0.0.9
-    created: "2020-08-10T22:32:03.088240898Z"
+    created: '2020-08-10T22:32:03.088240898Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: c648cd9e94c311778962a252c96bf71d45e57b00575c9c028a8c69098fd33764
     home: https://github.com/humio/humio-operator
@@ -1033,7 +1023,7 @@ entries:
     version: 0.0.9
   - apiVersion: v1
     appVersion: 0.0.8
-    created: "2020-08-07T00:47:10.603047403Z"
+    created: '2020-08-07T00:47:10.603047403Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: caefaf2bd0f0b9958e5e8b9d73237defc57f222b6a7764bee1ad7741c7bb2792
     home: https://github.com/humio/humio-operator
@@ -1049,7 +1039,7 @@ entries:
     version: 0.0.8
   - apiVersion: v1
     appVersion: 0.0.6
-    created: "2020-07-06T17:56:18.366649947Z"
+    created: '2020-07-06T17:56:18.366649947Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: d2d5c1184c8a4fd36f89ffd755c6a6f609f4b7c5abff0293c1b5344ada2895c5
     home: https://github.com/humio/humio-operator
@@ -1065,7 +1055,7 @@ entries:
     version: 0.0.6
   - apiVersion: v1
     appVersion: 0.0.5
-    created: "2020-06-25T17:36:58.764216692Z"
+    created: '2020-06-25T17:36:58.764216692Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: e13c7aa4ffa6c75e56ec6fd11dae72b2c673d4a82e52683d93698c8515ae15d0
     home: https://github.com/humio/humio-operator
@@ -1081,7 +1071,7 @@ entries:
     version: 0.0.5
   - apiVersion: v1
     appVersion: 0.0.5
-    created: "2020-06-17T18:22:18.746163387Z"
+    created: '2020-06-17T18:22:18.746163387Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 0b03b28941ee10426af6434220650ee5ffd72f366748ff48effaddd1544cc6fa
     home: https://github.com/humio/humio-operator
@@ -1097,7 +1087,7 @@ entries:
     version: 0.0.4
   - apiVersion: v1
     appVersion: 0.0.4
-    created: "2020-06-15T17:43:04.042396513Z"
+    created: '2020-06-15T17:43:04.042396513Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 9741117790f18bf0ede64c03fbb3d8571018975b2bef93a1cd097ff0d8ab258c
     home: https://github.com/humio/humio-operator
@@ -1113,7 +1103,7 @@ entries:
     version: 0.0.3
   - apiVersion: v1
     appVersion: v0.0.3
-    created: "2020-06-10T18:34:50.019041962Z"
+    created: '2020-06-10T18:34:50.019041962Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: c24ed2d1b8b0e02e700f54690e790e5ebd578b1880866f973ffa38280b1fb636
     home: https://github.com/humio/humio-operator
@@ -1129,7 +1119,7 @@ entries:
     version: 0.0.2
   - apiVersion: v1
     appVersion: v0.0.2
-    created: "2020-06-10T18:24:37.855025018Z"
+    created: '2020-06-10T18:24:37.855025018Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes
     digest: 19fd98dca7ae2ecf9470a27deb17d49e0637ed273c9c51d870b7be86ef58cbc1
     home: https://github.com/humio/humio-operator
@@ -1143,4 +1133,4 @@ entries:
     urls:
     - https://github.com/humio/humio-operator/releases/download/humio-operator-0.0.1/humio-operator-0.0.1.tgz
     version: 0.0.1
-generated: "2025-10-20T14:03:05.014049+03:00"
+generated: '2026-01-13T08:59:43.000316Z'
