@@ -1,0 +1,52 @@
+# Example HumioEventForwardingRule - defines a rule to forward events from a repository to an external system
+apiVersion: core.humio.com/v1alpha1
+kind: HumioEventForwardingRule
+metadata:
+  name: example-eventforwardingrule
+  # namespace: default  # Specify your namespace here, or use kubectl -n <namespace>
+spec:
+  # Cluster selection (choose one):
+  managedClusterName: "example-humiocluster"    # For HumioCluster managed by operator
+  # externalClusterName: "my-external-cluster"  # For external LogScale instance
+
+  # Kubernetes resource name (for identification)
+  name: "example-forwarding-rule"
+
+  # Target repository (NOTE: Event forwarding only works with repositories, not views)
+  repositoryName: "humio"
+
+  # LogScale query for filtering and transforming events
+  queryString: |
+    #severity=error
+    | select([timestamp, message, service])
+
+  # Event forwarder specification (choose ONE of the following two options):
+
+  # Option 1: Reference an operator-managed HumioEventForwarder resource (RECOMMENDED)
+  # This approach uses declarative Kubernetes resources managed by the operator.
+  # The operator will automatically resolve the forwarder ID from the referenced resource.
+  eventForwarderRef:
+    name: "my-event-forwarder"       # Name of the HumioEventForwarder CR in the same namespace
+    # namespace: "default"           # Optional: namespace if different from this resource
+
+  # Option 2: Specify an externally-managed forwarder ID directly
+  # Use this if you have pre-configured event forwarders in LogScale that are NOT managed by the operator.
+  # To find forwarder IDs:
+  # 1. Log into LogScale UI
+  # 2. Navigate to Settings → Event Forwarders
+  # 3. Copy the ID of your configured forwarder
+  # eventForwarderID: "your-event-forwarder-id-here"
+
+  # IMPORTANT: You must specify EXACTLY ONE of eventForwarderRef OR eventForwarderID.
+  # If both are specified, the resource will be rejected.
+  # If neither is specified, the resource will be rejected.
+
+  # Optional: Query language version
+  # Valid values: legacy, xdr1, xdrdetects1, filteralert, federated1
+  # If not specified, uses the default version for your LogScale cluster
+  # languageVersion: "xdr1"
+
+# Status information:
+# Check status: kubectl get hefr example-eventforwardingrule -o yaml
+# Ready: True means the forwarding rule exists in LogScale
+# Synced: True means configuration matches desired state

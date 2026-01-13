@@ -44,12 +44,20 @@ type HumioSavedQuerySpec struct {
 	// +kubebuilder:validation:Required
 	ViewName string `json:"viewName"`
 	// QueryString is the actual query that will be saved
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1048576
 	// +kubebuilder:validation:Required
 	QueryString string `json:"queryString"`
-	// Description is the description of the SavedQuery
+	// Description is the description of the SavedQuery.
+	// This field is only supported in LogScale 1.200.0 and later.
+	// For earlier versions, a warning condition is set but reconciliation continues.
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxLength=4096
 	Description string `json:"description,omitempty"`
-	// Labels are a set of labels on the SavedQuery
+	// Labels are a set of labels on the SavedQuery (maximum 10 labels allowed by LogScale).
+	// This field is only supported in LogScale 1.200.0 and later.
+	// For earlier versions, a warning condition is set but reconciliation continues.
+	// +kubebuilder:validation:MaxItems=10
 	// +kubebuilder:validation:Optional
 	Labels []string `json:"labels,omitempty"`
 }
@@ -63,6 +71,16 @@ type HumioSavedQueryStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedViewName tracks the view name where the saved query was last successfully synced.
+	// This is used to detect and handle view migrations.
+	// +optional
+	LastSyncedViewName string `json:"lastSyncedViewName,omitempty"`
+	// ManagedByOperator indicates whether the operator successfully owns this LogScale saved query.
+	// Set to true when the operator creates a new query or successfully adopts an existing one.
+	// Set to false when adoption is rejected.
+	// When false, the finalizer will not delete the query from LogScale.
+	// +optional
+	ManagedByOperator *bool `json:"managedByOperator,omitempty"`
 }
 
 // +kubebuilder:object:root=true

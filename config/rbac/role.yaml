@@ -100,6 +100,8 @@ rules:
   - humioalerts
   - humiobootstraptokens
   - humioclusters
+  - humioeventforwarders
+  - humioeventforwardingrules
   - humioexternalclusters
   - humiofeatureflags
   - humiofilteralerts
@@ -118,7 +120,8 @@ rules:
   - humioscheduledsearches
   - humiosystempermissionroles
   - humiosystemtokens
-  - humiotelemetries
+  - humiotelemetrycollections
+  - humiotelemetryexports
   - humiousers
   - humioviewpermissionroles
   - humioviews
@@ -139,6 +142,8 @@ rules:
   - humioalerts/finalizers
   - humiobootstraptokens/finalizers
   - humioclusters/finalizers
+  - humioeventforwarders/finalizers
+  - humioeventforwardingrules/finalizers
   - humioexternalclusters/finalizers
   - humiofeatureflags/finalizers
   - humiofilteralerts/finalizers
@@ -157,7 +162,8 @@ rules:
   - humioscheduledsearches/finalizers
   - humiosystempermissionroles/finalizers
   - humiosystemtokens/finalizers
-  - humiotelemetries/finalizers
+  - humiotelemetrycollections/finalizers
+  - humiotelemetryexports/finalizers
   - humiousers/finalizers
   - humioviewpermissionroles/finalizers
   - humioviews/finalizers
@@ -172,6 +178,8 @@ rules:
   - humioalerts/status
   - humiobootstraptokens/status
   - humioclusters/status
+  - humioeventforwarders/status
+  - humioeventforwardingrules/status
   - humioexternalclusters/status
   - humiofeatureflags/status
   - humiofilteralerts/status
@@ -190,7 +198,8 @@ rules:
   - humioscheduledsearches/status
   - humiosystempermissionroles/status
   - humiosystemtokens/status
-  - humiotelemetries/status
+  - humiotelemetrycollections/status
+  - humiotelemetryexports/status
   - humiousers/status
   - humioviewpermissionroles/status
   - humioviews/status

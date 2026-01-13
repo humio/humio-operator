@@ -1,0 +1,244 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: humioeventforwardingrules.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.0.1'
+spec:
+  group: core.humio.com
+  names:
+    categories:
+    - humio
+    - all
+    kind: HumioEventForwardingRule
+    listKind: HumioEventForwardingRuleList
+    plural: humioeventforwardingrules
+    shortNames:
+    - hefr
+    singular: humioeventforwardingrule
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Whether the event forwarding rule is ready
+      jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - description: The repository name
+      jsonPath: .spec.repositoryName
+      name: Repository
+      type: string
+    - description: The event forwarder name
+      jsonPath: .status.eventForwarderName
+      name: Forwarder
+      type: string
+    - description: Creation timestamp
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          HumioEventForwardingRule is the Schema for the humioeventforwardingrules API.
+          It configures a rule that filters and forwards events from a LogScale repository to an external system.
+          NOTE: Event forwarding rules can only be applied to repositories, not views. This is a LogScale API limitation.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioEventForwardingRuleSpec defines the desired state of
+              HumioEventForwardingRule.
+            properties:
+              eventForwarderID:
+                description: |-
+                  EventForwarderID is the ID of a pre-configured event forwarder to use.
+                  Use this for externally-managed forwarders (configured outside the operator).
+                  Mutually exclusive with EventForwarderRef.
+                minLength: 1
+                type: string
+              eventForwarderRef:
+                description: |-
+                  EventForwarderRef references a HumioEventForwarder resource managed by the operator.
+                  Use this to reference a forwarder created via the HumioEventForwarder CRD.
+                  Mutually exclusive with EventForwarderID.
+                properties:
+                  name:
+                    description: Name of the HumioEventForwarder resource.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace of the HumioEventForwarder resource.
+                      If empty, defaults to the same namespace as the HumioEventForwardingRule.
+                    type: string
+                required:
+                - name
+                type: object
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
+                minLength: 1
+                type: string
+              languageVersion:
+                description: |-
+                  LanguageVersion specifies the query language version to use.
+                  Valid values: legacy, xdr1, xdrdetects1, filteralert, federated1
+                  If not specified, the default version for the LogScale cluster will be used.
+                enum:
+                - legacy
+                - xdr1
+                - xdrdetects1
+                - filteralert
+                - federated1
+                type: string
+              managedClusterName:
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
+                minLength: 1
+                type: string
+              name:
+                description: |-
+                  Name is the Kubernetes-friendly identifier for this rule within the operator.
+                  NOTE: This is NOT the LogScale rule ID. LogScale auto-generates UUIDs for event
+                  forwarding rules, which are stored in the core.humio.com/event-forwarding-rule-id annotation.
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+              queryString:
+                description: |-
+                  QueryString is the LogScale query language (LQL) query that filters and transforms events to forward.
+                  This query determines which events are forwarded and how they are transformed before forwarding.
+                maxLength: 1048576
+                minLength: 1
+                type: string
+              repositoryName:
+                description: |-
+                  RepositoryName defines the repository where this event forwarding rule should be managed.
+                  NOTE: Event forwarding rules can only be applied to repositories, not views.
+                  This field must reference a HumioRepository resource or an existing repository in LogScale.
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+            required:
+            - name
+            - queryString
+            - repositoryName
+            type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
+            - message: Must specify exactly one of eventForwarderID or eventForwarderRef
+              rule: (has(self.eventForwarderID) && self.eventForwarderID != "") !=
+                (has(self.eventForwarderRef) && self.eventForwarderRef != null)
+          status:
+            description: HumioEventForwardingRuleStatus defines the observed state
+              of HumioEventForwardingRule.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the event forwarding rule's state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              eventForwarderName:
+                description: |-
+                  EventForwarderName is the human-readable name of the configured event forwarder.
+                  This is fetched from LogScale and populated by the controller for better visibility.
+                type: string
+              resolvedEventForwarderID:
+                description: ResolvedEventForwarderID is the actual forwarder ID resolved
+                  from either eventForwarderID or eventForwarderRef.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

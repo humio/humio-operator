@@ -109,7 +109,7 @@ type HumioClusterSpec struct {
 
 	// TelemetryConfig contains the configuration for telemetry collection when enabled
 	// Telemetry is enabled if this field is not nil
-	TelemetryConfig *TelemetryConfig `json:"telemetryConfig,omitempty"`
+	TelemetryConfig *HumioTelemetryConfig `json:"telemetryConfig,omitempty"`
 }
 
 // HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.
@@ -504,7 +504,80 @@ type HumioClusterStatus struct {
 	// EvictedNodeIds keeps track of evicted nodes for use within the downscaling functionality
 	EvictedNodeIds []int `json:"evictedNodeIds,omitempty"`
 	// TelemetryStatus shows the status of telemetry collection for this cluster
-	TelemetryStatus *TelemetryStatus `json:"telemetryStatus,omitempty"`
+	TelemetryStatus *HumioTelemetryStatus `json:"telemetryStatus,omitempty"`
+}
+
+// HumioTelemetryResourceStatus represents the status of a single telemetry resource (collection or export)
+type HumioTelemetryResourceStatus struct {
+	// Name is the name of the telemetry resource
+	Name string `json:"name"`
+
+	// State is the current state of the resource (e.g., "Enabled", "Disabled", "ConfigError")
+	State string `json:"state"`
+
+	// LastActivity indicates when this resource last performed its function (collection or export)
+	LastActivity *metav1.Time `json:"lastActivity,omitempty"`
+
+	// ErrorCount is the number of errors encountered by this resource
+	ErrorCount int `json:"errorCount,omitempty"`
+
+	// LastError contains the most recent error message from this resource
+	LastError string `json:"lastError,omitempty"`
+}
+
+// HumioTelemetryStatus represents the status of telemetry collection for a cluster
+type HumioTelemetryStatus struct {
+	// State represents the current state of telemetry collection
+	State string `json:"state,omitempty"`
+
+	// LastCollectionTime indicates when data was last collected
+	LastCollectionTime *metav1.Time `json:"lastCollectionTime,omitempty"`
+
+	// LastExportTime indicates when data was last exported successfully
+	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
+
+	// ExportErrors contains any errors from data export
+	ExportErrors []HumioTelemetryExportError `json:"exportErrors,omitempty"`
+
+	// CollectionResourceName is the name of the HumioTelemetryCollection resource
+	// Deprecated: Use Collections list instead. This field is only populated when there is exactly one collection resource.
+	CollectionResourceName string `json:"collectionResourceName,omitempty"`
+
+	// CollectionState is the state of the collection resource
+	// Deprecated: Use Collections list instead. This field is only populated when there is exactly one collection resource.
+	CollectionState string `json:"collectionState,omitempty"`
+
+	// ExportResourceName is the name of the HumioTelemetryExport resource
+	// Deprecated: Use Exports list instead. This field is only populated when there is exactly one export resource.
+	ExportResourceName string `json:"exportResourceName,omitempty"`
+
+	// ExportState is the state of the export resource
+	// Deprecated: Use Exports list instead. This field is only populated when there is exactly one export resource.
+	ExportState string `json:"exportState,omitempty"`
+
+	// Collections contains status information for all HumioTelemetryCollection resources that reference this cluster
+	// +optional
+	Collections []HumioTelemetryResourceStatus `json:"collections,omitempty"`
+
+	// Exports contains status information for all HumioTelemetryExport resources that reference this cluster
+	// +optional
+	Exports []HumioTelemetryResourceStatus `json:"exports,omitempty"`
+
+	// TotalCollections is the total number of collection resources referencing this cluster
+	// +optional
+	TotalCollections int `json:"totalCollections,omitempty"`
+
+	// ActiveCollections is the number of collection resources in an active/enabled state
+	// +optional
+	ActiveCollections int `json:"activeCollections,omitempty"`
+
+	// TotalExports is the total number of export resources referencing this cluster
+	// +optional
+	TotalExports int `json:"totalExports,omitempty"`
+
+	// ActiveExports is the number of export resources in an active/enabled state
+	// +optional
+	ActiveExports int `json:"activeExports,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -546,10 +619,6 @@ func (hc *HumioCluster) GetObservedGeneration() int64 {
 	return val
 }
 
-func init() {
-	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{})
-}
-
 // Len is the number of elements in the collection
 func (l HumioPodStatusList) Len() int {
 	return len(l)
@@ -565,53 +634,6 @@ func (l HumioPodStatusList) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
 
-// TelemetryConfig contains configuration for telemetry collection
-type TelemetryConfig struct {
-	// RemoteReport defines the configuration for sending telemetry data to a remote cluster
-	RemoteReport *TelemetryRemoteReportConfig `json:"remoteReport,omitempty"`
-
-	// ClusterIdentifier is a unique identifier for this cluster used in telemetry data
-	ClusterIdentifier string `json:"clusterIdentifier,omitempty"`
-
-	// Collections defines what data to collect and how frequently
-	Collections []TelemetryCollectionConfig `json:"collections,omitempty"`
-}
-
-// TelemetryRemoteReportConfig defines configuration for exporting telemetry data
-type TelemetryRemoteReportConfig struct {
-	// URL is the endpoint URL for the telemetry cluster HEC endpoint
-	URL string `json:"url,omitempty"`
-
-	// Token contains the authentication token for the telemetry cluster
-	Token VarSource `json:"token,omitempty"`
-}
-
-// TelemetryCollectionConfig defines what data to collect and collection frequency
-type TelemetryCollectionConfig struct {
-	// Interval defines how frequently to collect this data (e.g., "15m", "1h", "1d")
-	Interval string `json:"interval,omitempty"`
-
-	// Include defines which data types to collect in this collection
-	Include []string `json:"include,omitempty"`
-}
-
-// TelemetryStatus represents the status of telemetry collection for a cluster
-type TelemetryStatus struct {
-	// State represents the current state of telemetry collection
-	State string `json:"state,omitempty"`
-
-	// LastCollectionTime indicates when data was last collected
-	LastCollectionTime *metav1.Time `json:"lastCollectionTime,omitempty"`
-
-	// LastExportTime indicates when data was last exported successfully
-	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
-
-	// CollectionErrors contains any errors from data collection
-	CollectionErrors []TelemetryError `json:"collectionErrors,omitempty"`
-
-	// ExportErrors contains any errors from data export
-	ExportErrors []TelemetryError `json:"exportErrors,omitempty"`
-
-	// TelemetryResourceName is the name of the HumioTelemetry resource managing this cluster's telemetry
-	TelemetryResourceName string `json:"telemetryResourceName,omitempty"`
+func init() {
+	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{})
 }

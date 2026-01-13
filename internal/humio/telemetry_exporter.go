@@ -91,13 +91,31 @@ type HECEvent struct {
 
 // ExportTelemetryPayload sends a telemetry payload to the HEC endpoint
 func (h *HECClient) ExportTelemetryPayload(ctx context.Context, payload TelemetryPayload) error {
-	// Convert telemetry payload to HEC format
+	// Sanitize the payload to convert any microsecond timestamps to milliseconds
+	// This prevents LogScale parsing errors when the telemetry data is processed
+
+	// Marshal payload to JSON bytes to ensure proper type conversion
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload for sanitization: %w", err)
+	}
+
+	// Unmarshal to generic interface{} to get correct types for sanitization
+	var genericPayload interface{}
+	if err := json.Unmarshal(payloadJSON, &genericPayload); err != nil {
+		return fmt.Errorf("failed to unmarshal payload for sanitization: %w", err)
+	}
+
+	// Sanitize the generic data to convert microsecond timestamps
+	sanitizedData := SanitizeTimestamps(genericPayload)
+
+	// Convert telemetry payload to HEC format with sanitized event data
 	hecEvent := HECEvent{
-		Time:       timeToUnixPtr(payload.Timestamp),
+		Time:       timeToUnixPtr(payload.Timestamp), // Use original timestamp for HEC time field
 		Host:       payload.ClusterID,
 		Source:     "humio-operator",
 		SourceType: payload.SourceType,
-		Event:      payload,
+		Event:      sanitizedData, // Use sanitized data for the event field
 	}
 
 	// Marshal to JSON
@@ -106,7 +124,8 @@ func (h *HECClient) ExportTelemetryPayload(ctx context.Context, payload Telemetr
 		return fmt.Errorf("failed to marshal telemetry payload: %w", err)
 	}
 
-	h.Logger.V(1).Info("Exporting telemetry payload",
+	// Log basic HEC payload info
+	h.Logger.Info("Sending HEC payload to LogScale",
 		"cluster_id", payload.ClusterID,
 		"collection_type", payload.CollectionType,
 		"size_bytes", len(jsonData))
@@ -138,7 +157,7 @@ func (h *HECClient) sendWithRetry(ctx context.Context, jsonData []byte, maxRetri
 			default:
 				backoff = 30 * time.Second // Cap at 30 seconds for any attempt >= 6
 			}
-			h.Logger.V(1).Info("Retrying telemetry export", "attempt", attempt, "backoff", backoff)
+			h.Logger.Info("Retrying telemetry export", "attempt", attempt, "backoff", backoff)
 
 			select {
 			case <-ctx.Done():
@@ -159,12 +178,12 @@ func (h *HECClient) sendWithRetry(ctx context.Context, jsonData []byte, maxRetri
 		// Check if this is a non-retryable error
 		var nonRetryableErr *NonRetryableError
 		if errors.As(err, &nonRetryableErr) {
-			h.Logger.V(1).Info("Non-retryable error encountered, stopping retries", "error", err)
+			h.Logger.Info("Non-retryable error encountered, stopping retries", "error", err)
 			return nonRetryableErr.Err
 		}
 
 		lastErr = err
-		h.Logger.V(1).Info("Telemetry export attempt failed", "attempt", attempt+1, "error", err)
+		h.Logger.Info("Telemetry export attempt failed", "attempt", attempt+1, "error", err)
 	}
 
 	return fmt.Errorf("telemetry export failed after %d attempts: %w", maxRetries+1, lastErr)
@@ -189,7 +208,7 @@ func (h *HECClient) sendRequest(ctx context.Context, jsonData []byte) error {
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			h.Logger.V(1).Info("Failed to close response body", "error", closeErr)
+			h.Logger.Info("Failed to close response body", "error", closeErr)
 		}
 	}()
 
@@ -209,16 +228,17 @@ func (h *HECClient) sendRequest(ctx context.Context, jsonData []byte) error {
 		return errors.New(errorMsg)
 	}
 
-	h.Logger.V(2).Info("HEC request successful",
+	h.Logger.Info("HEC request successful",
 		"status", resp.StatusCode,
 		"response", string(bodyBytes))
 
 	return nil
 }
 
-// timeToUnixPtr converts a time.Time to a Unix timestamp pointer
+// timeToUnixPtr converts a time.Time to a Unix timestamp pointer (in seconds, not milliseconds)
+// LogScale HEC appears to expect seconds and then converts to milliseconds internally
 func timeToUnixPtr(t time.Time) *int64 {
-	unix := t.Unix()
+	unix := t.Unix() // Use seconds instead of milliseconds
 	return &unix
 }
 
@@ -243,7 +263,7 @@ func (e *TelemetryExporter) ExportPayloads(ctx context.Context, payloads []Telem
 	for _, payload := range payloads {
 		if err := e.hecClient.ExportTelemetryPayload(ctx, payload); err != nil {
 			exportErrors = append(exportErrors, TelemetryError{
-				Type:      "export",
+				Type:      TelemetryErrorTypeExport,
 				Message:   fmt.Sprintf("Failed to export %s data: %v", payload.CollectionType, err),
 				Timestamp: time.Now(),
 			})
@@ -251,7 +271,7 @@ func (e *TelemetryExporter) ExportPayloads(ctx context.Context, payloads []Telem
 				"collection_type", payload.CollectionType,
 				"cluster_id", payload.ClusterID)
 		} else {
-			e.logger.V(1).Info("Successfully exported telemetry payload",
+			e.logger.Info("Successfully exported telemetry payload",
 				"collection_type", payload.CollectionType,
 				"cluster_id", payload.ClusterID)
 		}

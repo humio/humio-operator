@@ -28,6 +28,8 @@ const (
 	entityTypeViewToken                  entityType = "view-token"
 	entityTypeSystemToken                entityType = "system-token"
 	entityTypeOrganizationToken          entityType = "organization-token"
+	entityTypeEventForwardingRule        entityType = "event-forwarding-rule"
+	entityTypeEventForwarder             entityType = "event-forwarder"
 )
 
 func (e entityType) String() string {
@@ -195,5 +197,19 @@ func OrganizationTokenNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeOrganizationToken,
 		key:        name,
+	}
+}
+
+func EventForwardingRuleNotFound(id string) error {
+	return EntityNotFound{
+		entityType: entityTypeEventForwardingRule,
+		key:        id,
+	}
+}
+
+func EventForwarderNotFound(id string) error {
+	return EntityNotFound{
+		entityType: entityTypeEventForwarder,
+		key:        id,
 	}
 }

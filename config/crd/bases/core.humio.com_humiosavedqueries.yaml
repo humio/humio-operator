@@ -63,7 +63,11 @@ spec:
             description: HumioSavedQuerySpec defines the desired state of HumioSavedQuery.
             properties:
               description:
-                description: Description is the description of the SavedQuery
+                description: |-
+                  Description is the description of the SavedQuery.
+                  This field is only supported in LogScale 1.200.0 and later.
+                  For earlier versions, a warning condition is set but reconciliation continues.
+                maxLength: 4096
                 type: string
               externalClusterName:
                 description: |-
@@ -72,9 +76,13 @@ spec:
                 minLength: 1
                 type: string
               labels:
-                description: Labels are a set of labels on the SavedQuery
+                description: |-
+                  Labels are a set of labels on the SavedQuery (maximum 10 labels allowed by LogScale).
+                  This field is only supported in LogScale 1.200.0 and later.
+                  For earlier versions, a warning condition is set but reconciliation continues.
                 items:
                   type: string
+                maxItems: 10
                 type: array
               managedClusterName:
                 description: |-
@@ -92,6 +100,8 @@ spec:
                   rule: self == oldSelf
               queryString:
                 description: QueryString is the actual query that will be saved
+                maxLength: 1048576
+                minLength: 1
                 type: string
               viewName:
                 description: ViewName is the name of the Humio View under which the
@@ -171,6 +181,18 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              lastSyncedViewName:
+                description: |-
+                  LastSyncedViewName tracks the view name where the saved query was last successfully synced.
+                  This is used to detect and handle view migrations.
+                type: string
+              managedByOperator:
+                description: |-
+                  ManagedByOperator indicates whether the operator successfully owns this LogScale saved query.
+                  Set to true when the operator creates a new query or successfully adopts an existing one.
+                  Set to false when adoption is rejected.
+                  When false, the finalizer will not delete the query from LogScale.
+                type: boolean
             type: object
         required:
         - spec
