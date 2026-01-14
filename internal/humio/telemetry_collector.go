@@ -829,7 +829,7 @@ func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioClust
 				Name:         hc.Name, // Main cluster service typically uses cluster name
 				Namespace:    hc.Namespace,
 				NodePoolName: hc.Name, // Use cluster name as "node pool name" for main service
-				Endpoint:     fmt.Sprintf("%s://%s.%s.svc.cluster.local:8080", protocol, hc.Name, hc.Namespace),
+				Endpoint:     fmt.Sprintf("%s://%s.%s:8080", protocol, hc.Name, hc.Namespace),
 			}
 			queryCapableServices = append(queryCapableServices, mainService)
 			ctrl.Log.Info("Added main cluster service for main cluster nodes",
@@ -864,7 +864,7 @@ func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioClust
 				Name:         serviceName,
 				Namespace:    hc.Namespace,
 				NodePoolName: nodePool.Name,
-				Endpoint:     fmt.Sprintf("%s://%s.%s.svc.cluster.local:8080", protocol, serviceName, hc.Namespace),
+				Endpoint:     fmt.Sprintf("%s://%s.%s:8080", protocol, serviceName, hc.Namespace),
 			}
 			queryCapableServices = append(queryCapableServices, service)
 			ctrl.Log.V(1).Info("Added query-capable service",
