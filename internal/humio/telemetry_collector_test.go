@@ -484,14 +484,18 @@ func TestQuerySettings(t *testing.T) {
 
 func TestDiscoverQueryCapableServices(t *testing.T) {
 	tests := []struct {
-		name          string
-		nodePools     []humiov1alpha1.HumioNodePoolSpec
-		expectedCount int
-		expectedNames []string
-		expectedError bool
+		name               string
+		mainNodeCount      int
+		mainClusterEnvVars []corev1.EnvVar
+		nodePools          []humiov1alpha1.HumioNodePoolSpec
+		expectedCount      int
+		expectedNames      []string
+		expectedError      bool
 	}{
 		{
-			name: "mixed node roles - filters correctly",
+			name:               "mixed node roles - filters correctly",
+			mainNodeCount:      0,
+			mainClusterEnvVars: nil,
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "all-pool",
@@ -526,7 +530,9 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "only ingest-only node pools",
+			name:               "only ingest-only node pools",
+			mainNodeCount:      0,
+			mainClusterEnvVars: nil,
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "ingest-pool-1",
@@ -570,14 +576,69 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name:          "no node pools defined - uses main cluster service",
-			nodePools:     []humiov1alpha1.HumioNodePoolSpec{},
-			expectedCount: 1,
+			name:               "no node pools defined - uses main cluster service",
+			mainNodeCount:      6, // Main cluster has nodes
+			mainClusterEnvVars: nil,
+			nodePools:          []humiov1alpha1.HumioNodePoolSpec{},
+			expectedCount:      1,
+			expectedNames:      []string{"test-cluster"},
+			expectedError:      false,
+		},
+		{
+			name:               "main cluster nodes with ingest-only node pools - includes main service",
+			mainNodeCount:      6, // Main cluster has nodes like your staging-1 cluster
+			mainClusterEnvVars: nil,
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "ingest-only",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            3,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectedCount: 1, // Only main cluster service (ingest-only pool filtered out)
 			expectedNames: []string{"test-cluster"},
 			expectedError: false,
 		},
 		{
-			name: "zero node count pools are skipped",
+			name:               "main cluster with NODE_ROLES=ingestonly - skipped",
+			mainNodeCount:      6,
+			mainClusterEnvVars: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "query-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            2,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
+					},
+				},
+			},
+			expectedCount: 1, // Only query pool service (main cluster filtered out)
+			expectedNames: []string{"test-cluster-query-pool"},
+			expectedError: false,
+		},
+		{
+			name:               "main cluster with NODE_ROLES=all - included",
+			mainNodeCount:      6,
+			mainClusterEnvVars: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
+			nodePools: []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "ingest-only",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount:            3,
+						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+					},
+				},
+			},
+			expectedCount: 1, // Only main cluster service (ingest-only pool filtered out)
+			expectedNames: []string{"test-cluster"},
+			expectedError: false,
+		},
+		{
+			name:               "zero node count pools are skipped",
+			mainNodeCount:      0,
+			mainClusterEnvVars: nil,
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "active-pool",
@@ -604,6 +665,10 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create test HumioCluster with the specified node pools
 			hc := createTestHumioCluster("test-cluster", "test-namespace")
+			hc.Spec.NodeCount = tt.mainNodeCount
+			if tt.mainClusterEnvVars != nil {
+				hc.Spec.EnvironmentVariables = tt.mainClusterEnvVars
+			}
 			hc.Spec.NodePools = tt.nodePools
 
 			// Create telemetry collector
@@ -916,4 +981,70 @@ func containsSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestIsQueryCapable(t *testing.T) {
+	tests := []struct {
+		name       string
+		envVars    []corev1.EnvVar
+		expected   bool
+		entityName string
+		entityType string
+	}{
+		{
+			name:       "no NODE_ROLES env var - defaults to query-capable",
+			envVars:    []corev1.EnvVar{},
+			expected:   true,
+			entityName: "test-entity",
+			entityType: "cluster",
+		},
+		{
+			name:       "NODE_ROLES=ingestonly - not query-capable",
+			envVars:    []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
+			expected:   false,
+			entityName: "test-entity",
+			entityType: "nodePool",
+		},
+		{
+			name:       "NODE_ROLES=httponly - query-capable",
+			envVars:    []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
+			expected:   true,
+			entityName: "test-entity",
+			entityType: "cluster",
+		},
+		{
+			name:       "NODE_ROLES=all - query-capable",
+			envVars:    []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
+			expected:   true,
+			entityName: "test-entity",
+			entityType: "nodePool",
+		},
+		{
+			name:       "NODE_ROLES=unknown - defaults to query-capable",
+			envVars:    []corev1.EnvVar{{Name: EnvNodeRoles, Value: "unknown"}},
+			expected:   true,
+			entityName: "test-entity",
+			entityType: "cluster",
+		},
+		{
+			name: "multiple env vars with NODE_ROLES=ingestonly",
+			envVars: []corev1.EnvVar{
+				{Name: "OTHER_VAR", Value: "other-value"},
+				{Name: EnvNodeRoles, Value: NodeRoleIngestOnly},
+				{Name: "ANOTHER_VAR", Value: "another-value"},
+			},
+			expected:   false,
+			entityName: "test-entity",
+			entityType: "nodePool",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isQueryCapable(tt.envVars, tt.entityName, tt.entityType)
+			if result != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
 }

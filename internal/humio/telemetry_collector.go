@@ -31,6 +31,7 @@ import (
 	"github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -769,6 +770,40 @@ type QueryCapableService struct {
 	Endpoint     string // Full endpoint URL for the service
 }
 
+// isQueryCapable checks if a set of environment variables indicates query capability
+// Returns true if NODE_ROLES is unset (default), "httponly", or "all"
+// Returns false if NODE_ROLES is "ingestonly"
+// entityName is used for logging (e.g., cluster name or node pool name)
+// entityType is used for logging (e.g., "cluster" or "nodePool")
+func isQueryCapable(envVars []corev1.EnvVar, entityName, entityType string) bool {
+	// Default to query-capable if no NODE_ROLES is specified
+	queryCapable := true
+
+	for _, envVar := range envVars {
+		if envVar.Name == EnvNodeRoles {
+			switch envVar.Value {
+			case NodeRoleIngestOnly:
+				queryCapable = false
+				ctrl.Log.V(1).Info("Entity is ingest-only, skipping",
+					entityType, entityName,
+					"nodeRoles", envVar.Value)
+			case NodeRoleHTTPOnly, NodeRoleAll:
+				queryCapable = true
+				ctrl.Log.V(1).Info("Entity is query-capable",
+					entityType, entityName,
+					"nodeRoles", envVar.Value)
+			default:
+				ctrl.Log.V(1).Info("Unknown NODE_ROLES value, assuming query-capable",
+					entityType, entityName,
+					"nodeRoles", envVar.Value)
+			}
+			break
+		}
+	}
+
+	return queryCapable
+}
+
 // discoverQueryCapableServices finds all services for node pools that can handle search queries
 // Filters out node pools with NODE_ROLES=ingestonly and includes httponly, all, or unspecified roles
 func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioCluster) ([]QueryCapableService, error) {
@@ -783,17 +818,29 @@ func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioClust
 
 	var queryCapableServices []QueryCapableService
 
-	// If no node pools are defined, fall back to the main cluster service
-	if len(hc.Spec.NodePools) == 0 {
-		mainService := QueryCapableService{
-			Name:         hc.Name, // Main cluster service typically uses cluster name
-			Namespace:    hc.Namespace,
-			NodePoolName: hc.Name, // Use cluster name as "node pool name" for main service
-			Endpoint:     fmt.Sprintf("https://%s.%s.svc.cluster.local:8080", hc.Name, hc.Namespace),
+	// Always check if main cluster has nodes and add main service if it does
+	if hc.Spec.NodeCount > 0 {
+		if isQueryCapable(hc.Spec.EnvironmentVariables, hc.Name, "cluster") {
+			protocol := "https"
+			if !h.getTLSEnabledForCluster(hc) {
+				protocol = "http"
+			}
+			mainService := QueryCapableService{
+				Name:         hc.Name, // Main cluster service typically uses cluster name
+				Namespace:    hc.Namespace,
+				NodePoolName: hc.Name, // Use cluster name as "node pool name" for main service
+				Endpoint:     fmt.Sprintf("%s://%s.%s.svc.cluster.local:8080", protocol, hc.Name, hc.Namespace),
+			}
+			queryCapableServices = append(queryCapableServices, mainService)
+			ctrl.Log.Info("Added main cluster service for main cluster nodes",
+				"service", mainService.Name,
+				"nodeCount", hc.Spec.NodeCount,
+				"endpoint", mainService.Endpoint)
 		}
-		queryCapableServices = append(queryCapableServices, mainService)
-		ctrl.Log.Info("No node pools defined, using main cluster service",
-			"service", mainService.Name)
+	}
+
+	// If no node pools are defined, we're done (main service already added above if needed)
+	if len(hc.Spec.NodePools) == 0 {
 		return queryCapableServices, nil
 	}
 
@@ -807,30 +854,7 @@ func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioClust
 		}
 
 		// Check NODE_ROLES environment variable
-		isQueryCapable := true // Default to query-capable if no NODE_ROLES is specified
-		for _, envVar := range nodePool.EnvironmentVariables {
-			if envVar.Name == EnvNodeRoles {
-				switch envVar.Value {
-				case NodeRoleIngestOnly:
-					isQueryCapable = false
-					ctrl.Log.V(1).Info("Node pool is ingest-only, skipping",
-						"nodePool", nodePool.Name,
-						"nodeRoles", envVar.Value)
-				case NodeRoleHTTPOnly, NodeRoleAll:
-					isQueryCapable = true
-					ctrl.Log.V(1).Info("Node pool is query-capable",
-						"nodePool", nodePool.Name,
-						"nodeRoles", envVar.Value)
-				default:
-					ctrl.Log.V(1).Info("Unknown NODE_ROLES value, assuming query-capable",
-						"nodePool", nodePool.Name,
-						"nodeRoles", envVar.Value)
-				}
-				break
-			}
-		}
-
-		if isQueryCapable {
+		if isQueryCapable(nodePool.EnvironmentVariables, nodePool.Name, "nodePool") {
 			serviceName := fmt.Sprintf("%s-%s", hc.Name, nodePool.Name)
 			protocol := "https"
 			if !h.getTLSEnabledForCluster(hc) {
