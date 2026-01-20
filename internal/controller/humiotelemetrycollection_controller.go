@@ -159,16 +159,24 @@ func (r *HumioTelemetryCollectionReconciler) Reconcile(ctx context.Context, req 
 
 	if len(collectionErrors) == 0 {
 		r.Log.Info("Telemetry collection completed successfully", "types", collectionTypes, "cluster", r.getClusterIdentifier(htc))
-		r.Recorder.Eventf(htc, corev1.EventTypeNormal, "TelemetryCollected",
-			"Successfully collected telemetry data for types: %v (cluster: %s) %s",
-			collectionTypes, r.getClusterIdentifier(htc), sourceInfo)
+
+		// Count successful collections for the event message
+		successfulCollections := r.determineSuccessfulCollections(collectionTypes, collectionErrors, payloads)
+
+		r.Recorder.Eventf(htc, corev1.EventTypeNormal, "TelemetryCollectionSucceeded",
+			"Successfully collected %d telemetry types: %v (cluster: %s) %s",
+			len(successfulCollections), successfulCollections, r.getClusterIdentifier(htc), sourceInfo)
 		return r.updateStatusWithDetails(ctx, htc, humiov1alpha1.HumioTelemetryCollectionStateEnabled, collectionStatus, pushResults)
 	} else {
 		r.Log.Error(fmt.Errorf("telemetry collection failed"), "Telemetry collection completed with errors", "types", collectionTypes, "error_count", len(collectionErrors))
 		failedTypes := r.getFailedTypesFromErrors(collectionErrors, collectionTypes)
+
+		// Create detailed error summary for the event
+		errorSummary := r.buildErrorSummaryForEvent(collectionErrors, 200) // Limit message length for events
+
 		r.Recorder.Eventf(htc, corev1.EventTypeWarning, "TelemetryCollectionFailed",
-			"Telemetry collection failed with %d errors for types: %v",
-			len(collectionErrors), failedTypes)
+			"Telemetry collection failed with %d errors for types: %v. Errors: %s",
+			len(collectionErrors), failedTypes, errorSummary)
 		return r.updateStatusWithDetails(ctx, htc, humiov1alpha1.HumioTelemetryCollectionStateEnabled, collectionStatus, pushResults)
 	}
 }
@@ -509,27 +517,22 @@ func (r *HumioTelemetryCollectionReconciler) determineSuccessfulCollections(requ
 		}
 	}
 
-	// For data types that were requested but not found in payloads, check if they had errors
+	// Determine successful collections and failed types more efficiently
+	var successful []string
 	failedTypes := make(map[string]bool)
+
+	// First pass: identify successful collections (those with payloads)
 	for _, dataType := range requestedTypes {
-		if !successfulTypes[dataType] {
-			// Data type not in payloads, check if there were errors mentioning it
+		if successfulTypes[dataType] {
+			successful = append(successful, dataType)
+		} else {
+			// Data type not in payloads, check if there were specific errors for this data type
 			for _, err := range collectionErrors {
-				if strings.Contains(err.Message, dataType) ||
-					strings.Contains(strings.ToLower(err.Message), strings.ToLower(dataType)) ||
-					(dataType == "ingestion_metrics" && strings.Contains(err.Message, "Ingestion metrics")) {
+				if r.errorBelongsToDataType(err, dataType) {
 					failedTypes[dataType] = true
 					break
 				}
 			}
-		}
-	}
-
-	// Return data types that either have payloads OR were requested but have no specific errors
-	var successful []string
-	for _, dataType := range requestedTypes {
-		if successfulTypes[dataType] || !failedTypes[dataType] {
-			successful = append(successful, dataType)
 		}
 	}
 
@@ -615,9 +618,71 @@ func (r *HumioTelemetryCollectionReconciler) getFailedTypesFromErrors(errors []h
 }
 
 func (r *HumioTelemetryCollectionReconciler) errorBelongsToDataType(err humiov1alpha1.HumioTelemetryCollectionError, dataType string) bool {
-	return strings.Contains(err.Message, dataType) ||
-		strings.Contains(strings.ToLower(err.Message), strings.ToLower(dataType)) ||
-		(dataType == "ingestion_metrics" && strings.Contains(err.Message, "Ingestion metrics"))
+	// If the error has a specific DataType field set, use that for exact matching
+	if err.DataType != "" {
+		return err.DataType == dataType
+	}
+
+	// Check for common patterns: "Failed to collect [datatype]" or "[datatype]" in message
+	lowerMessage := strings.ToLower(err.Message)
+	lowerDataType := strings.ToLower(dataType)
+
+	// Handle underscore vs space variations (e.g., "user_activity" vs "user activity")
+	dataTypeWithSpaces := strings.ReplaceAll(lowerDataType, "_", " ")
+
+	// Special case for ingestion_metrics: it also fails when organizational usage data is unavailable
+	if dataType == "ingestion_metrics" && strings.Contains(lowerMessage, "organizational usage") {
+		return true
+	}
+
+	return strings.Contains(lowerMessage, lowerDataType) ||
+		strings.Contains(lowerMessage, dataTypeWithSpaces) ||
+		strings.Contains(lowerMessage, "failed to collect "+lowerDataType) ||
+		strings.Contains(lowerMessage, "failed to collect "+dataTypeWithSpaces)
+}
+
+// buildErrorSummaryForEvent creates a concise error summary for Kubernetes events
+func (r *HumioTelemetryCollectionReconciler) buildErrorSummaryForEvent(errors []humiov1alpha1.HumioTelemetryCollectionError, maxLength int) string {
+	if len(errors) == 0 {
+		return "No specific errors available"
+	}
+
+	summaries := make([]string, 0, len(errors))
+	remainingLength := maxLength
+
+	for i, err := range errors {
+		// Create a short summary for this error
+		var summary string
+		if err.DataType != "" {
+			summary = fmt.Sprintf("(%s) %s: %s", err.Type, err.DataType, err.Message)
+		} else {
+			summary = fmt.Sprintf("(%s) %s", err.Type, err.Message)
+		}
+
+		// If this summary would exceed our length limit, truncate it
+		if len(summary) > remainingLength {
+			if remainingLength > 20 {
+				summary = summary[:remainingLength-3] + "..."
+			} else {
+				// If we can't fit even a truncated version, show count of remaining errors
+				if i < len(errors) {
+					summaries = append(summaries, fmt.Sprintf("... and %d more", len(errors)-i))
+				}
+				break
+			}
+		}
+
+		summaries = append(summaries, summary)
+		remainingLength -= len(summary) + 2 // +2 for "; " separator
+
+		// If we're running low on space, add remaining count and stop
+		if remainingLength < 20 && i < len(errors)-1 {
+			summaries = append(summaries, fmt.Sprintf("... and %d more", len(errors)-i-1))
+			break
+		}
+	}
+
+	return strings.Join(summaries, "; ")
 }
 
 func (r *HumioTelemetryCollectionReconciler) contains(slice []string, item string) bool {

@@ -3060,11 +3060,11 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, apiClient *
 	return payloads, sourceInfo, nil
 }
 
-func (h *MockClientConfig) CollectIngestionMetrics(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryIngestionMetrics, error) {
+func (h *MockClientConfig) CollectIngestionMetrics(ctx context.Context, client *humioapi.Client, settings QuerySettings) ([]*TelemetryIngestionMetrics, error) {
 	now := time.Now()
-	startTime := now.Add(-30 * 24 * time.Hour)
+	startTime := now.Add(-30 * 24 * time.Hour) // Changed back to 30 days to match actual implementation
 
-	return &TelemetryIngestionMetrics{
+	return []*TelemetryIngestionMetrics{{
 		TimeRange: struct {
 			Start time.Time `json:"start"`
 			End   time.Time `json:"end"`
@@ -3096,7 +3096,7 @@ func (h *MockClientConfig) CollectIngestionMetrics(ctx context.Context, client *
 			EventCount:     45000000,
 			TrendDirection: "increasing",
 		},
-	}, nil
+	}}, nil
 }
 
 func (h *MockClientConfig) CollectRepositoryUsage(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryRepositoryUsageMetrics, error) {
@@ -3130,7 +3130,7 @@ func (h *MockClientConfig) CollectRepositoryUsage(ctx context.Context, client *h
 
 func (h *MockClientConfig) CollectUserActivity(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryUserActivityMetrics, error) {
 	now := time.Now()
-	startTime := now.Add(-30 * 24 * time.Hour)
+	startTime := now.Add(-30 * 24 * time.Hour) // Changed back to 30 days
 
 	return &TelemetryUserActivityMetrics{
 		TimeRange: struct {

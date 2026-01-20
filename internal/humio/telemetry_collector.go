@@ -21,9 +21,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,6 +35,89 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// Helper functions for robust type conversion in telemetry parsing
+
+// extractTypedValue safely extracts values from interface{} with type conversion
+// This consolidated helper reduces code duplication across type conversions
+func extractTypedValue(value interface{}) (float64, string) {
+	if value == nil {
+		return 0.0, ""
+	}
+
+	switch v := value.(type) {
+	case string:
+		// Try to parse as float for numeric operations, preserve string for precision
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			return parsed, v // Return both parsed float and original string
+		}
+		return 0.0, v
+	case json.Number:
+		// json.Number preserves exact string representation - perfect for precision
+		floatVal, _ := v.Float64()
+		return floatVal, string(v)
+	case float64:
+		// Format to preserve precision but avoid scientific notation if possible
+		if v == 0 {
+			return v, "0"
+		}
+		if v == float64(int64(v)) {
+			return v, fmt.Sprintf("%.0f", v)
+		}
+		return v, fmt.Sprintf("%g", v)
+	case float32:
+		floatVal := float64(v)
+		if v == 0 {
+			return floatVal, "0"
+		}
+		if v == float32(int32(v)) {
+			return floatVal, fmt.Sprintf("%.0f", v)
+		}
+		return floatVal, fmt.Sprintf("%g", v)
+	case int:
+		return float64(v), fmt.Sprintf("%d", v)
+	case int32:
+		return float64(v), fmt.Sprintf("%d", v)
+	case int64:
+		return float64(v), fmt.Sprintf("%d", v)
+	case uint:
+		return float64(v), fmt.Sprintf("%d", v)
+	case uint32:
+		return float64(v), fmt.Sprintf("%d", v)
+	case uint64:
+		return float64(v), fmt.Sprintf("%d", v)
+	default:
+		return 0.0, ""
+	}
+}
+
+// extractFloat64Value safely extracts a float64 value from various interface types
+// Returns 0.0 if conversion fails or value is nil
+func extractFloat64Value(value interface{}) float64 {
+	floatVal, _ := extractTypedValue(value)
+	return floatVal
+}
+
+// extractStringValue safely extracts a string value from interface, preserving numeric precision
+// Returns empty string if value is nil
+func extractStringValue(value interface{}) string {
+	_, stringVal := extractTypedValue(value)
+	return stringVal
+}
+
+// extractJSONFieldsAsStrings extracts multiple JSON fields as strings for precision
+func extractJSONFieldsAsStrings(queryResult map[string]interface{}, keys ...string) map[string]string {
+	result := make(map[string]string, len(keys))
+	for _, key := range keys {
+		result[key] = extractStringValue(queryResult[key])
+	}
+	return result
+}
+
+// extractJSONFieldAsFloat64 extracts a single JSON field as float64
+func extractJSONFieldAsFloat64(queryResult map[string]interface{}, key string) float64 {
+	return extractFloat64Value(queryResult[key])
+}
 
 // Node role constants
 const (
@@ -263,11 +346,12 @@ func (h *ClientConfig) CollectTelemetryData(ctx context.Context, client *api.Cli
 
 	// Collect data for each requested data type
 	for _, dataType := range dataTypes {
-		if dataType == "repository_usage" {
+		switch dataType {
+		case TelemetryCollectionTypeRepositoryUsage:
 			// Handle repository usage specially since it returns multiple flattened payloads
-			ctrl.Log.Info("Starting repository_usage collection",
+			ctrl.Log.Info("Starting repository usage collection",
 				"cluster_id", clusterID,
-				"collection_type", "repository_usage")
+				"collection_type", TelemetryCollectionTypeRepositoryUsage)
 
 			repositoryUsage, err := h.CollectRepositoryUsage(ctx, actualClient, DefaultQuerySettings)
 			if err != nil {
@@ -287,7 +371,55 @@ func (h *ClientConfig) CollectTelemetryData(ctx context.Context, client *api.Cli
 				flattenedPayloads := h.FlattenRepositoryUsageData(timestamp, clusterID, repositoryID, repositoryUsage, []TelemetryError{})
 				payloads = append(payloads, flattenedPayloads...)
 			}
-		} else {
+		case TelemetryCollectionTypeIngestionMetrics:
+			// Handle ingestion metrics specially since it returns multiple flattened payloads (one per organization)
+			ctrl.Log.Info("Starting ingestion metrics collection",
+				"cluster_id", clusterID,
+				"collection_type", TelemetryCollectionTypeIngestionMetrics)
+
+			// Check if organizational usage data is available (required for ingestion metrics)
+			usageAvailable, err := h.checkUsageDataAvailability(ctx, actualClient)
+			if err != nil {
+				ctrl.Log.Error(err, "Failed to check organizational usage data availability for ingestion metrics",
+					"cluster_id", clusterID)
+				allErrors = append(allErrors, TelemetryError{
+					Type:      TelemetryErrorTypeCollection,
+					Message:   fmt.Sprintf("Cannot check organizational usage data availability for ingestion metrics: %v", err),
+					Timestamp: timestamp,
+				})
+			} else if !usageAvailable {
+				ctrl.Log.Info("Organizational usage data not available - skipping ingestion metrics collection",
+					"cluster_id", clusterID,
+					"message", "LogScale organizational usage job is required for ingestion metrics but no data found in last 24h")
+				allErrors = append(allErrors, TelemetryError{
+					Type:      TelemetryErrorTypeCollection,
+					Message:   "Ingestion metrics require LogScale organizational usage data but none found in last 24 hours. Please ensure the organizational usage job is configured and running.",
+					Timestamp: timestamp,
+				})
+			} else {
+				// Usage data is available, proceed with ingestion metrics collection
+				// Use extended timeout for ingestion metrics as it can be a complex query
+				ingestionQuerySettings := DefaultQuerySettings.WithTimeout(10 * time.Minute)
+				ingestionMetrics, err := h.CollectIngestionMetrics(ctx, actualClient, ingestionQuerySettings)
+				if err != nil {
+					ctrl.Log.Error(err, "Failed to collect ingestion metrics",
+						"cluster_id", clusterID)
+					allErrors = append(allErrors, TelemetryError{
+						Type:      TelemetryErrorTypeCollection,
+						Message:   fmt.Sprintf("Failed to collect ingestion metrics: %v", err),
+						Timestamp: timestamp,
+					})
+				} else {
+					ctrl.Log.Info("Successfully collected ingestion metrics",
+						"cluster_id", clusterID,
+						"total_organizations", len(ingestionMetrics))
+
+					// Flatten ingestion metrics into multiple separate events (one per organization)
+					flattenedPayloads := h.FlattenIngestionMetricsData(timestamp, clusterID, repositoryID, ingestionMetrics, []TelemetryError{})
+					payloads = append(payloads, flattenedPayloads...)
+				}
+			}
+		default:
 			payload, errors := h.collectSingleDataType(ctx, dataType, actualClient, k8sClient, hc, timestamp, clusterID, repositoryID)
 			if payload != nil {
 				payloads = append(payloads, *payload)
@@ -362,7 +494,7 @@ func (h *ClientConfig) validateSearchCapabilities(ctx context.Context, actualCli
 		return fmt.Errorf("LogScale cluster does not support search execution required for telemetry collection: %w", err)
 	}
 	if !searchSupported {
-		return fmt.Errorf("LogScale cluster search capability check failed - search execution is required for advanced telemetry data types (ingestion_metrics, repository_usage, user_activity, detailed_analytics)")
+		return fmt.Errorf("LogScale cluster search capability check failed - search execution is required for advanced telemetry data types (%s, %s, %s, %s)", TelemetryCollectionTypeIngestionMetrics, TelemetryCollectionTypeRepositoryUsage, TelemetryCollectionTypeUserActivity, TelemetryCollectionTypeDetailedAnalytics)
 	}
 	return nil
 }
@@ -373,15 +505,13 @@ func (h *ClientConfig) collectSingleDataType(ctx context.Context, dataType strin
 	var collectionErrors []TelemetryError
 
 	switch dataType {
-	case "license":
+	case TelemetryCollectionTypeLicense:
 		payload, collectionErrors = h.collectLicenseData(ctx, actualClient, k8sClient, hc, timestamp, clusterID, repositoryID)
-	case "cluster_info":
+	case TelemetryCollectionTypeClusterInfo:
 		payload, collectionErrors = h.collectClusterInfoData(ctx, actualClient, timestamp, clusterID, repositoryID)
-	case "ingestion_metrics":
-		payload, collectionErrors = h.collectIngestionMetricsData(ctx, actualClient, timestamp, clusterID, repositoryID)
-	case "user_activity":
+	case TelemetryCollectionTypeUserActivity:
 		payload, collectionErrors = h.collectUserActivityData(ctx, actualClient, timestamp, clusterID, repositoryID)
-	case "detailed_analytics":
+	case TelemetryCollectionTypeDetailedAnalytics:
 		payload, collectionErrors = h.collectDetailedAnalyticsData(ctx, actualClient, timestamp, clusterID, repositoryID)
 	default:
 		collectionErrors = append(collectionErrors, TelemetryError{
@@ -446,74 +576,13 @@ func (h *ClientConfig) collectClusterInfoData(ctx context.Context, actualClient 
 	return payload, collectionErrors
 }
 
-// collectIngestionMetricsData collects ingestion metrics telemetry data
-func (h *ClientConfig) collectIngestionMetricsData(ctx context.Context, actualClient *api.Client, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
-	var collectionErrors []TelemetryError
-
-	ctrl.Log.Info("Starting ingestion_metrics collection",
-		"cluster_id", clusterID,
-		"collection_type", "ingestion_metrics")
-
-	// Check if organizational usage data is available (required for ingestion metrics)
-	usageAvailable, err := h.checkUsageDataAvailability(ctx, actualClient)
-	if err != nil {
-		ctrl.Log.Error(err, "Failed to check organizational usage data availability for ingestion metrics",
-			"cluster_id", clusterID)
-		collectionErrors = append(collectionErrors, TelemetryError{
-			Type:      TelemetryErrorTypeCollection,
-			Message:   fmt.Sprintf("Cannot check organizational usage data availability for ingestion metrics: %v", err),
-			Timestamp: timestamp,
-		})
-		return nil, collectionErrors
-	} else if !usageAvailable {
-		ctrl.Log.Info("Organizational usage data not available - skipping ingestion metrics collection",
-			"cluster_id", clusterID,
-			"message", "LogScale organizational usage job is required for ingestion metrics but no data found in last 24h")
-		collectionErrors = append(collectionErrors, TelemetryError{
-			Type:      TelemetryErrorTypeCollection,
-			Message:   "Ingestion metrics require LogScale organizational usage data but none found in last 24 hours. Please ensure the organizational usage job is configured and running.",
-			Timestamp: timestamp,
-		})
-		return nil, collectionErrors
-	}
-
-	// Usage data is available, proceed with ingestion metrics collection
-	ingestionMetrics, err := h.CollectIngestionMetrics(ctx, actualClient, DefaultQuerySettings)
-	if err != nil {
-		ctrl.Log.Error(err, "Failed to collect ingestion metrics",
-			"cluster_id", clusterID)
-		collectionErrors = append(collectionErrors, TelemetryError{
-			Type:      TelemetryErrorTypeCollection,
-			Message:   fmt.Sprintf("Failed to collect ingestion metrics: %v", err),
-			Timestamp: timestamp,
-		})
-		return nil, collectionErrors
-	}
-
-	ctrl.Log.Info("Successfully collected ingestion metrics",
-		"cluster_id", clusterID,
-		"daily_volume_gb", ingestionMetrics.Daily.IngestVolumeGB,
-		"daily_events", ingestionMetrics.Daily.EventCount)
-
-	payload := &TelemetryPayload{
-		Timestamp:        timestamp,
-		ClusterID:        clusterID,
-		ClusterGUID:      repositoryID,
-		CollectionType:   TelemetryCollectionTypeIngestionMetrics,
-		SourceType:       TelemetrySourceTypeJSON,
-		Data:             ingestionMetrics,
-		CollectionErrors: collectionErrors,
-	}
-	return payload, collectionErrors
-}
-
 // collectUserActivityData collects user activity telemetry data
 func (h *ClientConfig) collectUserActivityData(ctx context.Context, actualClient *api.Client, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
 	var collectionErrors []TelemetryError
 
-	ctrl.Log.Info("Starting user_activity collection",
+	ctrl.Log.Info("Starting user activity collection",
 		"cluster_id", clusterID,
-		"collection_type", "user_activity")
+		"collection_type", TelemetryCollectionTypeUserActivity)
 
 	userActivity, err := h.CollectUserActivity(ctx, actualClient, DefaultQuerySettings)
 	if err != nil {
@@ -548,9 +617,9 @@ func (h *ClientConfig) collectUserActivityData(ctx context.Context, actualClient
 func (h *ClientConfig) collectDetailedAnalyticsData(ctx context.Context, actualClient *api.Client, timestamp time.Time, clusterID string, repositoryID string) (*TelemetryPayload, []TelemetryError) {
 	var collectionErrors []TelemetryError
 
-	ctrl.Log.Info("Starting detailed_analytics collection",
+	ctrl.Log.Info("Starting detailed analytics collection",
 		"cluster_id", clusterID,
-		"collection_type", "detailed_analytics")
+		"collection_type", TelemetryCollectionTypeDetailedAnalytics)
 
 	detailedAnalytics, err := h.CollectDetailedAnalytics(ctx, actualClient, DefaultQuerySettings)
 	if err != nil {
@@ -751,15 +820,6 @@ age := (currentTime - @timestamp) |
 writeJson([orgId, orgName, averageDailyIngestLast30Days, contractedDailyIngestBase10, contractedDailyIngest, subscription, storageSize, falconStorageSize, contractedRetention,cloud,processedEventsSize,removedFieldsSize,ingestAfterFieldRemovalSize,falconSegmentWriteBytes,falconIngestAfterFieldRemovalSize,measurementPoint,cid], as=rawstring) |
 timestamp := formatTime("%Y-%m-%dT%H:%M:%SZ",field=currentTime, timezone=Z) |
 table([timestamp, rawstring], limit=7500)`
-
-	// RepositoryUsageQuery is a placeholder for repository usage metrics
-	RepositoryUsageQuery = `| head(10) | table([@timestamp, @rawstring])`
-
-	// UserActivityQuery is a placeholder for user activity metrics
-	UserActivityQuery = `| head(10) | table([@timestamp, @rawstring])`
-
-	// DetailedAnalyticsQuery is a placeholder for detailed analytics
-	DetailedAnalyticsQuery = `| head(10) | table([@timestamp, @rawstring])`
 )
 
 // QueryCapableService represents a service for a node pool that can handle search queries
@@ -912,9 +972,12 @@ func (h *ClientConfig) createServiceSpecificClient(service QueryCapableService, 
 		Insecure:  !h.getTLSEnabledForCluster(hc),
 	}
 
-	// Copy authentication token from the existing client
+	// Copy configuration from the existing client to preserve CA certificates and other settings
 	if existingClient != nil {
-		config.Token = existingClient.Token()
+		existingConfig := existingClient.Config()
+		config.Token = existingConfig.Token
+		config.CACertificatePEM = existingConfig.CACertificatePEM
+		config.DialContext = existingConfig.DialContext
 	}
 
 	// Create the API client with the service-specific configuration
@@ -1089,20 +1152,35 @@ func (h *ClientConfig) checkUsageDataAvailability(ctx context.Context, client *a
 	// Check the count result - if it's 0, no organizational data is available
 	if len(result.Events) > 0 {
 		if countValue, exists := result.Events[0]["_count"]; exists {
-			if count, ok := countValue.(float64); ok && count == 0 {
+			// Use robust type conversion helper
+			count := extractFloat64Value(countValue)
+
+			if count == 0 {
 				ctrl.Log.Info("Organizational usage count is zero in last 24 hours",
 					"repository", "humio-usage",
 					"count", count,
 					"message", "LogScale organizational usage job is not generating data")
 				return false, nil
 			}
-			if count, ok := countValue.(float64); ok && count > 0 {
+			if count > 0 {
 				ctrl.Log.Info("Organizational usage data confirmed available",
 					"repository", "humio-usage",
 					"count", count,
 					"timeframe", "last 24 hours")
 				return true, nil
 			}
+		} else {
+			ctrl.Log.Info("No _count field found in organizational usage query result",
+				"repository", "humio-usage",
+				"available_fields", func() []string {
+					var fields []string
+					if len(result.Events) > 0 {
+						for key := range result.Events[0] {
+							fields = append(fields, key)
+						}
+					}
+					return fields
+				}())
 		}
 	}
 
@@ -1115,7 +1193,8 @@ func (h *ClientConfig) checkUsageDataAvailability(ctx context.Context, client *a
 }
 
 // CollectIngestionMetrics collects ingestion volume and event metrics via search queries
-func (h *ClientConfig) CollectIngestionMetrics(ctx context.Context, client *api.Client, settings QuerySettings) (*TelemetryIngestionMetrics, error) {
+// Returns multiple organization results that need to be flattened into separate events
+func (h *ClientConfig) CollectIngestionMetrics(ctx context.Context, client *api.Client, settings QuerySettings) ([]*TelemetryIngestionMetrics, error) {
 	// Calculate time ranges based on settings (for result structure, not query)
 	endTime := time.Now()
 	startTime := endTime.Add(-30 * 24 * time.Hour) // 30 days back
@@ -1128,29 +1207,127 @@ func (h *ClientConfig) CollectIngestionMetrics(ctx context.Context, client *api.
 	}
 
 	// Execute the search with timeout
-	result, err := client.ExecuteLogScaleSearchWithTimeout(ctx, "humio", query, settings.MaxExecutionTime)
+	ctrl.Log.Info("Executing ingestion metrics query",
+		"query", query.QueryString,
+		"start", query.Start,
+		"repository", "humio-usage",
+		"timeout", settings.MaxExecutionTime)
+
+	result, err := client.ExecuteLogScaleSearchWithTimeout(ctx, "humio-usage", query, settings.MaxExecutionTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute ingestion metrics query: %w", err)
 	}
 
-	// Parse the result and create metrics
-	metrics := &TelemetryIngestionMetrics{
-		TimeRange: struct {
-			Start time.Time `json:"start"`
-			End   time.Time `json:"end"`
-		}{Start: startTime, End: endTime},
-		RawQueryResult: SanitizeTimestamps(result),
-	}
+	var allMetrics []*TelemetryIngestionMetrics
 
-	// Extract metrics from query results
-	if len(result.Events) > 0 {
-		// Parse the JSON result from the LogScale query
-		if rawString, ok := result.Events[0]["rawstring"].(string); ok {
+	// Log query execution details for debugging
+	ctrl.Log.Info("Ingestion metrics query executed",
+		"repository", "humio-usage",
+		"total_events", len(result.Events),
+		"query_done", result.Done,
+		"query_cancelled", result.Cancelled,
+		"metadata_event_count", result.Metadata.EventCount,
+		"metadata_processed_events", result.Metadata.ProcessedEvents)
+
+	// Extract metrics from query results - process all events (one per organization)
+	for i, event := range result.Events {
+		if rawString, ok := event["rawstring"].(string); ok {
+			// Create metrics for this organization
+			metrics := &TelemetryIngestionMetrics{
+				TimeRange: struct {
+					Start time.Time `json:"start"`
+					End   time.Time `json:"end"`
+				}{Start: startTime, End: endTime},
+				RawQueryResult: SanitizeTimestamps(result),
+			}
+
+			// Parse this organization's metrics
 			h.parseIngestionMetricsResult(rawString, metrics)
+
+			// Only add if we successfully parsed organization info
+			if metrics.OrgID != "" {
+				allMetrics = append(allMetrics, metrics)
+			} else {
+				ctrl.Log.Info("Skipping organization with empty OrgID",
+					"event_index", i,
+					"rawstring_preview", func() string {
+						if len(rawString) > 200 {
+							return rawString[:200] + "..."
+						}
+						return rawString
+					}())
+			}
+		} else {
+			ctrl.Log.Info("Skipping ingestion metrics event without rawstring field",
+				"event_index", i,
+				"available_fields", func() []string {
+					var fields []string
+					for key := range event {
+						fields = append(fields, key)
+					}
+					return fields
+				}())
 		}
 	}
 
-	return metrics, nil
+	return allMetrics, nil
+}
+
+// FlattenIngestionMetricsData converts ingestion metrics data into multiple separate events
+// instead of sending arrays. Each organization becomes its own event with flattened fields.
+func (h *ClientConfig) FlattenIngestionMetricsData(timestamp time.Time, clusterID string, repositoryID string, ingestionMetrics []*TelemetryIngestionMetrics, collectionErrors []TelemetryError) []TelemetryPayload {
+	// Pre-allocate slice with estimated capacity for organizations
+	estimatedCapacity := len(ingestionMetrics)
+	payloads := make([]TelemetryPayload, 0, estimatedCapacity)
+
+	// Create individual events for each organization
+	for _, orgMetrics := range ingestionMetrics {
+		orgData := map[string]interface{}{
+			"org_id":                                 orgMetrics.OrgID,
+			"org_name":                               orgMetrics.OrgName,
+			"subscription":                           orgMetrics.Subscription,
+			"average_daily_ingest_last_30_days":      orgMetrics.AverageDailyIngestLast30Days,
+			"processed_events_size":                  orgMetrics.ProcessedEventsSize,
+			"removed_fields_size":                    orgMetrics.RemovedFieldsSize,
+			"ingest_after_field_removal_size":        orgMetrics.IngestAfterFieldRemovalSize,
+			"falcon_segment_write_bytes":             orgMetrics.FalconSegmentWriteBytes,
+			"falcon_ingest_after_field_removal_size": orgMetrics.FalconIngestAfterFieldRemovalSize,
+			"contracted_daily_ingest_base10":         orgMetrics.ContractedDailyIngestBase10,
+			"contracted_daily_ingest":                orgMetrics.ContractedDailyIngest,
+			"contracted_retention":                   orgMetrics.ContractedRetention,
+			"storage_size":                           orgMetrics.StorageSize,
+			"falcon_storage_size":                    orgMetrics.FalconStorageSize,
+			"cloud":                                  orgMetrics.Cloud,
+			"measurement_point":                      orgMetrics.MeasurementPoint,
+			"cid":                                    orgMetrics.CID,
+			"event_type":                             TelemetryCollectionTypeIngestionMetrics,
+		}
+
+		// Add error tracking to organization data
+		if len(collectionErrors) > 0 {
+			orgData["collector_errors"] = true
+			errorMessages := make([]string, len(collectionErrors))
+			for i, err := range collectionErrors {
+				errorMessages[i] = err.Message
+			}
+			orgData["collector_error_messages"] = errorMessages
+		} else {
+			orgData["collector_errors"] = false
+		}
+
+		orgPayload := TelemetryPayload{
+			Timestamp:        timestamp,
+			ClusterID:        clusterID,    // This is the user-provided clusterIdentifier
+			ClusterGUID:      repositoryID, // This is the LogScale repository ID
+			CollectionType:   TelemetryCollectionTypeIngestionMetrics,
+			SourceType:       TelemetrySourceTypeJSON,
+			Data:             orgData,
+			CollectionErrors: collectionErrors,
+		}
+		payloads = append(payloads, orgPayload)
+	}
+
+	return payloads
 }
 
 // parseIngestionMetricsResult parses the JSON result from LogScale query into metrics
@@ -1159,94 +1336,53 @@ func (h *ClientConfig) parseIngestionMetricsResult(rawString string, metrics *Te
 	// The query returns JSON like:
 	// {"orgId":"SINGLE_ORGANIZATION_ID","orgName":"Organization Name","averageDailyIngestLast30Days":5.226325372986667E11,...}
 
-	// Try to parse the JSON result
+	// Try to parse the JSON result using json.Number to preserve numeric precision
 	var queryResult map[string]interface{}
-	if err := json.Unmarshal([]byte(rawString), &queryResult); err == nil {
-		// Successfully parsed JSON - extract all metrics fields
+	decoder := json.NewDecoder(strings.NewReader(rawString))
+	decoder.UseNumber() // Preserve exact numeric precision
+	if err := decoder.Decode(&queryResult); err == nil {
+		// Extract string fields in batches for efficiency
+		stringFields := extractJSONFieldsAsStrings(queryResult,
+			"orgId", "orgName", "subscription", "contractedDailyIngestBase10",
+			"contractedDailyIngest", "cloud", "storageSize", "falconStorageSize",
+			"averageDailyIngestLast30Days", "processedEventsSize", "removedFieldsSize",
+			"ingestAfterFieldRemovalSize", "falconSegmentWriteBytes", "falconIngestAfterFieldRemovalSize",
+			"measurementPoint", "cid")
 
-		// Organization identification
-		if orgID, ok := queryResult["orgId"].(string); ok {
-			metrics.OrgID = orgID
-		}
-		if orgName, ok := queryResult["orgName"].(string); ok {
-			metrics.OrgName = orgName
-		}
+		// Extract the single float field
+		contractedRetention := extractJSONFieldAsFloat64(queryResult, "contractedRetention")
 
-		// Contract and subscription information
-		if subscription, ok := queryResult["subscription"].(string); ok {
-			metrics.Subscription = subscription
-		}
-		if contractedBase10, ok := queryResult["contractedDailyIngestBase10"].(float64); ok {
-			metrics.ContractedDailyIngestBase10 = contractedBase10 / (1024 * 1024 * 1024) // Convert to GB
-		}
-		if contracted, ok := queryResult["contractedDailyIngest"].(float64); ok {
-			metrics.ContractedDailyIngest = contracted / (1024 * 1024 * 1024) // Convert to GB
-		}
-		if retention, ok := queryResult["contractedRetention"].(float64); ok {
-			metrics.ContractedRetention = retention
-		}
-		if cloud, ok := queryResult["cloud"].(string); ok {
-			metrics.Cloud = cloud
-		}
-
-		// Storage metrics
-		if storageSize, ok := queryResult["storageSize"].(float64); ok {
-			metrics.StorageSize = storageSize / (1024 * 1024 * 1024) // Convert to GB
-		}
-		if falconStorage, ok := queryResult["falconStorageSize"].(float64); ok {
-			metrics.FalconStorageSize = falconStorage / (1024 * 1024 * 1024) // Convert to GB
-		}
-
-		// Ingestion metrics (already in daily averages from query)
-		if avgDaily, ok := queryResult["averageDailyIngestLast30Days"].(float64); ok {
-			dailyIngestGB := avgDaily / (1024 * 1024 * 1024) // Convert to GB
-			metrics.AverageDailyIngestLast30Days = dailyIngestGB
-
-			// Update legacy daily/weekly/monthly fields for backward compatibility
-			metrics.Daily.IngestVolumeGB = dailyIngestGB
-			metrics.Weekly.IngestVolumeGB = dailyIngestGB * 7
-			metrics.Monthly.IngestVolumeGB = dailyIngestGB * 30
-		}
-
-		if processedEvents, ok := queryResult["processedEventsSize"].(float64); ok {
-			metrics.ProcessedEventsSize = processedEvents / (1024 * 1024 * 1024) // Convert to GB
-			// Update legacy fields
-			metrics.Daily.EventCount = int64(processedEvents)
-			metrics.Weekly.EventCount = int64(processedEvents * 7)
-			metrics.Monthly.EventCount = int64(processedEvents * 30)
-		}
-
-		if removedFields, ok := queryResult["removedFieldsSize"].(float64); ok {
-			metrics.RemovedFieldsSize = removedFields / (1024 * 1024 * 1024) // Convert to GB
-		}
-
-		if ingestAfterRemoval, ok := queryResult["ingestAfterFieldRemovalSize"].(float64); ok {
-			metrics.IngestAfterFieldRemovalSize = ingestAfterRemoval / (1024 * 1024 * 1024) // Convert to GB
-		}
-
-		if falconSegment, ok := queryResult["falconSegmentWriteBytes"].(float64); ok {
-			metrics.FalconSegmentWriteBytes = falconSegment / (1024 * 1024 * 1024) // Convert to GB
-		}
-
-		if falconIngest, ok := queryResult["falconIngestAfterFieldRemovalSize"].(float64); ok {
-			metrics.FalconIngestAfterFieldRemovalSize = falconIngest / (1024 * 1024 * 1024) // Convert to GB
-		}
-
-		// Measurement metadata
-		if measurementPoint, ok := queryResult["measurementPoint"].(string); ok {
-			metrics.MeasurementPoint = measurementPoint
-		}
-		if cid, ok := queryResult["cid"].(string); ok {
-			metrics.CID = cid
-		}
-
-		// Calculate average event size if we have both metrics (legacy compatibility)
-		if metrics.Daily.IngestVolumeGB > 0 && metrics.Daily.EventCount > 0 {
-			totalBytes := metrics.Daily.IngestVolumeGB * 1024 * 1024 * 1024
-			metrics.Daily.AverageEventSizeB = int64(totalBytes / float64(metrics.Daily.EventCount))
-		}
+		// Assign extracted values to metrics struct
+		metrics.OrgID = stringFields["orgId"]
+		metrics.OrgName = stringFields["orgName"]
+		metrics.Subscription = stringFields["subscription"]
+		metrics.ContractedDailyIngestBase10 = stringFields["contractedDailyIngestBase10"]
+		metrics.ContractedDailyIngest = stringFields["contractedDailyIngest"]
+		metrics.ContractedRetention = contractedRetention
+		metrics.Cloud = stringFields["cloud"]
+		metrics.StorageSize = stringFields["storageSize"]
+		metrics.FalconStorageSize = stringFields["falconStorageSize"]
+		metrics.AverageDailyIngestLast30Days = stringFields["averageDailyIngestLast30Days"]
+		metrics.ProcessedEventsSize = stringFields["processedEventsSize"]
+		metrics.RemovedFieldsSize = stringFields["removedFieldsSize"]
+		metrics.IngestAfterFieldRemovalSize = stringFields["ingestAfterFieldRemovalSize"]
+		metrics.FalconSegmentWriteBytes = stringFields["falconSegmentWriteBytes"]
+		metrics.FalconIngestAfterFieldRemovalSize = stringFields["falconIngestAfterFieldRemovalSize"]
+		metrics.MeasurementPoint = stringFields["measurementPoint"]
+		metrics.CID = stringFields["cid"]
 
 		// Leave other trend/growth fields as zero values when unknown
+	} else {
+		// If failed to parse JSON, log the error for debugging
+		ctrl.Log.Info("Failed to parse ingestion metrics JSON",
+			"error", err,
+			"rawstring_length", len(rawString),
+			"rawstring_preview", func() string {
+				if len(rawString) > 300 {
+					return rawString[:300] + "..."
+				}
+				return rawString
+			}())
 	}
 	// If failed to parse JSON, all metrics are already zero values by default
 }
@@ -1272,7 +1408,7 @@ func (h *ClientConfig) CollectRepositoryUsage(ctx context.Context, client *api.C
 			continue
 		}
 
-		repoUsage := h.collectSingleRepositoryUsageWithGraphQLData(ctx, client, repo, settings)
+		repoUsage := h.collectSingleRepositoryUsageWithGraphQLData(repo)
 
 		metrics.Repositories = append(metrics.Repositories, *repoUsage)
 	}
@@ -1296,7 +1432,7 @@ func (h *ClientConfig) CollectRepositoryUsage(ctx context.Context, client *api.C
 }
 
 // collectSingleRepositoryUsageWithGraphQLData collects usage metrics for a single repository using GraphQL data
-func (h *ClientConfig) collectSingleRepositoryUsageWithGraphQLData(ctx context.Context, client *api.Client, searchDomain humiographql.ListSearchDomainsForTelemetrySearchDomainsSearchDomain, settings QuerySettings) *RepositoryUsage {
+func (h *ClientConfig) collectSingleRepositoryUsageWithGraphQLData(searchDomain humiographql.ListSearchDomainsForTelemetrySearchDomainsSearchDomain) *RepositoryUsage {
 	repoName := searchDomain.GetName()
 
 	// Create usage metrics with GraphQL data
@@ -1321,38 +1457,12 @@ func (h *ClientConfig) collectSingleRepositoryUsageWithGraphQLData(ctx context.C
 		}
 		// No else clause - leave RetentionDays as zero if not available
 
-		// For now, still execute a simple query to get recent activity metrics
-		query := api.Query{
-			QueryString: RepositoryUsageQuery,
-			Start:       "1d", // Last 24 hours
-			End:         "",   // Empty means "now"
-			Live:        false,
-		}
-
-		result, err := client.ExecuteLogScaleSearchWithTimeout(ctx, repoName, query, settings.MaxExecutionTime)
-		if err == nil && result != nil && len(result.Events) > 0 {
-			// Use query metadata to derive activity metrics
-			// Safely convert with overflow protection
-			eventCount := result.Metadata.EventCount
-			if eventCount > math.MaxInt64 {
-				usage.EventCount24h = math.MaxInt64 // max int64 if overflow would occur
-			} else {
-				usage.EventCount24h = int64(eventCount) // #nosec G115 - overflow check performed above
-			}
-
-			// Estimate daily ingest volume based on processed bytes (convert to GB)
-			if result.Metadata.ProcessedBytes > 0 {
-				usage.IngestVolumeGB24h = float64(result.Metadata.ProcessedBytes) / (1024 * 1024 * 1024)
-			}
-
-			// Set repository name as data source since we're collecting per-repository metrics
-			usage.Dataspace = repoName
-		} else {
-			// No recent activity - use minimal defaults
-			usage.EventCount24h = 0
-			usage.IngestVolumeGB24h = 0
-			usage.Dataspace = repoName
-		}
+		// TODO: Execute real repository usage query when available
+		// For now, skip placeholder query execution and rely on GraphQL data
+		// Set repository name as data source since we're collecting per-repository metrics
+		usage.EventCount24h = 0
+		usage.IngestVolumeGB24h = 0
+		usage.Dataspace = repoName
 	} else if view, ok := searchDomain.(*humiographql.ListSearchDomainsForTelemetrySearchDomainsView); ok {
 		// For views, aggregate data from connected repositories
 		connections := view.GetConnections()
@@ -1400,17 +1510,8 @@ func (h *ClientConfig) CollectUserActivity(ctx context.Context, client *api.Clie
 	endTime := time.Now()
 	startTime := endTime.Add(-30 * 24 * time.Hour) // Last 30 days
 
-	query := api.Query{
-		QueryString: UserActivityQuery,
-		Start:       "30d", // Last 30 days
-		End:         "",    // Empty means "now"
-		Live:        false,
-	}
-
-	result, err := client.ExecuteLogScaleSearchWithTimeout(ctx, "humio", query, settings.MaxExecutionTime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute user activity query: %w", err)
-	}
+	// TODO: Execute real user activity query when available
+	// For now, skip placeholder query execution and return zero-initialized metrics
 
 	metrics := &TelemetryUserActivityMetrics{
 		TimeRange: struct {
@@ -1419,92 +1520,8 @@ func (h *ClientConfig) CollectUserActivity(ctx context.Context, client *api.Clie
 		}{Start: startTime, End: endTime},
 	}
 
-	// Extract metrics from query results - only report actual measured data
-	if result != nil && len(result.Events) > 0 {
-		// Track actual users and login events from audit logs
-		uniqueUsers := make(map[string]bool)
-		uniqueUsers24h := make(map[string]bool)
-		uniqueUsers7d := make(map[string]bool)
-		queryCount := int64(0)
-		loginCount := int64(0)
-		failedLoginCount := int64(0)
-
-		// Calculate time boundaries for different windows
-		now := endTime
-		day24hAgo := now.Add(-24 * time.Hour)
-		days7Ago := now.Add(-7 * 24 * time.Hour)
-
-		for _, event := range result.Events {
-			// Extract timestamp for time-based filtering
-			var eventTime time.Time
-			if eventTimeStr, ok := event["@timestamp"].(string); ok {
-				if parsedTime, err := time.Parse(time.RFC3339, eventTimeStr); err == nil {
-					eventTime = parsedTime
-				}
-			}
-
-			// Look for user identifiers
-			userID := ""
-			if uid, ok := event["@userid"].(string); ok && uid != "" {
-				userID = uid
-			} else if userName, ok := event["@username"].(string); ok && userName != "" {
-				userID = userName
-			}
-
-			if userID != "" {
-				// Track users in different time windows
-				uniqueUsers[userID] = true
-				if eventTime.After(day24hAgo) {
-					uniqueUsers24h[userID] = true
-				}
-				if eventTime.After(days7Ago) {
-					uniqueUsers7d[userID] = true
-				}
-			}
-
-			// Count actual login events
-			if eventType, ok := event["@type"].(string); ok {
-				switch eventType {
-				case "login", "authentication", "session_start":
-					loginCount++
-				case "login_failed", "authentication_failed":
-					failedLoginCount++
-				case "query", "search":
-					queryCount++
-				}
-			}
-
-			// Also check for action field which might contain login information
-			if action, ok := event["@action"].(string); ok {
-				switch action {
-				case "login", "authenticate":
-					loginCount++
-				case "login_failed", "authentication_failed":
-					failedLoginCount++
-				}
-			}
-		}
-
-		// Set metrics based on actual measured data only
-		metrics.ActiveUsers.Last30d = len(uniqueUsers)
-		metrics.ActiveUsers.Last7d = len(uniqueUsers7d)
-		metrics.ActiveUsers.Last24h = len(uniqueUsers24h)
-
-		metrics.QueryActivity.TotalQueries = queryCount
-		if queryCount > 0 {
-			// Calculate average query time based on query processing
-			metrics.QueryActivity.AvgQueryTime = float64(result.Metadata.TimeMillis) / float64(queryCount) / 1000.0
-			metrics.QueryActivity.TopQueryTypes = []QueryTypeUsage{
-				{Type: "search", Count: queryCount, AvgDuration: metrics.QueryActivity.AvgQueryTime},
-			}
-		}
-
-		// Report actual login metrics only
-		metrics.LoginActivity.TotalLogins = loginCount
-		metrics.LoginActivity.UniqueUsers = len(uniqueUsers)
-		metrics.LoginActivity.FailedAttempts = failedLoginCount
-	}
-	// No events found - all metrics already zero-initialized
+	// TODO: Replace with real query execution when user activity queries are available
+	// For now, return zero-initialized metrics since placeholder queries are disabled
 
 	return metrics, nil
 }
@@ -1514,17 +1531,8 @@ func (h *ClientConfig) CollectDetailedAnalytics(ctx context.Context, client *api
 	endTime := time.Now()
 	startTime := endTime.Add(-4 * time.Hour) // Last 4 hours for detailed analytics
 
-	query := api.Query{
-		QueryString: DetailedAnalyticsQuery,
-		Start:       "4h", // Last 4 hours
-		End:         "",   // Empty means "now"
-		Live:        false,
-	}
-
-	result, err := client.ExecuteLogScaleSearchWithTimeout(ctx, "humio", query, settings.MaxExecutionTime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute detailed analytics query: %w", err)
-	}
+	// TODO: Execute real detailed analytics query when available
+	// For now, skip placeholder query execution and return zero-initialized metrics
 
 	metrics := &TelemetryDetailedAnalytics{
 		TimeRange: struct {
@@ -1535,86 +1543,8 @@ func (h *ClientConfig) CollectDetailedAnalytics(ctx context.Context, client *api
 		UsagePatterns:      make(map[string]interface{}),
 	}
 
-	// Extract performance metrics from query results or use defaults
-	if result != nil && len(result.Events) > 0 {
-		// Calculate performance metrics from query metadata
-		if result.Metadata.TimeMillis > 0 {
-			// Average response time in seconds
-			avgResponseTime := float64(result.Metadata.TimeMillis) / 1000.0
-			metrics.PerformanceMetrics["avg_query_response_time"] = avgResponseTime
-		}
-
-		// Estimate concurrent queries based on events processed
-		if result.Metadata.ProcessedEvents > 0 {
-			concurrentQueries := result.Metadata.ProcessedEvents / result.Metadata.TimeMillis * 1000
-			if concurrentQueries > 100 {
-				concurrentQueries = 100 // Cap at reasonable maximum
-			}
-			metrics.PerformanceMetrics["peak_concurrent_queries"] = concurrentQueries
-		}
-
-		// Analyze usage patterns from timestamp distribution
-		if len(result.Events) > 0 {
-			// Find most common hour from timestamps
-			hourCounts := make(map[int]int)
-			for _, event := range result.Events {
-				if timestamp, ok := event["@timestamp"].(float64); ok {
-					timestampInt := int64(timestamp)
-
-					// Use our standard timestamp conversion function
-					converted := ConvertUnixTimestampToISO(timestampInt)
-
-					// If it was converted to ISO string, parse it back to time.Time
-					// If it wasn't converted (returned as int64), treat as seconds
-					var t time.Time
-					if isoStr, ok := converted.(string); ok {
-						// Was converted to ISO - parse it back
-						var err error
-						t, err = time.Parse(time.RFC3339Nano, isoStr)
-						if err != nil {
-							// If parsing fails, fall back to treating as seconds
-							t = time.Unix(timestampInt, 0)
-						}
-					} else {
-						// Wasn't converted, treat as seconds
-						t = time.Unix(timestampInt, 0)
-					}
-
-					hour := t.Hour()
-					hourCounts[hour]++
-				}
-			}
-
-			// Find peak hour only if we have data
-			maxCount := 0
-			peakHour := -1 // No default hour
-			for hour, count := range hourCounts {
-				if count > maxCount {
-					maxCount = count
-					peakHour = hour
-				}
-			}
-
-			// Only set most_active_hour if we found actual data
-			if peakHour >= 0 {
-				metrics.UsagePatterns["most_active_hour"] = fmt.Sprintf("%02d:00", peakHour)
-			}
-		}
-
-		// Determine query complexity trend based on processing metrics
-		if result.Metadata.TotalWork > 0 && result.Metadata.WorkDone > 0 {
-			workRatio := float64(result.Metadata.WorkDone) / float64(result.Metadata.TotalWork)
-			if workRatio > 0.9 {
-				metrics.UsagePatterns["query_complexity_trend"] = "stable"
-			} else if workRatio > 0.7 {
-				metrics.UsagePatterns["query_complexity_trend"] = "moderate"
-			} else {
-				metrics.UsagePatterns["query_complexity_trend"] = "complex"
-			}
-		}
-		// Don't set any complexity trend if no work metadata available
-	}
-	// No query results - all metrics already zero-initialized
+	// TODO: Replace with real query execution when detailed analytics queries are available
+	// For now, return zero-initialized metrics since placeholder queries are disabled
 
 	return metrics, nil
 }
