@@ -29,6 +29,9 @@ operations:
   - graphql/organization-tokens.graphql
   - graphql/security-policies.graphql
   - graphql/packages.graphql
+  - graphql/event-forwarding-rules.graphql
+  - graphql/event-forwarders.graphql
+  - graphql/saved-queries.graphql
 generated: humiographql.go
 
 bindings:

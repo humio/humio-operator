@@ -31,7 +31,9 @@ import (
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -67,6 +69,8 @@ type ClientMock struct {
 	AggregateAlert         map[resourceKey]humiographql.AggregateAlertDetails
 	ScheduledSearch        map[resourceKey]humiographql.ScheduledSearchDetails
 	ScheduledSearchV2      map[resourceKey]humiographql.ScheduledSearchDetailsV2
+	SavedQuery             map[resourceKey]humiographql.SavedQueryDetails
+	SavedQueryV2           map[resourceKey]humiographql.SavedQueryDetailsV2
 	User                   map[resourceKey]humiographql.UserDetails
 	AdminUserID            map[resourceKey]string
 	Role                   map[resourceKey]humiographql.RoleDetails
@@ -75,6 +79,8 @@ type ClientMock struct {
 	SystemToken            map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken
 	OrganizationToken      map[resourceKey]humiographql.OrganizationTokenDetailsOrganizationPermissionsToken
 	Package                map[resourceKey]humiographql.PackageDetails
+	EventForwardingRule    map[resourceKey]humiographql.EventForwardingRuleDetails
+	EventForwarder         map[resourceKey]humiographql.KafkaEventForwarderDetails
 }
 
 type MockClientConfig struct {
@@ -98,6 +104,7 @@ func NewMockClient() *MockClientConfig {
 			AggregateAlert:         make(map[resourceKey]humiographql.AggregateAlertDetails),
 			ScheduledSearch:        make(map[resourceKey]humiographql.ScheduledSearchDetails),
 			ScheduledSearchV2:      make(map[resourceKey]humiographql.ScheduledSearchDetailsV2),
+			SavedQuery:             make(map[resourceKey]humiographql.SavedQueryDetails),
 			User:                   make(map[resourceKey]humiographql.UserDetails),
 			AdminUserID:            make(map[resourceKey]string),
 			Role:                   make(map[resourceKey]humiographql.RoleDetails),
@@ -106,6 +113,8 @@ func NewMockClient() *MockClientConfig {
 			SystemToken:            make(map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken),
 			OrganizationToken:      make(map[resourceKey]humiographql.OrganizationTokenDetailsOrganizationPermissionsToken),
 			Package:                make(map[resourceKey]humiographql.PackageDetails),
+			EventForwardingRule:    make(map[resourceKey]humiographql.EventForwardingRuleDetails),
+			EventForwarder:         make(map[resourceKey]humiographql.KafkaEventForwarderDetails),
 		},
 	}
 
@@ -140,6 +149,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.ViewToken = make(map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken)
 	h.apiClient.SystemToken = make(map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken)
 	h.apiClient.Package = make(map[resourceKey]humiographql.PackageDetails)
+	h.apiClient.EventForwardingRule = make(map[resourceKey]humiographql.EventForwardingRuleDetails)
 }
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client) (*humioapi.StatusResponse, error) {
@@ -1696,6 +1706,219 @@ func (h *MockClientConfig) ValidateActionsForScheduledSearchV2(context.Context, 
 	return nil
 }
 
+func (h *MockClientConfig) AddSavedQuery(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery, includeDescriptionAndLabels bool) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hsq.Spec.ViewName) {
+		return fmt.Errorf("view or repository %s does not exist", hsq.Spec.ViewName)
+	}
+
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	query := humiographql.SavedQueryDetails{
+		Id:          kubernetes.RandomString(),
+		Name:        hsq.Spec.Name,
+		DisplayName: hsq.Spec.Name,
+		Query: humiographql.SavedQueryDetailsQueryHumioQuery{
+			QueryString: hsq.Spec.QueryString,
+		},
+	}
+
+	// Note: includeDescriptionAndLabels parameter is kept for backward compatibility
+	// but Description and Labels fields are not stored in mock since GraphQL schema
+	// doesn't support them in versions < 1.200
+
+	h.apiClient.SavedQuery[key] = query
+	return nil
+}
+
+func (h *MockClientConfig) GetSavedQuery(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName)
+
+	// Check if the view/repository exists first
+	viewKey := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: "",
+		resourceName:     hsq.Spec.ViewName,
+	}
+	_, viewExists := h.apiClient.Repository[viewKey]
+	if !viewExists {
+		return nil, humioapi.SearchDomainNotFound(hsq.Spec.ViewName)
+	}
+
+	// Now check if the saved query exists
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	savedQuery, found := h.apiClient.SavedQuery[key]
+	if !found {
+		return nil, humioapi.SavedQueryNotFound(hsq.Spec.Name)
+	}
+
+	return &savedQuery, nil
+}
+
+func (h *MockClientConfig) UpdateSavedQuery(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery, includeDescriptionAndLabels bool) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName),
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	savedQuery, found := h.apiClient.SavedQuery[key]
+	if !found {
+		return humioapi.SavedQueryNotFound(hsq.Spec.Name)
+	}
+
+	// Update queryString (always)
+	savedQuery.Query = humiographql.SavedQueryDetailsQueryHumioQuery{
+		QueryString: hsq.Spec.QueryString,
+	}
+
+	// Note: includeDescriptionAndLabels parameter is kept for backward compatibility
+	// but Description and Labels fields are not updated in mock since GraphQL schema
+	// doesn't support them in versions < 1.200
+
+	h.apiClient.SavedQuery[key] = savedQuery
+	return nil
+}
+
+func (h *MockClientConfig) DeleteSavedQuery(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName),
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	delete(h.apiClient.SavedQuery, key)
+	return nil
+}
+
+// V2 API methods with description and labels support (LogScale 1.200+)
+
+func (h *MockClientConfig) AddSavedQueryV2(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hsq.Spec.ViewName) {
+		return fmt.Errorf("view or repository %s does not exist", hsq.Spec.ViewName)
+	}
+
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	query := humiographql.SavedQueryDetailsV2{
+		Id:          kubernetes.RandomString(),
+		Name:        hsq.Spec.Name,
+		DisplayName: hsq.Spec.Name,
+		Query: humiographql.SavedQueryDetailsV2QueryHumioQuery{
+			QueryString: hsq.Spec.QueryString,
+		},
+	}
+
+	if hsq.Spec.Description != "" {
+		query.Description = &hsq.Spec.Description
+	}
+	if len(hsq.Spec.Labels) > 0 {
+		query.Labels = hsq.Spec.Labels
+	}
+
+	// Initialize map if needed
+	if h.apiClient.SavedQueryV2 == nil {
+		h.apiClient.SavedQueryV2 = make(map[resourceKey]humiographql.SavedQueryDetailsV2)
+	}
+	h.apiClient.SavedQueryV2[key] = query
+	return nil
+}
+
+func (h *MockClientConfig) GetSavedQueryV2(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetailsV2, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName)
+
+	// Check if the view/repository exists first
+	viewKey := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: "",
+		resourceName:     hsq.Spec.ViewName,
+	}
+	_, viewExists := h.apiClient.Repository[viewKey]
+	if !viewExists {
+		return nil, humioapi.SearchDomainNotFound(hsq.Spec.ViewName)
+	}
+
+	// Check V2 map first
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+	if savedQuery, found := h.apiClient.SavedQueryV2[key]; found {
+		return &savedQuery, nil
+	}
+
+	return nil, humioapi.SavedQueryNotFound(hsq.Spec.Name)
+}
+
+func (h *MockClientConfig) UpdateSavedQueryV2(_ context.Context, _ *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:      fmt.Sprintf("%s%s", hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName),
+		searchDomainName: hsq.Spec.ViewName,
+		resourceName:     hsq.Spec.Name,
+	}
+
+	savedQuery, found := h.apiClient.SavedQueryV2[key]
+	if !found {
+		return humioapi.SavedQueryNotFound(hsq.Spec.Name)
+	}
+
+	// Update queryString (always)
+	savedQuery.Query = humiographql.SavedQueryDetailsV2QueryHumioQuery{
+		QueryString: hsq.Spec.QueryString,
+	}
+
+	// Update description and labels
+	if hsq.Spec.Description != "" {
+		savedQuery.Description = &hsq.Spec.Description
+	} else {
+		savedQuery.Description = nil
+	}
+	if len(hsq.Spec.Labels) > 0 {
+		savedQuery.Labels = hsq.Spec.Labels
+	} else {
+		savedQuery.Labels = []string{}
+	}
+
+	h.apiClient.SavedQueryV2[key] = savedQuery
+	return nil
+}
+
 func (h *MockClientConfig) GetHumioHttpClient(_ *humioapi.Config, _ ctrl.Request) *humioapi.Client {
 	clusterURL, _ := url.Parse("http://localhost:8080/")
 	return humioapi.NewClient(humioapi.Config{Address: clusterURL})
@@ -2678,8 +2901,12 @@ func (h *MockClientConfig) CheckPackage(ctx context.Context, client *humioapi.Cl
 }
 
 // Telemetry methods for mock client
-func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humioapi.Client) (*TelemetryLicenseData, error) {
+func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humioapi.Client, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) (*TelemetryLicenseData, error) {
 	// Return mock license data for testing
+	mockIngestLimit := 10.0 // 10 GB per day
+	mockCores := 4
+	mockValidUntil := time.Now().Add(365 * 24 * time.Hour) // 1 year from now
+
 	return &TelemetryLicenseData{
 		LicenseUID:     "mock-license-uid-123",
 		LicenseType:    "onprem",
@@ -2689,6 +2916,19 @@ func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humio
 		MaxUsers:       func() *int { i := 100; return &i }(),
 		IsSaaS:         helpers.BoolPtr(false),
 		IsOem:          helpers.BoolPtr(false),
+
+		// Mock JWT-extracted fields
+		MaxIngestGbPerDay:    &mockIngestLimit,
+		MaxCores:             &mockCores,
+		LicenseValidUntil:    &mockValidUntil,
+		LicenseSubject:       "MockOrganization",
+		JWTExtractionSuccess: true,
+
+		RawLicenseData: map[string]interface{}{
+			"extracted":  false,
+			"mock_phase": 1,
+			"note":       "Mock license data for testing with JWT fields",
+		},
 	}, nil
 }
 
@@ -2702,16 +2942,65 @@ func (h *MockClientConfig) CollectClusterInfo(ctx context.Context, client *humio
 	}, nil
 }
 
-func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *humioapi.Client, dataTypes []string, clusterID string) ([]TelemetryPayload, error) {
+func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, apiClient *humioapi.Client, dataTypes []string, clusterID string, sendCollectionErrors bool, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) ([]TelemetryPayload, string, error) {
 	var payloads []TelemetryPayload
 	timestamp := time.Now()
+
+	// Use pod discovery logic to determine source info (similar to real implementation)
+	sourceInfo := "from https://test-cluster.test-namespace.svc.cluster.local:8080"
+	if hc != nil {
+		sourceInfo = fmt.Sprintf("from https://%s.%s.svc.cluster.local:8080", hc.Name, hc.Namespace)
+	}
+	if k8sClient != nil && hc != nil {
+		// Try to discover query-capable pods
+		pods := &corev1.PodList{}
+		matchingLabels := map[string]string{
+			"app.kubernetes.io/name":       "humio",
+			"app.kubernetes.io/instance":   hc.Name,
+			"app.kubernetes.io/managed-by": "humio-operator",
+		}
+
+		listOpts := []client.ListOption{
+			client.InNamespace(hc.Namespace),
+			client.MatchingLabels(matchingLabels),
+		}
+		if err := k8sClient.List(ctx, pods, listOpts...); err == nil {
+			// Find first query-capable pod
+			for _, pod := range pods.Items {
+				if pod.Status.Phase != corev1.PodRunning {
+					continue
+				}
+
+				// Check NODE_ROLES
+				isQueryCapable := true // Default to query-capable if no NODE_ROLES
+				for _, container := range pod.Spec.Containers {
+					for _, env := range container.Env {
+						if env.Name == EnvNodeRoles {
+							switch env.Value {
+							case NodeRoleIngestOnly:
+								isQueryCapable = false
+							case NodeRoleHTTPOnly, NodeRoleAll:
+								isQueryCapable = true
+							}
+							break
+						}
+					}
+				}
+
+				if isQueryCapable {
+					sourceInfo = fmt.Sprintf("from pod %s", pod.Name)
+					break
+				}
+			}
+		}
+	}
 
 	for _, dataType := range dataTypes {
 		switch dataType {
 		case "license":
-			licenseData, err := h.CollectLicenseData(ctx, client)
+			licenseData, err := h.CollectLicenseData(ctx, apiClient, k8sClient, hc)
 			if err != nil {
-				return nil, fmt.Errorf("failed to collect license data: %w", err)
+				return nil, sourceInfo, fmt.Errorf("failed to collect license data: %w", err)
 			}
 			payloads = append(payloads, TelemetryPayload{
 				Timestamp:      timestamp,
@@ -2722,9 +3011,9 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *hum
 			})
 
 		case "cluster_info":
-			clusterInfo, err := h.CollectClusterInfo(ctx, client)
+			clusterInfo, err := h.CollectClusterInfo(ctx, apiClient)
 			if err != nil {
-				return nil, fmt.Errorf("failed to collect cluster info: %w", err)
+				return nil, sourceInfo, fmt.Errorf("failed to collect cluster info: %w", err)
 			}
 			payloads = append(payloads, TelemetryPayload{
 				Timestamp:      timestamp,
@@ -2734,10 +3023,485 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, client *hum
 				Data:           clusterInfo,
 			})
 
+		case "user_info":
+			// Mock user info
+			userInfo := map[string]interface{}{
+				"total_users": 15,
+				"mock_phase":  1,
+				"note":        "Mock user info for testing",
+			}
+			payloads = append(payloads, TelemetryPayload{
+				Timestamp:      timestamp,
+				ClusterID:      clusterID,
+				CollectionType: "user_info",
+				SourceType:     "json",
+				Data:           userInfo,
+			})
+
+		case "repository_info":
+			// Mock repository info
+			repoInfo := map[string]interface{}{
+				"total_repositories": 8,
+				"mock_phase":         1,
+				"note":               "Mock repository info for testing",
+			}
+			payloads = append(payloads, TelemetryPayload{
+				Timestamp:      timestamp,
+				ClusterID:      clusterID,
+				CollectionType: "repository_info",
+				SourceType:     "json",
+				Data:           repoInfo,
+			})
 		default:
-			return nil, fmt.Errorf("unsupported data type: %s", dataType)
+			return nil, sourceInfo, fmt.Errorf("unsupported data type: %s", dataType)
 		}
 	}
 
-	return payloads, nil
+	return payloads, sourceInfo, nil
+}
+
+func (h *MockClientConfig) CollectIngestionMetrics(ctx context.Context, client *humioapi.Client, settings QuerySettings) ([]*TelemetryIngestionMetrics, error) {
+	now := time.Now()
+	startTime := now.Add(-30 * 24 * time.Hour) // Changed back to 30 days to match actual implementation
+
+	return []*TelemetryIngestionMetrics{{
+		TimeRange: struct {
+			Start time.Time `json:"start"`
+			End   time.Time `json:"end"`
+		}{Start: startTime, End: now},
+		Daily: struct {
+			IngestVolumeGB    float64 `json:"ingest_volume_gb"`
+			EventCount        int64   `json:"event_count"`
+			AverageEventSizeB int64   `json:"average_event_size_bytes"`
+		}{
+			IngestVolumeGB:    15.5,
+			EventCount:        1500000,
+			AverageEventSizeB: 512,
+		},
+		Weekly: struct {
+			IngestVolumeGB    float64 `json:"ingest_volume_gb"`
+			EventCount        int64   `json:"event_count"`
+			GrowthRatePercent float64 `json:"growth_rate_percent"`
+		}{
+			IngestVolumeGB:    108.5,
+			EventCount:        10500000,
+			GrowthRatePercent: 3.2,
+		},
+		Monthly: struct {
+			IngestVolumeGB float64 `json:"ingest_volume_gb"`
+			EventCount     int64   `json:"event_count"`
+			TrendDirection string  `json:"trend_direction"`
+		}{
+			IngestVolumeGB: 465.0,
+			EventCount:     45000000,
+			TrendDirection: "increasing",
+		},
+	}}, nil
+}
+
+func (h *MockClientConfig) CollectRepositoryUsage(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryRepositoryUsageMetrics, error) {
+	repositories := []RepositoryUsage{
+		{
+			Name:              "humio",
+			IngestVolumeGB24h: 8.5,
+			EventCount24h:     850000,
+			RetentionDays:     30,
+			StorageUsageGB:    250.0,
+			LastActivityTime:  time.Now().Add(-1 * time.Hour),
+			Dataspace:         "humio",
+		},
+		{
+			Name:              "sandbox",
+			IngestVolumeGB24h: 2.1,
+			EventCount24h:     210000,
+			RetentionDays:     7,
+			StorageUsageGB:    15.0,
+			LastActivityTime:  time.Now().Add(-30 * time.Minute),
+			Dataspace:         "sandbox",
+		},
+	}
+
+	return &TelemetryRepositoryUsageMetrics{
+		TotalRepositories: len(repositories),
+		Repositories:      repositories,
+		TopRepositories:   repositories, // All are top repositories in mock
+	}, nil
+}
+
+func (h *MockClientConfig) CollectUserActivity(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryUserActivityMetrics, error) {
+	now := time.Now()
+	startTime := now.Add(-30 * 24 * time.Hour) // Changed back to 30 days
+
+	return &TelemetryUserActivityMetrics{
+		TimeRange: struct {
+			Start time.Time `json:"start"`
+			End   time.Time `json:"end"`
+		}{Start: startTime, End: now},
+		ActiveUsers: struct {
+			Last24h int `json:"last_24h"`
+			Last7d  int `json:"last_7d"`
+			Last30d int `json:"last_30d"`
+		}{
+			Last24h: 12,
+			Last7d:  28,
+			Last30d: 45,
+		},
+		QueryActivity: struct {
+			TotalQueries  int64            `json:"total_queries"`
+			AvgQueryTime  float64          `json:"avg_query_time_seconds"`
+			TopQueryTypes []QueryTypeUsage `json:"top_query_types"`
+		}{
+			TotalQueries: 2150,
+			AvgQueryTime: 2.8,
+			TopQueryTypes: []QueryTypeUsage{
+				{Type: "search", Count: 1200, AvgDuration: 2.1},
+				{Type: "dashboard", Count: 650, AvgDuration: 3.5},
+				{Type: "alert", Count: 300, AvgDuration: 1.8},
+			},
+		},
+		LoginActivity: struct {
+			TotalLogins    int64 `json:"total_logins"`
+			UniqueUsers    int   `json:"unique_users"`
+			FailedAttempts int64 `json:"failed_attempts"`
+		}{
+			TotalLogins:    580,
+			UniqueUsers:    38,
+			FailedAttempts: 12,
+		},
+	}, nil
+}
+
+func (h *MockClientConfig) CollectDetailedAnalytics(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryDetailedAnalytics, error) {
+	now := time.Now()
+	startTime := now.Add(-4 * time.Hour)
+
+	return &TelemetryDetailedAnalytics{
+		TimeRange: struct {
+			Start time.Time `json:"start"`
+			End   time.Time `json:"end"`
+		}{Start: startTime, End: now},
+		PerformanceMetrics: map[string]interface{}{
+			"avg_query_response_time":    2.15,
+			"peak_concurrent_queries":    18,
+			"memory_usage_percent":       65.4,
+			"cpu_utilization_percent":    42.1,
+			"disk_io_operations_per_sec": 1250,
+		},
+		UsagePatterns: map[string]interface{}{
+			"most_active_hour":       "14:00",
+			"query_complexity_trend": "moderate",
+			"top_search_keywords":    []string{"error", "warn", "exception", "timeout"},
+			"avg_session_duration":   "45m",
+			"peak_concurrent_users":  8,
+		},
+	}, nil
+}
+
+func (h *MockClientConfig) AddEventForwardingRule(_ context.Context, _ *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hefr.Spec.ManagedClusterName, hefr.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hefr.Spec.RepositoryName) {
+		return fmt.Errorf("could not find Repository '%s'", hefr.Spec.RepositoryName)
+	}
+
+	// Use the resolved event forwarder ID from status
+	forwarderID := hefr.Status.ResolvedEventForwarderID
+	if forwarderID == "" {
+		return fmt.Errorf("resolved event forwarder ID not found in status")
+	}
+
+	// Generate a unique ID for the rule
+	ruleID := kubernetes.RandomString()
+
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hefr.Spec.RepositoryName,
+		resourceName:     ruleID,
+	}
+
+	if _, found := h.apiClient.EventForwardingRule[key]; found {
+		return fmt.Errorf("event forwarding rule already exists")
+	}
+
+	// Store the rule ID in annotations
+	if hefr.Annotations == nil {
+		hefr.Annotations = make(map[string]string)
+	}
+	hefr.Annotations[EventForwardingRuleAnnotation] = ruleID
+
+	langVersion := humiographql.EventForwardingRuleDetailsLanguageVersion{}
+	if hefr.Spec.LanguageVersion != nil {
+		enumVal := humiographql.LanguageVersionEnum(*hefr.Spec.LanguageVersion)
+		langVersion.Name = &enumVal
+	}
+
+	h.apiClient.EventForwardingRule[key] = humiographql.EventForwardingRuleDetails{
+		Id:               ruleID,
+		QueryString:      hefr.Spec.QueryString,
+		EventForwarderId: forwarderID,
+		LanguageVersion:  langVersion,
+	}
+
+	return nil
+}
+
+func (h *MockClientConfig) GetEventForwardingRule(_ context.Context, _ *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) (*humiographql.EventForwardingRuleDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	ruleID := hefr.Annotations[EventForwardingRuleAnnotation]
+	if ruleID == "" {
+		return nil, humioapi.EventForwardingRuleNotFound("unknown")
+	}
+
+	clusterName := fmt.Sprintf("%s%s", hefr.Spec.ManagedClusterName, hefr.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hefr.Spec.RepositoryName,
+		resourceName:     ruleID,
+	}
+
+	if value, found := h.apiClient.EventForwardingRule[key]; found {
+		return &value, nil
+	}
+
+	return nil, humioapi.EventForwardingRuleNotFound(ruleID)
+}
+
+func (h *MockClientConfig) UpdateEventForwardingRule(_ context.Context, _ *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	ruleID := hefr.Annotations[EventForwardingRuleAnnotation]
+	if ruleID == "" {
+		return fmt.Errorf("event forwarding rule ID not found in annotations")
+	}
+
+	// Use the resolved event forwarder ID from status
+	forwarderID := hefr.Status.ResolvedEventForwarderID
+	if forwarderID == "" {
+		return fmt.Errorf("resolved event forwarder ID not found in status")
+	}
+
+	clusterName := fmt.Sprintf("%s%s", hefr.Spec.ManagedClusterName, hefr.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hefr.Spec.RepositoryName,
+		resourceName:     ruleID,
+	}
+
+	currentRule, found := h.apiClient.EventForwardingRule[key]
+	if !found {
+		return humioapi.EventForwardingRuleNotFound(ruleID)
+	}
+
+	langVersion := humiographql.EventForwardingRuleDetailsLanguageVersion{}
+	if hefr.Spec.LanguageVersion != nil {
+		enumVal := humiographql.LanguageVersionEnum(*hefr.Spec.LanguageVersion)
+		langVersion.Name = &enumVal
+	}
+
+	h.apiClient.EventForwardingRule[key] = humiographql.EventForwardingRuleDetails{
+		Id:               currentRule.Id,
+		QueryString:      hefr.Spec.QueryString,
+		EventForwarderId: forwarderID,
+		LanguageVersion:  langVersion,
+		CreatedAt:        currentRule.CreatedAt,
+	}
+
+	return nil
+}
+
+func (h *MockClientConfig) DeleteEventForwardingRule(_ context.Context, _ *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	ruleID := hefr.Annotations[EventForwardingRuleAnnotation]
+	if ruleID == "" {
+		return nil
+	}
+
+	clusterName := fmt.Sprintf("%s%s", hefr.Spec.ManagedClusterName, hefr.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: hefr.Spec.RepositoryName,
+		resourceName:     ruleID,
+	}
+
+	delete(h.apiClient.EventForwardingRule, key)
+	return nil
+}
+
+// EventForwarder mock methods
+
+func (h *MockClientConfig) AddEventForwarder(_ context.Context, _ *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hef.Spec.ManagedClusterName, hef.Spec.ExternalClusterName)
+
+	// Generate a unique ID for the forwarder
+	forwarderID := kubernetes.RandomString()
+
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: "", // Event forwarders are org-level, not scoped to a search domain
+		resourceName:     hef.Spec.Name,
+	}
+
+	if _, found := h.apiClient.EventForwarder[key]; found {
+		return fmt.Errorf("event forwarder already exists")
+	}
+
+	// Store the forwarder ID in status
+	hef.Status.EventForwarderID = forwarderID
+
+	h.apiClient.EventForwarder[key] = humiographql.KafkaEventForwarderDetails{
+		Id:          forwarderID,
+		Name:        hef.Spec.Name,
+		Description: hef.Spec.Description,
+		Enabled:     hef.Spec.Enabled,
+		Topic:       hef.Spec.KafkaConfig.Topic,
+		Properties:  hef.Spec.KafkaConfig.Properties,
+	}
+
+	return nil
+}
+
+func (h *MockClientConfig) GetEventForwarder(_ context.Context, _ *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) (*humiographql.KafkaEventForwarderDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hef.Spec.ManagedClusterName, hef.Spec.ExternalClusterName)
+	forwarderID := hef.Status.EventForwarderID
+
+	// Case 1: We have an ID in status - look up by ID (matches real implementation)
+	if forwarderID != "" {
+		for key, forwarder := range h.apiClient.EventForwarder {
+			if key.clusterName == clusterName && forwarder.Id == forwarderID {
+				return &forwarder, nil
+			}
+		}
+		return nil, humioapi.EventForwarderNotFound(forwarderID)
+	}
+
+	// Case 2: No ID in status - look up by name (for adoption or first create check)
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: "",
+		resourceName:     hef.Spec.Name,
+	}
+
+	forwarder, found := h.apiClient.EventForwarder[key]
+	if !found {
+		return nil, humioapi.EventForwarderNotFound(hef.Spec.Name)
+	}
+
+	return &forwarder, nil
+}
+
+func (h *MockClientConfig) UpdateEventForwarder(_ context.Context, _ *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", hef.Spec.ManagedClusterName, hef.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: "",
+		resourceName:     hef.Spec.Name,
+	}
+
+	// Get the existing forwarder to preserve the ID
+	existing, found := h.apiClient.EventForwarder[key]
+	if !found {
+		// If not found by name, return EntityNotFound error
+		identifier := hef.Status.EventForwarderID
+		if identifier == "" {
+			identifier = hef.Spec.Name
+		}
+		return humioapi.EventForwarderNotFound(identifier)
+	}
+
+	// Use existing ID to ensure consistency
+	forwarderID := existing.Id
+
+	// Update the forwarder with new values but keep the same ID
+	h.apiClient.EventForwarder[key] = humiographql.KafkaEventForwarderDetails{
+		Id:          forwarderID,
+		Name:        hef.Spec.Name,
+		Description: hef.Spec.Description,
+		Enabled:     hef.Spec.Enabled,
+		Topic:       hef.Spec.KafkaConfig.Topic,
+		Properties:  hef.Spec.KafkaConfig.Properties,
+	}
+
+	return nil
+}
+
+func (h *MockClientConfig) supportsSearchExecution(_ context.Context, _ *humioapi.Client, hc *humiov1alpha1.HumioCluster) (bool, error) {
+	// Mock implementation: check node pools for search capability
+	if hc == nil {
+		// Fall back to legacy check - for mock, return false (ingest-only scenario)
+		return false, fmt.Errorf("mock: search not supported without cluster configuration")
+	}
+
+	// Check if we have any query-capable node pools
+	hasQueryCapable := false
+	for _, nodePool := range hc.Spec.NodePools {
+		if nodePool.NodeCount == 0 {
+			continue // Skip pools with no nodes
+		}
+
+		// Check NODE_ROLES environment variable
+		isQueryCapable := true // Default to query-capable if no NODE_ROLES is specified
+		for _, env := range nodePool.EnvironmentVariables {
+			if env.Name == EnvNodeRoles {
+				switch env.Value {
+				case NodeRoleIngestOnly:
+					isQueryCapable = false
+				case NodeRoleHTTPOnly, NodeRoleAll:
+					isQueryCapable = true
+				}
+				break
+			}
+		}
+
+		if isQueryCapable {
+			hasQueryCapable = true
+			break
+		}
+	}
+
+	// If no node pools defined, assume query-capable (fallback to main cluster service)
+	if len(hc.Spec.NodePools) == 0 {
+		hasQueryCapable = true
+	}
+
+	if !hasQueryCapable {
+		return false, fmt.Errorf("mock: no query-capable services found - all node pools are ingest-only")
+	}
+
+	return true, nil
+}
+
+func (h *MockClientConfig) DeleteEventForwarder(_ context.Context, _ *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	forwarderID := hef.Status.EventForwarderID
+	if forwarderID == "" {
+		return nil
+	}
+
+	clusterName := fmt.Sprintf("%s%s", hef.Spec.ManagedClusterName, hef.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:      clusterName,
+		searchDomainName: "",
+		resourceName:     hef.Spec.Name,
+	}
+
+	delete(h.apiClient.EventForwarder, key)
+	return nil
 }

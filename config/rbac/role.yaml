@@ -100,6 +100,8 @@ rules:
   - humioalerts
   - humiobootstraptokens
   - humioclusters
+  - humioeventforwarders
+  - humioeventforwardingrules
   - humioexternalclusters
   - humiofeatureflags
   - humiofilteralerts
@@ -114,10 +116,12 @@ rules:
   - humioparsers
   - humiopdfrenderservices
   - humiorepositories
+  - humiosavedqueries
   - humioscheduledsearches
   - humiosystempermissionroles
   - humiosystemtokens
-  - humiotelemetries
+  - humiotelemetrycollections
+  - humiotelemetryexports
   - humiousers
   - humioviewpermissionroles
   - humioviews
@@ -138,6 +142,8 @@ rules:
   - humioalerts/finalizers
   - humiobootstraptokens/finalizers
   - humioclusters/finalizers
+  - humioeventforwarders/finalizers
+  - humioeventforwardingrules/finalizers
   - humioexternalclusters/finalizers
   - humiofeatureflags/finalizers
   - humiofilteralerts/finalizers
@@ -152,10 +158,12 @@ rules:
   - humioparsers/finalizers
   - humiopdfrenderservices/finalizers
   - humiorepositories/finalizers
+  - humiosavedqueries/finalizers
   - humioscheduledsearches/finalizers
   - humiosystempermissionroles/finalizers
   - humiosystemtokens/finalizers
-  - humiotelemetries/finalizers
+  - humiotelemetrycollections/finalizers
+  - humiotelemetryexports/finalizers
   - humiousers/finalizers
   - humioviewpermissionroles/finalizers
   - humioviews/finalizers
@@ -170,6 +178,8 @@ rules:
   - humioalerts/status
   - humiobootstraptokens/status
   - humioclusters/status
+  - humioeventforwarders/status
+  - humioeventforwardingrules/status
   - humioexternalclusters/status
   - humiofeatureflags/status
   - humiofilteralerts/status
@@ -184,10 +194,12 @@ rules:
   - humioparsers/status
   - humiopdfrenderservices/status
   - humiorepositories/status
+  - humiosavedqueries/status
   - humioscheduledsearches/status
   - humiosystempermissionroles/status
   - humiosystemtokens/status
-  - humiotelemetries/status
+  - humiotelemetrycollections/status
+  - humiotelemetryexports/status
   - humiousers/status
   - humioviewpermissionroles/status
   - humioviews/status

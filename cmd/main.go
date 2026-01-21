@@ -251,6 +251,7 @@ func main() {
 	}
 }
 
+//nolint:gocyclo // Long function setting up all controllers, acceptable complexity for setup code
 func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Duration) {
 	var err error
 	userAgent := fmt.Sprintf("humio-operator/%s (%s on %s)", version, commit, date)
@@ -382,6 +383,17 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioScheduledSearch")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioSavedQueryReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioSavedQuery")
 		os.Exit(1)
 	}
 	if err = (&controller.HumioViewReconciler{
@@ -516,7 +528,7 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
 		os.Exit(1)
 	}
-	if err = (&controller.HumioTelemetryReconciler{
+	if err = (&controller.HumioTelemetryCollectionReconciler{
 		Client: mgr.GetClient(),
 		CommonConfig: controller.CommonConfig{
 			RequeuePeriod: requeuePeriod,
@@ -524,7 +536,17 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
-		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetry")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetryCollection")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioTelemetryExportReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		BaseLogger: log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetryExport")
 		os.Exit(1)
 	}
 	httpClient := registries.NewHTTPClient(api.Config{Insecure: false})
@@ -549,7 +571,7 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		HTTPClient:  httpClient,
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
-		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioTelemetry")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPackage")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

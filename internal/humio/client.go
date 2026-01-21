@@ -35,6 +35,7 @@ import (
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/helpers"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -48,6 +49,7 @@ const (
 	PackageResponseTypeAnalysisResult = "PackageAnalysisResultJson"
 	PackageResponseTypeErrorReport    = "PackageErrorReport"
 	PackagePolicyOverwrite            = "overwrite"
+	EventForwardingRuleAnnotation     = "core.humio.com/event-forwarding-rule-id"
 )
 
 // Client is the interface that can be mocked
@@ -67,6 +69,7 @@ type Client interface {
 	AggregateAlertsClient
 	ScheduledSearchClient
 	ScheduledSearchClientV2
+	SavedQueriesClient
 	UsersClient
 	OrganizationPermissionRolesClient
 	SystemPermissionRolesClient
@@ -78,6 +81,8 @@ type Client interface {
 	SecurityPoliciesClient
 	PackageClient
 	TelemetryClient
+	EventForwardingRulesClient
+	EventForwardersClient
 }
 
 type ClusterClient interface {
@@ -188,6 +193,16 @@ type ScheduledSearchClientV2 interface {
 	ValidateActionsForScheduledSearchV2(context.Context, *humioapi.Client, *humiov1beta1.HumioScheduledSearch) error
 }
 
+type SavedQueriesClient interface {
+	AddSavedQuery(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery, bool) error
+	AddSavedQueryV2(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) error
+	GetSavedQuery(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetails, error)
+	GetSavedQueryV2(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetailsV2, error)
+	UpdateSavedQuery(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery, bool) error
+	UpdateSavedQueryV2(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) error
+	DeleteSavedQuery(context.Context, *humioapi.Client, *humiov1alpha1.HumioSavedQuery) error
+}
+
 type LicenseClient interface {
 	GetLicenseUIDAndExpiry(context.Context, *humioapi.Client, reconcile.Request) (string, time.Time, error)
 	InstallLicense(context.Context, *humioapi.Client, reconcile.Request, string) error
@@ -266,9 +281,23 @@ type PackageClient interface {
 }
 
 type TelemetryClient interface {
-	CollectLicenseData(context.Context, *humioapi.Client) (*TelemetryLicenseData, error)
+	CollectLicenseData(context.Context, *humioapi.Client, client.Client, *humiov1alpha1.HumioCluster) (*TelemetryLicenseData, error)
 	CollectClusterInfo(context.Context, *humioapi.Client) (*TelemetryClusterInfo, error)
-	CollectTelemetryData(context.Context, *humioapi.Client, []string, string) ([]TelemetryPayload, error)
+	CollectTelemetryData(context.Context, *humioapi.Client, []string, string, bool, client.Client, *humiov1alpha1.HumioCluster) ([]TelemetryPayload, string, error)
+}
+
+type EventForwardingRulesClient interface {
+	AddEventForwardingRule(context.Context, *humioapi.Client, *humiov1alpha1.HumioEventForwardingRule) error
+	GetEventForwardingRule(context.Context, *humioapi.Client, *humiov1alpha1.HumioEventForwardingRule) (*humiographql.EventForwardingRuleDetails, error)
+	UpdateEventForwardingRule(context.Context, *humioapi.Client, *humiov1alpha1.HumioEventForwardingRule) error
+	DeleteEventForwardingRule(context.Context, *humioapi.Client, *humiov1alpha1.HumioEventForwardingRule) error
+}
+
+type EventForwardersClient interface {
+	AddEventForwarder(context.Context, *humioapi.Client, *humiov1alpha1.HumioEventForwarder) error
+	GetEventForwarder(context.Context, *humioapi.Client, *humiov1alpha1.HumioEventForwarder) (*humiographql.KafkaEventForwarderDetails, error)
+	UpdateEventForwarder(context.Context, *humioapi.Client, *humiov1alpha1.HumioEventForwarder) error
+	DeleteEventForwarder(context.Context, *humioapi.Client, *humiov1alpha1.HumioEventForwarder) error
 }
 
 type ConnectionDetailsIncludingAPIToken struct {
@@ -625,6 +654,248 @@ func (h *ClientConfig) DeleteParser(ctx context.Context, client *humioapi.Client
 		hp.Spec.RepositoryName,
 		parser.Id,
 	)
+	return err
+}
+
+func (h *ClientConfig) AddEventForwardingRule(ctx context.Context, client *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) error {
+	var langVer *humiographql.LanguageVersionEnum
+	if hefr.Spec.LanguageVersion != nil {
+		val := humiographql.LanguageVersionEnum(*hefr.Spec.LanguageVersion)
+		langVer = &val
+	}
+
+	// Use the resolved event forwarder ID from status
+	forwarderID := hefr.Status.ResolvedEventForwarderID
+	if forwarderID == "" {
+		return fmt.Errorf("resolved event forwarder ID not found in status")
+	}
+
+	resp, err := humiographql.CreateEventForwardingRule(
+		ctx,
+		client,
+		hefr.Spec.RepositoryName,
+		hefr.Spec.QueryString,
+		forwarderID,
+		langVer,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Store the rule ID in annotations for future operations
+	if hefr.Annotations == nil {
+		hefr.Annotations = make(map[string]string)
+	}
+	hefr.Annotations[EventForwardingRuleAnnotation] = resp.CreateEventForwardingRule.GetId()
+
+	return nil
+}
+
+func (h *ClientConfig) GetEventForwardingRule(ctx context.Context, client *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) (*humiographql.EventForwardingRuleDetails, error) {
+	// Get rule ID from annotation
+	ruleID := hefr.Annotations[EventForwardingRuleAnnotation]
+	if ruleID == "" {
+		return nil, humioapi.EventForwardingRuleNotFound("unknown")
+	}
+
+	// List all rules and find by ID
+	resp, err := humiographql.GetEventForwardingRules(
+		ctx,
+		client,
+		hefr.Spec.RepositoryName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	searchDomain := resp.GetSearchDomain()
+	if repo, ok := searchDomain.(*humiographql.GetEventForwardingRulesSearchDomainRepository); ok {
+		rules := repo.GetEventForwardingRules()
+		for _, rule := range rules {
+			if rule.GetId() == ruleID {
+				return &rule.EventForwardingRuleDetails, nil
+			}
+		}
+	}
+
+	return nil, humioapi.EventForwardingRuleNotFound(ruleID)
+}
+
+func (h *ClientConfig) UpdateEventForwardingRule(ctx context.Context, client *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) error {
+	// Get rule ID from annotation
+	ruleID := hefr.Annotations[EventForwardingRuleAnnotation]
+	if ruleID == "" {
+		return fmt.Errorf("event forwarding rule ID not found in annotations")
+	}
+
+	var langVer *humiographql.LanguageVersionEnum
+	if hefr.Spec.LanguageVersion != nil {
+		val := humiographql.LanguageVersionEnum(*hefr.Spec.LanguageVersion)
+		langVer = &val
+	}
+
+	// Use the resolved event forwarder ID from status
+	forwarderID := hefr.Status.ResolvedEventForwarderID
+	if forwarderID == "" {
+		return fmt.Errorf("resolved event forwarder ID not found in status")
+	}
+
+	_, err := humiographql.UpdateEventForwardingRule(
+		ctx,
+		client,
+		hefr.Spec.RepositoryName,
+		ruleID,
+		hefr.Spec.QueryString,
+		forwarderID,
+		langVer,
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteEventForwardingRule(ctx context.Context, client *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) error {
+	// Get rule ID from annotation
+	ruleID := hefr.Annotations[EventForwardingRuleAnnotation]
+	if ruleID == "" {
+		// If no ID annotation exists, the rule was never created or already deleted
+		return nil
+	}
+
+	// Check if rule still exists
+	_, err := h.GetEventForwardingRule(ctx, client, hefr)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	_, err = humiographql.DeleteEventForwardingRule(
+		ctx,
+		client,
+		hefr.Spec.RepositoryName,
+		ruleID,
+	)
+	return err
+}
+
+// EventForwarder methods
+
+func (h *ClientConfig) AddEventForwarder(ctx context.Context, client *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) error {
+	if hef.Spec.ForwarderType != "kafka" {
+		return fmt.Errorf("unsupported forwarder type: %s", hef.Spec.ForwarderType)
+	}
+
+	if hef.Spec.KafkaConfig == nil {
+		return fmt.Errorf("kafkaConfig is required when forwarderType is kafka")
+	}
+
+	// Create Kafka event forwarder
+	resp, err := humiographql.CreateKafkaEventForwarder(
+		ctx,
+		client,
+		hef.Spec.Name,
+		hef.Spec.Description,
+		hef.Spec.KafkaConfig.Topic,
+		hef.Spec.KafkaConfig.Properties,
+		&hef.Spec.Enabled,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Store the forwarder ID in status
+	hef.Status.EventForwarderID = resp.CreateKafkaEventForwarder.GetId()
+
+	return nil
+}
+
+func (h *ClientConfig) GetEventForwarder(ctx context.Context, client *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) (*humiographql.KafkaEventForwarderDetails, error) {
+	// List all forwarders
+	resp, err := humiographql.GetEventForwarders(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get forwarder ID from status
+	forwarderID := hef.Status.EventForwarderID
+
+	// Case 1: We have an ID in status - look up by ID (normal case)
+	if forwarderID != "" {
+		for _, forwarder := range resp.GetEventForwarders() {
+			if kafkaForwarder, ok := forwarder.(*humiographql.GetEventForwardersEventForwardersKafkaEventForwarder); ok {
+				if kafkaForwarder.GetId() == forwarderID {
+					return &kafkaForwarder.KafkaEventForwarderDetails, nil
+				}
+			}
+		}
+		return nil, humioapi.EventForwarderNotFound(forwarderID)
+	}
+
+	// Case 2: No ID in status - try to find existing forwarder by name for potential adoption
+	// This handles the scenario where an unmanaged forwarder already exists in LogScale
+	// We DON'T set the ID here - the controller will decide whether to adopt after property verification
+	for _, forwarder := range resp.GetEventForwarders() {
+		if kafkaForwarder, ok := forwarder.(*humiographql.GetEventForwardersEventForwardersKafkaEventForwarder); ok {
+			if kafkaForwarder.GetName() == hef.Spec.Name {
+				// Found a forwarder with matching name
+				// Return details WITHOUT setting ID - controller will verify properties and decide
+				// Note: The caller must ensure hef.Spec.KafkaConfig.Properties contains merged properties
+				// for accurate comparison during adoption
+				return &kafkaForwarder.KafkaEventForwarderDetails, nil
+			}
+		}
+	}
+
+	// No forwarder found by ID or name
+	return nil, humioapi.EventForwarderNotFound(hef.Spec.Name)
+}
+
+func (h *ClientConfig) UpdateEventForwarder(ctx context.Context, client *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) error {
+	// Get forwarder ID from status
+	forwarderID := hef.Status.EventForwarderID
+	if forwarderID == "" {
+		return fmt.Errorf("event forwarder ID not found in status")
+	}
+
+	if hef.Spec.ForwarderType != "kafka" {
+		return fmt.Errorf("unsupported forwarder type: %s", hef.Spec.ForwarderType)
+	}
+
+	if hef.Spec.KafkaConfig == nil {
+		return fmt.Errorf("kafkaConfig is required when forwarderType is kafka")
+	}
+
+	_, err := humiographql.UpdateKafkaEventForwarder(
+		ctx,
+		client,
+		forwarderID,
+		hef.Spec.Name,
+		hef.Spec.Description,
+		hef.Spec.KafkaConfig.Topic,
+		hef.Spec.KafkaConfig.Properties,
+		&hef.Spec.Enabled,
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteEventForwarder(ctx context.Context, client *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) error {
+	// Get forwarder ID from status
+	forwarderID := hef.Status.EventForwarderID
+	if forwarderID == "" {
+		// If no ID in status, the forwarder was never created or already deleted
+		return nil
+	}
+
+	// Check if forwarder still exists
+	_, err := h.GetEventForwarder(ctx, client, hef)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	_, err = humiographql.DeleteEventForwarder(ctx, client, forwarderID)
 	return err
 }
 
@@ -2366,6 +2637,159 @@ func (h *ClientConfig) DeleteScheduledSearchV2(ctx context.Context, client *humi
 		client,
 		hss.Spec.ViewName,
 		currentScheduledSearch.GetId(),
+	)
+	return err
+}
+
+func (h *ClientConfig) AddSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery, includeDescriptionAndLabels bool) error {
+	// Note: includeDescriptionAndLabels parameter is kept for backward compatibility
+	// but is not used since GraphQL schema doesn't support description/labels in versions < 1.200
+	_, err := humiographql.CreateSavedQuery(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+		hsq.Spec.Name,
+		hsq.Spec.QueryString,
+	)
+	return err
+}
+
+func (h *ClientConfig) GetSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetails, error) {
+	resp, err := humiographql.ListSavedQueries(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+	)
+	if err != nil {
+		// If the view/repository doesn't exist, return a specific SearchDomainNotFound error
+		// This allows the controller to handle non-existent views with better error messages
+		if strings.Contains(err.Error(), "Entity Not Found") {
+			return nil, humioapi.SearchDomainNotFound(hsq.Spec.ViewName)
+		}
+		return nil, err
+	}
+
+	// Find the saved query by name
+	for _, sq := range resp.GetSearchDomain().GetSavedQueries() {
+		if sq.GetName() == hsq.Spec.Name {
+			return &sq.SavedQueryDetails, nil
+		}
+	}
+
+	return nil, humioapi.SavedQueryNotFound(hsq.Spec.Name)
+}
+
+func (h *ClientConfig) UpdateSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery, includeDescriptionAndLabels bool) error {
+	currentSavedQuery, err := h.GetSavedQuery(ctx, client, hsq)
+	if err != nil {
+		return err
+	}
+
+	// Note: includeDescriptionAndLabels parameter is kept for backward compatibility
+	// but is not used since GraphQL schema doesn't support description/labels in versions < 1.200
+	_, err = humiographql.UpdateSavedQuery(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+		currentSavedQuery.GetId(),
+		helpers.StringPtr(hsq.Spec.Name),
+		helpers.StringPtr(hsq.Spec.QueryString),
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	currentSavedQuery, err := h.GetSavedQuery(ctx, client, hsq)
+	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			return nil
+		}
+		return err
+	}
+
+	_, err = humiographql.DeleteSavedQuery(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+		currentSavedQuery.GetId(),
+	)
+	return err
+}
+
+// V2 API methods with description and labels support (LogScale 1.200+)
+
+func (h *ClientConfig) AddSavedQueryV2(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	var description *string
+	var labels []string
+
+	if hsq.Spec.Description != "" {
+		description = &hsq.Spec.Description
+	}
+	if len(hsq.Spec.Labels) > 0 {
+		labels = hsq.Spec.Labels
+	}
+
+	_, err := humiographql.CreateSavedQueryV2(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+		hsq.Spec.Name,
+		hsq.Spec.QueryString,
+		description,
+		labels,
+	)
+	return err
+}
+
+func (h *ClientConfig) GetSavedQueryV2(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) (*humiographql.SavedQueryDetailsV2, error) {
+	resp, err := humiographql.ListSavedQueriesV2(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+	)
+	if err != nil {
+		// If the view/repository doesn't exist, return a specific SearchDomainNotFound error
+		if strings.Contains(err.Error(), "Entity Not Found") {
+			return nil, humioapi.SearchDomainNotFound(hsq.Spec.ViewName)
+		}
+		return nil, err
+	}
+
+	// Find the saved query by name
+	for _, sq := range resp.GetSearchDomain().GetSavedQueries() {
+		if sq.GetName() == hsq.Spec.Name {
+			return &sq.SavedQueryDetailsV2, nil
+		}
+	}
+
+	return nil, humioapi.SavedQueryNotFound(hsq.Spec.Name)
+}
+
+func (h *ClientConfig) UpdateSavedQueryV2(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) error {
+	currentSavedQuery, err := h.GetSavedQueryV2(ctx, client, hsq)
+	if err != nil {
+		return err
+	}
+
+	var description *string
+	var labels []string
+
+	if hsq.Spec.Description != "" {
+		description = &hsq.Spec.Description
+	}
+	if len(hsq.Spec.Labels) > 0 {
+		labels = hsq.Spec.Labels
+	}
+
+	_, err = humiographql.UpdateSavedQueryV2(
+		ctx,
+		client,
+		hsq.Spec.ViewName,
+		currentSavedQuery.GetId(),
+		helpers.StringPtr(hsq.Spec.Name),
+		helpers.StringPtr(hsq.Spec.QueryString),
+		description,
+		labels,
 	)
 	return err
 }

@@ -137,6 +137,12 @@ rules:
   - humioalerts
   - humioalerts/finalizers
   - humioalerts/status
+  - humioeventforwarders
+  - humioeventforwarders/finalizers
+  - humioeventforwarders/status
+  - humioeventforwardingrules
+  - humioeventforwardingrules/finalizers
+  - humioeventforwardingrules/status
   - humiofeatureflags
   - humiofeatureflags/finalizers
   - humiofeatureflags/status
@@ -155,6 +161,9 @@ rules:
   - humioscheduledsearches
   - humioscheduledsearches/finalizers
   - humioscheduledsearches/status
+  - humiosavedqueries
+  - humiosavedqueries/finalizers
+  - humiosavedqueries/status
   - humiosystempermissionroles
   - humiosystempermissionroles/finalizers
   - humiosystempermissionroles/status
@@ -182,15 +191,21 @@ rules:
   - humiopdfrenderservices
   - humiopdfrenderservices/finalizers
   - humiopdfrenderservices/status
-  - humiotelemetries
-  - humiotelemetries/finalizers
-  - humiotelemetries/status
+  - humiotelemetrycollections
+  - humiotelemetrycollections/finalizers
+  - humiotelemetrycollections/status
+  - humiotelemetryexports
+  - humiotelemetryexports/finalizers
+  - humiotelemetryexports/status
   - humiopackageregistries
   - humiopackageregistries/finalizers
   - humiopackageregistries/status
   - humiopackages
   - humiopackages/finalizers
   - humiopackages/status
+  - humiosavedqueries
+  - humiosavedqueries/finalizers
+  - humiosavedqueries/status
   verbs:
   - create
   - delete

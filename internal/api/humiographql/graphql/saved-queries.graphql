@@ -1,0 +1,131 @@
+fragment SavedQueryDetails on SavedQuery {
+    id
+    name
+    displayName
+    query {
+        queryString
+    }
+}
+
+fragment SavedQueryDetailsV2 on SavedQuery {
+    id
+    name
+    displayName
+    description
+    labels
+    query {
+        queryString
+    }
+}
+
+query ListSavedQueries(
+    $ViewName: String!
+) {
+    searchDomain(
+        name: $ViewName
+    ) {
+        savedQueries {
+            ...SavedQueryDetails
+        }
+    }
+}
+
+query ListSavedQueriesV2(
+    $ViewName: String!
+) {
+    searchDomain(
+        name: $ViewName
+    ) {
+        savedQueries {
+            ...SavedQueryDetailsV2
+        }
+    }
+}
+
+mutation CreateSavedQuery(
+    $ViewName: String!
+    $Name: String!
+    $QueryString: String!
+) {
+    createSavedQuery(input: {
+        viewName: $ViewName
+        name: $Name
+        queryString: $QueryString
+    }) {
+        savedQuery {
+            ...SavedQueryDetails
+        }
+    }
+}
+
+mutation CreateSavedQueryV2(
+    $ViewName: String!
+    $Name: String!
+    $QueryString: String!
+    $Description: String
+    $Labels: [String!]
+) {
+    createSavedQuery(input: {
+        viewName: $ViewName
+        name: $Name
+        queryString: $QueryString
+        description: $Description
+        labels: $Labels
+    }) {
+        savedQuery {
+            ...SavedQueryDetailsV2
+        }
+    }
+}
+
+mutation UpdateSavedQuery(
+    $ViewName: String!
+    $SavedQueryID: String!
+    $Name: String
+    $QueryString: String
+) {
+    updateSavedQuery(input: {
+        viewName: $ViewName
+        id: $SavedQueryID
+        name: $Name
+        queryString: $QueryString
+    }) {
+        savedQuery {
+            ...SavedQueryDetails
+        }
+    }
+}
+
+mutation UpdateSavedQueryV2(
+    $ViewName: String!
+    $SavedQueryID: String!
+    $Name: String
+    $QueryString: String
+    $Description: String
+    $Labels: [String!]
+) {
+    updateSavedQuery(input: {
+        viewName: $ViewName
+        id: $SavedQueryID
+        name: $Name
+        queryString: $QueryString
+        description: $Description
+        labels: $Labels
+    }) {
+        savedQuery {
+            ...SavedQueryDetailsV2
+        }
+    }
+}
+
+mutation DeleteSavedQuery(
+    $ViewName: String!
+    $SavedQueryID: String!
+) {
+    deleteSavedQuery(input: {
+        viewName: $ViewName
+        id: $SavedQueryID
+    }) {
+        result
+    }
+}

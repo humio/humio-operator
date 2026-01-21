@@ -19,6 +19,8 @@ Resource Types:
 
 - [HumioCluster](#humiocluster)
 
+- [HumioEventForwarding](#humioeventforwarding)
+
 - [HumioExternalCluster](#humioexternalcluster)
 
 - [HumioFeatureFlag](#humiofeatureflag)
@@ -46,6 +48,8 @@ Resource Types:
 - [HumioPdfRenderService](#humiopdfrenderservice)
 
 - [HumioRepository](#humiorepository)
+
+- [HumioSavedQuery](#humiosavedquery)
 
 - [HumioScheduledSearch](#humioscheduledsearch)
 
@@ -36707,13 +36711,6 @@ TelemetryStatus shows the status of telemetry collection for this cluster
           State represents the current state of telemetry collection<br/>
         </td>
         <td>false</td>
-      </tr><tr>
-        <td><b>telemetryResourceName</b></td>
-        <td>string</td>
-        <td>
-          TelemetryResourceName is the name of the HumioTelemetry resource managing this cluster's telemetry<br/>
-        </td>
-        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -36812,6 +36809,247 @@ TelemetryError represents an error that occurred during telemetry operations
         <td>string</td>
         <td>
           DataType indicates which data type this error relates to (if applicable)<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioEventForwarding
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioEventForwarding is the Schema for the humioeventforwardings API.
+It configures a rule that filters and forwards events from a LogScale repository to an external system.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioEventForwarding</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioeventforwardingspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioEventForwardingSpec defines the desired state of HumioEventForwarding.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioeventforwardingstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioEventForwardingStatus defines the observed state of HumioEventForwarding.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwarding.spec
+<sup><sup>[↩ Parent](#humioeventforwarding)</sup></sup>
+
+
+
+HumioEventForwardingSpec defines the desired state of HumioEventForwarding.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>eventForwarderID</b></td>
+        <td>string</td>
+        <td>
+          EventForwarderID is the ID of the pre-configured event forwarder to use.
+Event forwarders are configured at the organization level and define the destination for forwarded events.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the Kubernetes-friendly name for this event forwarding rule.
+This is used for identification within the operator and does not map to a field in LogScale.
+LogScale auto-generates an ID for event forwarding rules.<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>queryString</b></td>
+        <td>string</td>
+        <td>
+          QueryString is the LogScale query language (LQL) query that filters and transforms events to forward.
+This query determines which events are forwarded and how they are transformed before forwarding.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>viewName</b></td>
+        <td>string</td>
+        <td>
+          ViewName defines what repository or view this event forwarding rule should be managed in.<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>languageVersion</b></td>
+        <td>string</td>
+        <td>
+          LanguageVersion specifies the query language version to use (e.g., "humio1" or "humio2").
+If not specified, the default version for the LogScale cluster will be used.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwarding.status
+<sup><sup>[↩ Parent](#humioeventforwarding)</sup></sup>
+
+
+
+HumioEventForwardingStatus defines the observed state of HumioEventForwarding.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humioeventforwardingstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the event forwarding rule's state.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwarding.status.conditions[index]
+<sup><sup>[↩ Parent](#humioeventforwardingstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -49523,6 +49761,239 @@ HumioRepositoryStatus defines the observed state of HumioRepository.
         <td>string</td>
         <td>
           State reflects the current state of the HumioRepository<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioSavedQuery
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioSavedQuery is the Schema for the humiosavedqueries API.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioSavedQuery</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiosavedqueryspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioSavedQuerySpec defines the desired state of HumioSavedQuery.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiosavedquerystatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioSavedQueryStatus defines the observed state of HumioSavedQuery.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioSavedQuery.spec
+<sup><sup>[↩ Parent](#humiosavedquery)</sup></sup>
+
+
+
+HumioSavedQuerySpec defines the desired state of HumioSavedQuery.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the saved query inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>queryString</b></td>
+        <td>string</td>
+        <td>
+          QueryString is the actual query that will be saved<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>viewName</b></td>
+        <td>string</td>
+        <td>
+          ViewName is the name of the Humio View under which the SavedQuery will be managed. This can also be a Repository<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>description</b></td>
+        <td>string</td>
+        <td>
+          Description is the description of the SavedQuery<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>[]string</td>
+        <td>
+          Labels are a set of labels on the SavedQuery<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioSavedQuery.status
+<sup><sup>[↩ Parent](#humiosavedquery)</sup></sup>
+
+
+
+HumioSavedQueryStatus defines the observed state of HumioSavedQuery.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiosavedquerystatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the saved query's state<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioSavedQuery.status.conditions[index]
+<sup><sup>[↩ Parent](#humiosavedquerystatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
