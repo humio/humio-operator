@@ -1,0 +1,245 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: humiotelemetrycollections.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.0.1'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioTelemetryCollection
+    listKind: HumioTelemetryCollectionList
+    plural: humiotelemetrycollections
+    singular: humiotelemetrycollection
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Managed cluster name
+      jsonPath: .spec.managedClusterName
+      name: Cluster
+      type: string
+    - description: Collection state
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: Last collection time
+      jsonPath: .status.lastCollectionTime
+      name: Last Collection
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioTelemetryCollection is the Schema for the humiotelemetrycollections
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioTelemetryCollectionSpec defines the desired state of
+              HumioTelemetryCollection.
+            properties:
+              clusterIdentifier:
+                description: |-
+                  ClusterIdentifier is a unique identifier for this cluster used in telemetry data
+                  If not specified, defaults to ManagedClusterName
+                minLength: 1
+                type: string
+              collections:
+                description: Collections defines what data to collect and how frequently
+                items:
+                  description: CollectionConfig defines what data to collect and collection
+                    frequency
+                  properties:
+                    include:
+                      description: Include defines which data types to collect in
+                        this collection
+                      items:
+                        type: string
+                      minItems: 1
+                      type: array
+                    interval:
+                      description: Interval defines how frequently to collect this
+                        data (e.g., "15m", "1h", "1d")
+                      pattern: ^[0-9]+[smhd]$
+                      type: string
+                  required:
+                  - include
+                  - interval
+                  type: object
+                minItems: 1
+                type: array
+              managedClusterName:
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator
+                minLength: 1
+                type: string
+            required:
+            - collections
+            - managedClusterName
+            type: object
+            x-kubernetes-validations:
+            - message: Must specify managedClusterName
+              rule: has(self.managedClusterName) && self.managedClusterName != ""
+          status:
+            description: HumioTelemetryCollectionStatus defines the observed state
+              of HumioTelemetryCollection.
+            properties:
+              collectionStatus:
+                additionalProperties:
+                  description: CollectionTypeStatus represents the status of a specific
+                    collection type
+                  properties:
+                    collectionCount:
+                      description: CollectionCount is the total number of successful
+                        collections for this type
+                      type: integer
+                    exportCount:
+                      description: ExportCount is the total number of successful exports
+                        for this type
+                      type: integer
+                    lastCollection:
+                      description: LastCollection indicates when this data type was
+                        last collected
+                      format: date-time
+                      type: string
+                    lastError:
+                      description: LastError contains the most recent error for this
+                        collection type
+                      properties:
+                        dataType:
+                          description: DataType indicates which data type this error
+                            relates to (if applicable)
+                          type: string
+                        message:
+                          description: Message is the human-readable error message
+                          type: string
+                        timestamp:
+                          description: Timestamp indicates when this error occurred
+                          format: date-time
+                          type: string
+                        type:
+                          description: Type is the category of error (e.g., "collection",
+                            "configuration")
+                          type: string
+                      required:
+                      - message
+                      - timestamp
+                      - type
+                      type: object
+                    lastExport:
+                      description: LastExport indicates when this data type was last
+                        exported
+                      format: date-time
+                      type: string
+                  type: object
+                description: CollectionStatus contains the status of individual collection
+                  types
+                type: object
+              exportPushResults:
+                description: ExportPushResults tracks the results of pushing data
+                  to registered exporters
+                items:
+                  description: ExportPushResult tracks the result of pushing data
+                    to a specific exporter
+                  properties:
+                    exporterName:
+                      description: ExporterName is the name of the HumioTelemetryExport
+                        resource
+                      type: string
+                    exporterNamespace:
+                      description: ExporterNamespace is the namespace of the HumioTelemetryExport
+                        resource
+                      type: string
+                    lastPushError:
+                      description: LastPushError contains the most recent push error
+                      properties:
+                        dataType:
+                          description: DataType indicates which data type this error
+                            relates to (if applicable)
+                          type: string
+                        message:
+                          description: Message is the human-readable error message
+                          type: string
+                        timestamp:
+                          description: Timestamp indicates when this error occurred
+                          format: date-time
+                          type: string
+                        type:
+                          description: Type is the category of error (e.g., "collection",
+                            "configuration")
+                          type: string
+                      required:
+                      - message
+                      - timestamp
+                      - type
+                      type: object
+                    lastPushSuccess:
+                      description: LastPushSuccess indicates whether the last push
+                        was successful
+                      type: boolean
+                    lastPushTime:
+                      description: LastPushTime indicates when data was last pushed
+                        to this exporter
+                      format: date-time
+                      type: string
+                    successfulPushes:
+                      description: SuccessfulPushes is the number of successful pushes
+                        to this exporter
+                      type: integer
+                    totalPushes:
+                      description: TotalPushes is the total number of push attempts
+                        to this exporter
+                      type: integer
+                  required:
+                  - exporterName
+                  - exporterNamespace
+                  - lastPushSuccess
+                  type: object
+                type: array
+              lastCollectionTime:
+                description: LastCollectionTime indicates when data was last collected
+                format: date-time
+                type: string
+              nextScheduledCollection:
+                additionalProperties:
+                  format: date-time
+                  type: string
+                description: NextScheduledCollection contains the next scheduled collection
+                  times by type
+                type: object
+              state:
+                description: State represents the current state of the collection
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

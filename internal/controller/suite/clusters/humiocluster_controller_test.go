@@ -7238,9 +7238,9 @@ var _ = Describe("HumioCluster Telemetry Integration", func() {
 					return err
 				}
 
-				cluster.Spec.TelemetryConfig = &humiov1alpha1.TelemetryConfig{
+				cluster.Spec.TelemetryConfig = &humiov1alpha1.HumioTelemetryConfig{
 					ClusterIdentifier: "e2e-test-cluster",
-					RemoteReport: &humiov1alpha1.TelemetryRemoteReportConfig{
+					RemoteReport: &humiov1alpha1.HumioTelemetryRemoteReportConfig{
 						URL: "https://localhost",
 						Token: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
@@ -7251,7 +7251,7 @@ var _ = Describe("HumioCluster Telemetry Integration", func() {
 							},
 						},
 					},
-					Collections: []humiov1alpha1.TelemetryCollectionConfig{
+					Collections: []humiov1alpha1.HumioTelemetryCollectionConfig{
 						{
 							Interval: "1d",
 							Include:  []string{"license"},
@@ -7266,26 +7266,37 @@ var _ = Describe("HumioCluster Telemetry Integration", func() {
 				return k8sClient.Update(ctx, cluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			// Verify HumioTelemetry resource is created
-			telemetryKey := types.NamespacedName{
-				Name:      fmt.Sprintf("%s-telemetry", clusterKey.Name),
+			// Verify HumioTelemetryCollection resource is created
+			telemetryCollectionKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-telemetry-collection", clusterKey.Name),
 				Namespace: clusterKey.Namespace,
 			}
 
 			Eventually(func() error {
-				telemetry := &humiov1alpha1.HumioTelemetry{}
-				return k8sClient.Get(ctx, telemetryKey, telemetry)
+				telemetryCollection := &humiov1alpha1.HumioTelemetryCollection{}
+				return k8sClient.Get(ctx, telemetryCollectionKey, telemetryCollection)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			// Verify telemetry configuration
-			telemetry := &humiov1alpha1.HumioTelemetry{}
-			Expect(k8sClient.Get(ctx, telemetryKey, telemetry)).To(Succeed())
-			Expect(telemetry.Spec.ClusterIdentifier).To(Equal("e2e-test-cluster"))
-			Expect(telemetry.Spec.ManagedClusterName).To(Equal(clusterKey.Name))
-			Expect(telemetry.Spec.Collections).To(HaveLen(2))
+			// Verify HumioTelemetryExport resource is created
+			telemetryExportKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-telemetry-export", clusterKey.Name),
+				Namespace: clusterKey.Namespace,
+			}
+
+			Eventually(func() error {
+				telemetryExport := &humiov1alpha1.HumioTelemetryExport{}
+				return k8sClient.Get(ctx, telemetryExportKey, telemetryExport)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify telemetry collection configuration
+			telemetryCollection := &humiov1alpha1.HumioTelemetryCollection{}
+			Expect(k8sClient.Get(ctx, telemetryCollectionKey, telemetryCollection)).To(Succeed())
+			Expect(telemetryCollection.Spec.ClusterIdentifier).To(Equal("e2e-test-cluster"))
+			Expect(telemetryCollection.Spec.ManagedClusterName).To(Equal(clusterKey.Name))
+			Expect(telemetryCollection.Spec.Collections).To(HaveLen(2))
 
 			// Verify cluster status reflects telemetry
-			Eventually(func() *humiov1alpha1.TelemetryStatus {
+			Eventually(func() *humiov1alpha1.HumioTelemetryStatus {
 				if err := k8sClient.Get(ctx, clusterKey, cluster); err != nil {
 					return nil
 				}
@@ -7294,7 +7305,8 @@ var _ = Describe("HumioCluster Telemetry Integration", func() {
 
 			cluster = &humiov1alpha1.HumioCluster{}
 			Expect(k8sClient.Get(ctx, clusterKey, cluster)).To(Succeed())
-			Expect(cluster.Status.TelemetryStatus.TelemetryResourceName).To(Equal(telemetryKey.Name))
+			Expect(cluster.Status.TelemetryStatus.Collections).ToNot(BeEmpty())
+			Expect(cluster.Status.TelemetryStatus.Collections[0].Name).To(Equal(telemetryCollectionKey.Name))
 
 			// Cleanup
 			suite.CleanupCluster(ctx, k8sClient, cluster)

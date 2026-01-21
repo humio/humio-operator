@@ -95,6 +95,12 @@ rules:
       - humioalerts
       - humioalerts/finalizers
       - humioalerts/status
+      - humioeventforwarders
+      - humioeventforwarders/finalizers
+      - humioeventforwarders/status
+      - humioeventforwardingrules
+      - humioeventforwardingrules/finalizers
+      - humioeventforwardingrules/status
       - humiofeatureflags
       - humiofeatureflags/finalizers
       - humiofeatureflags/status
@@ -146,6 +152,9 @@ rules:
       - humiopackages
       - humiopackages/finalizers
       - humiopackages/status
+      - humiosavedqueries
+      - humiosavedqueries/finalizers
+      - humiosavedqueries/status
     verbs:
       - create
       - delete

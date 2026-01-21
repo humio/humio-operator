@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.0
-  name: humiotelemetries.core.humio.com
+  name: humiotelemetryexports.core.humio.com
   labels:
     app: 'humio-operator'
     app.kubernetes.io/name: 'humio-operator'
@@ -14,25 +14,21 @@ metadata:
 spec:
   group: core.humio.com
   names:
-    kind: HumioTelemetry
-    listKind: HumioTelemetryList
-    plural: humiotelemetries
-    singular: humiotelemetry
+    kind: HumioTelemetryExport
+    listKind: HumioTelemetryExportList
+    plural: humiotelemetryexports
+    singular: humiotelemetryexport
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: Managed cluster name
-      jsonPath: .spec.managedClusterName
-      name: Cluster
-      type: string
-    - description: Telemetry state
+    - description: Export state
       jsonPath: .status.state
       name: State
       type: string
-    - description: Last collection time
-      jsonPath: .status.lastCollectionTime
-      name: Last Collection
-      type: date
+    - description: Number of registered collections
+      jsonPath: .spec.registeredCollections[*]
+      name: Collections
+      type: integer
     - description: Last export time
       jsonPath: .status.lastExportTime
       name: Last Export
@@ -43,7 +39,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioTelemetry is the Schema for the humiotelemetries API
+        description: HumioTelemetryExport is the Schema for the humiotelemetryexports
+          API
         properties:
           apiVersion:
             description: |-
@@ -63,42 +60,29 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioTelemetrySpec defines the desired state of HumioTelemetry.
+            description: HumioTelemetryExportSpec defines the desired state of HumioTelemetryExport.
             properties:
-              clusterIdentifier:
-                description: ClusterIdentifier is a unique identifier for this cluster
-                  used in telemetry data
-                minLength: 1
-                type: string
-              collections:
-                description: Collections defines what data to collect and how frequently
+              registeredCollections:
+                description: RegisteredCollections lists the HumioTelemetryCollection
+                  resources to accept data from
                 items:
-                  description: CollectionConfig defines what data to collect and collection
-                    frequency
+                  description: HumioTelemetryCollectionReference references a HumioTelemetryCollection
+                    resource
                   properties:
-                    include:
-                      description: Include defines which data types to collect in
-                        this collection
-                      items:
-                        type: string
-                      minItems: 1
-                      type: array
-                    interval:
-                      description: Interval defines how frequently to collect this
-                        data (e.g., "15m", "1h", "1d")
-                      pattern: ^[0-9]+[smhd]$
+                    name:
+                      description: Name of the HumioTelemetryCollection resource
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the HumioTelemetryCollection resource
+                        If empty, defaults to the same namespace as this export resource
                       type: string
                   required:
-                  - include
-                  - interval
+                  - name
                   type: object
                 minItems: 1
                 type: array
-              managedClusterName:
-                description: ManagedClusterName refers to an object of type HumioCluster
-                  that is managed by the operator
-                minLength: 1
-                type: string
               remoteReport:
                 description: RemoteReport defines the configuration for sending telemetry
                   data to a remote cluster
@@ -151,23 +135,26 @@ spec:
                 - token
                 - url
                 type: object
+              sendCollectionErrors:
+                default: true
+                description: |-
+                  SendCollectionErrors controls whether collection errors are exported to the telemetry cluster
+                  When enabled (default), collection errors are sent as telemetry payloads for analysis
+                  When disabled, collection errors are only logged locally and recorded as Kubernetes events
+                type: boolean
             required:
-            - clusterIdentifier
-            - collections
-            - managedClusterName
+            - registeredCollections
             - remoteReport
             type: object
-            x-kubernetes-validations:
-            - message: Must specify managedClusterName
-              rule: has(self.managedClusterName) && self.managedClusterName != ""
           status:
-            description: HumioTelemetryStatus defines the observed state of HumioTelemetry.
+            description: HumioTelemetryExportStatus defines the observed state of
+              HumioTelemetryExport.
             properties:
-              collectionErrors:
-                description: CollectionErrors contains any errors from data collection
+              exportErrors:
+                description: ExportErrors contains any errors from data export
                 items:
-                  description: TelemetryError represents an error that occurred during
-                    telemetry operations
+                  description: HumioTelemetryExportError represents an error that
+                    occurred during telemetry export operations
                   properties:
                     dataType:
                       description: DataType indicates which data type this error relates
@@ -181,8 +168,8 @@ spec:
                       format: date-time
                       type: string
                     type:
-                      description: Type is the category of error (e.g., "collection",
-                        "export", "configuration")
+                      description: Type is the category of error (e.g., "export",
+                        "configuration")
                       type: string
                   required:
                   - message
@@ -190,27 +177,28 @@ spec:
                   - type
                   type: object
                 type: array
-              collectionStatus:
+              lastExportTime:
+                description: LastExportTime indicates when data was last exported
+                  successfully
+                format: date-time
+                type: string
+              registeredCollectionStatus:
                 additionalProperties:
-                  description: CollectionTypeStatus represents the status of a specific
-                    collection type
+                  description: HumioTelemetryCollectionRegistrationStatus tracks the
+                    registration status with a specific collection
                   properties:
-                    collectionCount:
-                      description: CollectionCount is the total number of successful
-                        collections for this type
-                      type: integer
-                    exportCount:
-                      description: ExportCount is the total number of successful exports
-                        for this type
-                      type: integer
-                    lastCollection:
-                      description: LastCollection indicates when this data type was
-                        last collected
+                    found:
+                      description: Found indicates whether the referenced collection
+                        resource exists
+                      type: boolean
+                    lastDataReceived:
+                      description: LastDataReceived indicates when data was last received
+                        from this collection
                       format: date-time
                       type: string
-                    lastError:
-                      description: LastError contains the most recent error for this
-                        collection type
+                    lastExportError:
+                      description: LastExportError contains the most recent export
+                        error for this collection
                       properties:
                         dataType:
                           description: DataType indicates which data type this error
@@ -224,69 +212,30 @@ spec:
                           format: date-time
                           type: string
                         type:
-                          description: Type is the category of error (e.g., "collection",
-                            "export", "configuration")
+                          description: Type is the category of error (e.g., "export",
+                            "configuration")
                           type: string
                       required:
                       - message
                       - timestamp
                       - type
                       type: object
-                    lastExport:
-                      description: LastExport indicates when this data type was last
-                        exported
-                      format: date-time
-                      type: string
-                  type: object
-                description: CollectionStatus contains the status of individual collection
-                  types
-                type: object
-              exportErrors:
-                description: ExportErrors contains any errors from data export
-                items:
-                  description: TelemetryError represents an error that occurred during
-                    telemetry operations
-                  properties:
-                    dataType:
-                      description: DataType indicates which data type this error relates
-                        to (if applicable)
-                      type: string
-                    message:
-                      description: Message is the human-readable error message
-                      type: string
-                    timestamp:
-                      description: Timestamp indicates when this error occurred
-                      format: date-time
-                      type: string
-                    type:
-                      description: Type is the category of error (e.g., "collection",
-                        "export", "configuration")
-                      type: string
+                    successfulExports:
+                      description: SuccessfulExports is the number of successful exports
+                        for data from this collection
+                      type: integer
+                    totalExports:
+                      description: TotalExports is the total number of export attempts
+                        for data from this collection
+                      type: integer
                   required:
-                  - message
-                  - timestamp
-                  - type
+                  - found
                   type: object
-                type: array
-              lastCollectionTime:
-                description: LastCollectionTime indicates when data was last collected
-                format: date-time
-                type: string
-              lastExportTime:
-                description: LastExportTime indicates when data was last exported
-                  successfully
-                format: date-time
-                type: string
-              nextScheduledCollection:
-                additionalProperties:
-                  format: date-time
-                  type: string
-                description: NextScheduledCollection contains the next scheduled collection
-                  times by type
+                description: RegisteredCollectionStatus tracks the status of registration
+                  with collections
                 type: object
               state:
-                description: State represents the current state of the HumioTelemetry
-                  resource
+                description: State represents the current state of the export
                 type: string
             type: object
         required:

@@ -294,6 +294,10 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 				Value: "false",
 			},
 			{
+				Name:  "ENABLE_EVENT_FORWARDING",
+				Value: "true",
+			},
+			{
 				Name:  "HUMIO_MEMORY_OPTS",
 				Value: "-Xss2m -Xms4g -Xmx4g -XX:MaxDirectMemorySize=1g",
 			},

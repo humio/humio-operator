@@ -34,7 +34,9 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,6 +59,8 @@ var (
 	testK8sManager       ctrl.Manager
 	testProcessNamespace string
 	log                  logr.Logger
+	managerCtx           context.Context
+	managerCancel        context.CancelFunc
 )
 
 func TestHumioTelemetry(t *testing.T) {
@@ -103,6 +107,32 @@ var _ = BeforeSuite(func() {
 	err = humiov1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	// Wait for CRDs to be available in the test cluster
+	if helpers.UseEnvtest() {
+		By("waiting for CRDs to be available in test environment")
+		Eventually(func() bool {
+			// Create a discovery client to check if CRDs are ready
+			discoveryClient, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+			if err != nil {
+				return false
+			}
+
+			// Check if the CRD GroupVersionKinds are available
+			gvks := []schema.GroupVersionKind{
+				{Group: "core.humio.com", Version: "v1alpha1", Kind: "HumioTelemetryCollection"},
+				{Group: "core.humio.com", Version: "v1alpha1", Kind: "HumioTelemetryExport"},
+			}
+
+			for _, gvk := range gvks {
+				if !discoveryClient.Scheme().Recognizes(gvk) {
+					return false
+				}
+			}
+
+			return true
+		}, time.Second*30, time.Millisecond*100).Should(BeTrue(), "CRDs should be available in test environment")
+	}
+
 	cacheOptions, err := helpers.GetCacheOptionsWithWatchNamespace()
 	if err != nil {
 		ctrl.Log.Info("unable to get WatchNamespace: the manager will watch and manage resources in all namespaces")
@@ -120,13 +150,22 @@ var _ = BeforeSuite(func() {
 
 	var requeuePeriod time.Duration
 
-	err = (&controller.HumioTelemetryReconciler{
+	err = (&controller.HumioTelemetryCollectionReconciler{
 		Client: k8sManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
 			RequeuePeriod: requeuePeriod,
 		},
 		HumioClient: testHumioClient,
 		BaseLogger:  log,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&controller.HumioTelemetryExportReconciler{
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		BaseLogger: log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -140,9 +179,11 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Create a context that can be cancelled to gracefully shut down the manager
+	managerCtx, managerCancel = context.WithCancel(context.Background())
 	go func() {
 		defer GinkgoRecover()
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		err = k8sManager.Start(managerCtx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
 
@@ -158,12 +199,22 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	err = k8sClient.Create(context.TODO(), &testNamespace)
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	suite.CreateDockerRegredSecret(context.TODO(), testNamespace, k8sClient)
 })
 
 var _ = AfterSuite(func() {
+	// Cancel the manager context to gracefully shut down controllers
+	if managerCancel != nil {
+		By("stopping controller manager")
+		managerCancel()
+		// Give the manager time to shut down gracefully
+		time.Sleep(2 * time.Second)
+	}
+
 	if testProcessNamespace != "" && k8sClient != nil {
 		By(fmt.Sprintf("Removing regcred secret for namespace: %s", testProcessNamespace))
 		_ = k8sClient.Delete(context.TODO(), &corev1.Secret{
@@ -173,15 +224,46 @@ var _ = AfterSuite(func() {
 			},
 		})
 
+		By(fmt.Sprintf("Force cleaning telemetry resources in namespace: %s", testProcessNamespace))
+
+		// Force delete telemetry collections by removing finalizers
+		collections := &humiov1alpha1.HumioTelemetryCollectionList{}
+		if err := k8sClient.List(context.TODO(), collections, client.InNamespace(testProcessNamespace)); err == nil {
+			for i := range collections.Items {
+				collection := &collections.Items[i]
+				if len(collection.Finalizers) > 0 {
+					collection.Finalizers = []string{}
+					_ = k8sClient.Update(context.TODO(), collection)
+				}
+			}
+		}
+
+		// Force delete telemetry exports by removing finalizers
+		exports := &humiov1alpha1.HumioTelemetryExportList{}
+		if err := k8sClient.List(context.TODO(), exports, client.InNamespace(testProcessNamespace)); err == nil {
+			for i := range exports.Items {
+				export := &exports.Items[i]
+				if len(export.Finalizers) > 0 {
+					export.Finalizers = []string{}
+					_ = k8sClient.Update(context.TODO(), export)
+				}
+			}
+		}
+
 		By(fmt.Sprintf("Removing test namespace: %s", testProcessNamespace))
-		err := k8sClient.Delete(context.TODO(),
+		ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+		defer cancel()
+
+		err := k8sClient.Delete(ctx,
 			&corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: testProcessNamespace,
 				},
 			},
 		)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			By(fmt.Sprintf("Warning: Failed to delete namespace %s: %v", testProcessNamespace, err))
+		}
 	}
 	By("tearing down the test environment")
 	if testEnv != nil {

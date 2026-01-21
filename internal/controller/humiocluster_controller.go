@@ -365,10 +365,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	// manage telemetry resources
-	if result, err := r.ensureTelemetryResource(ctx, hc); result != emptyResult || err != nil {
+	// manage telemetry resources (both collection and export)
+	if result, err := r.ensureTelemetryResources(ctx, hc); result != emptyResult || err != nil {
 		if err != nil {
-			r.Log.Error(err, "Failed to manage telemetry resource")
+			r.Log.Error(err, "Failed to manage telemetry resources")
 			// Don't fail the entire reconcile for telemetry issues, just log and continue
 		}
 		// If result is not empty, it means we need to requeue for telemetry management
@@ -3110,198 +3110,151 @@ func GetDuplicateEnvVarsErrorMessage(duplicates map[string]int) string {
 	return message[:len(message)-2]
 }
 
-// ensureTelemetryResource manages the HumioTelemetry resource for the cluster when telemetry is enabled
-func (r *HumioClusterReconciler) ensureTelemetryResource(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
-	// Check if telemetry is enabled (by having TelemetryConfig set)
+// ensureTelemetryResources manages both HumioTelemetryCollection and HumioTelemetryExport resources for the cluster when telemetry is enabled
+func (r *HumioClusterReconciler) ensureTelemetryResources(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+	emptyResult := reconcile.Result{}
+
+	// Check if telemetry is enabled (by having HumioTelemetryConfig set)
 	if hc.Spec.TelemetryConfig == nil {
-		// Telemetry is disabled, ensure no telemetry resource exists
-		return r.cleanupTelemetryResource(ctx, hc)
+		// Telemetry is disabled, ensure no telemetry resources exist
+		return r.cleanupTelemetryResources(ctx, hc)
 	}
 
-	// Telemetry is enabled, ensure telemetry resource exists
-	return r.createOrUpdateTelemetryResource(ctx, hc)
+	// Telemetry is enabled, ensure both collection and export resources exist
+	if result, err := r.createOrUpdateTelemetryCollection(ctx, hc); result != emptyResult || err != nil {
+		return result, err
+	}
+
+	if result, err := r.createOrUpdateTelemetryExport(ctx, hc); result != emptyResult || err != nil {
+		return result, err
+	}
+
+	// Sync status from both resources back to HumioCluster
+	return r.syncHumioTelemetryStatus(ctx, hc)
 }
 
-// cleanupTelemetryResource removes the HumioTelemetry resource when telemetry is disabled
-func (r *HumioClusterReconciler) cleanupTelemetryResource(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
-	telemetryName := fmt.Sprintf("%s-telemetry", hc.Name)
+// cleanupTelemetryResources removes both HumioTelemetryCollection and HumioTelemetryExport resources when telemetry is disabled
+func (r *HumioClusterReconciler) cleanupTelemetryResources(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+	collectionName := fmt.Sprintf("%s-telemetry-collection", hc.Name)
+	exportName := fmt.Sprintf("%s-telemetry-export", hc.Name)
 
-	ht := &humiov1alpha1.HumioTelemetry{}
-	err := r.Get(ctx, types.NamespacedName{Name: telemetryName, Namespace: hc.Namespace}, ht)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			// Telemetry resource doesn't exist, nothing to clean up
-			// Clear telemetry status from cluster if it exists
-			if hc.Status.TelemetryStatus != nil {
-				hc.Status.TelemetryStatus = nil
-				return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc)
-			}
-			return reconcile.Result{}, nil
+	// Clean up collection resource
+	htc := &humiov1alpha1.HumioTelemetryCollection{}
+	err := r.Get(ctx, types.NamespacedName{Name: collectionName, Namespace: hc.Namespace}, htc)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return reconcile.Result{}, fmt.Errorf("failed to get telemetry collection resource: %w", err)
+	}
+	if err == nil {
+		r.Log.Info("Deleting HumioTelemetryCollection resource", "name", collectionName)
+		if err := r.Delete(ctx, htc); err != nil && !k8serrors.IsNotFound(err) {
+			return reconcile.Result{}, fmt.Errorf("failed to delete telemetry collection resource: %w", err)
 		}
-		return reconcile.Result{}, fmt.Errorf("failed to get telemetry resource: %w", err)
 	}
 
-	// Delete the telemetry resource
-	r.Log.Info("Deleting HumioTelemetry resource", "name", telemetryName)
-	if err := r.Delete(ctx, ht); err != nil && !k8serrors.IsNotFound(err) {
-		return reconcile.Result{}, fmt.Errorf("failed to delete telemetry resource: %w", err)
+	// Clean up export resource
+	hte := &humiov1alpha1.HumioTelemetryExport{}
+	err = r.Get(ctx, types.NamespacedName{Name: exportName, Namespace: hc.Namespace}, hte)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return reconcile.Result{}, fmt.Errorf("failed to get telemetry export resource: %w", err)
+	}
+	if err == nil {
+		r.Log.Info("Deleting HumioTelemetryExport resource", "name", exportName)
+		if err := r.Delete(ctx, hte); err != nil && !k8serrors.IsNotFound(err) {
+			return reconcile.Result{}, fmt.Errorf("failed to delete telemetry export resource: %w", err)
+		}
 	}
 
 	// Clear telemetry status from cluster
-	hc.Status.TelemetryStatus = nil
-	return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc)
-}
-
-// createOrUpdateTelemetryResource creates or updates the HumioTelemetry resource
-func (r *HumioClusterReconciler) createOrUpdateTelemetryResource(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
-	telemetryName := fmt.Sprintf("%s-telemetry", hc.Name)
-
-	// Validate telemetry configuration
-	if err := r.validateTelemetryConfiguration(hc); err != nil {
-		// Update telemetry status with error
-		hc.Status.TelemetryStatus = &humiov1alpha1.TelemetryStatus{
-			State:                 humiov1alpha1.HumioTelemetryStateConfigError,
-			TelemetryResourceName: telemetryName,
-			ExportErrors: []humiov1alpha1.TelemetryError{{
-				Type:      "configuration",
-				Message:   fmt.Sprintf("Telemetry configuration error: %v", err),
-				Timestamp: metav1.Now(),
-			}},
-		}
+	if hc.Status.TelemetryStatus != nil {
+		hc.Status.TelemetryStatus = nil
 		return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc)
 	}
 
-	// Check if telemetry resource already exists
-	ht := &humiov1alpha1.HumioTelemetry{}
-	err := r.Get(ctx, types.NamespacedName{Name: telemetryName, Namespace: hc.Namespace}, ht)
+	return reconcile.Result{}, nil
+}
+
+// createOrUpdateTelemetryCollection creates or updates the HumioTelemetryCollection resource
+func (r *HumioClusterReconciler) createOrUpdateTelemetryCollection(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+	collectionName := fmt.Sprintf("%s-telemetry-collection", hc.Name)
+
+	// Validate telemetry configuration
+	if err := r.validateHumioTelemetryConfiguration(hc); err != nil {
+		return reconcile.Result{}, fmt.Errorf("telemetry configuration validation failed: %w", err)
+	}
+
+	// Check if collection resource already exists
+	htc := &humiov1alpha1.HumioTelemetryCollection{}
+	err := r.Get(ctx, types.NamespacedName{Name: collectionName, Namespace: hc.Namespace}, htc)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return reconcile.Result{}, fmt.Errorf("failed to get telemetry resource: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to get telemetry collection resource: %w", err)
 	}
 
 	if k8serrors.IsNotFound(err) {
-		// Create new telemetry resource
-		return r.createTelemetryResource(ctx, hc, telemetryName)
+		// Create new collection resource
+		return r.createTelemetryCollectionResource(ctx, hc, collectionName)
 	}
 
-	// Update existing telemetry resource if needed
-	return r.updateTelemetryResource(ctx, hc, ht)
+	// Update existing collection resource if needed
+	return r.updateTelemetryCollectionResource(ctx, hc, htc)
 }
 
-// validateTelemetryConfiguration validates the telemetry configuration in HumioCluster
-func (r *HumioClusterReconciler) validateTelemetryConfiguration(hc *humiov1alpha1.HumioCluster) error {
-	if hc.Spec.TelemetryConfig == nil {
-		return fmt.Errorf("telemetryConfig is required when telemetryEnabled is true")
-	}
+// createTelemetryCollectionResource creates a new HumioTelemetryCollection resource
+func (r *HumioClusterReconciler) createTelemetryCollectionResource(ctx context.Context, hc *humiov1alpha1.HumioCluster, collectionName string) (reconcile.Result, error) {
+	r.Log.Info("Creating HumioTelemetryCollection resource", "name", collectionName)
 
-	config := hc.Spec.TelemetryConfig
-
-	if config.RemoteReport == nil {
-		return fmt.Errorf("telemetryConfig.remoteReport is required")
-	}
-
-	if config.RemoteReport.URL == "" {
-		return fmt.Errorf("telemetryConfig.remoteReport.url is required")
-	}
-
-	if config.RemoteReport.Token.SecretKeyRef == nil {
-		return fmt.Errorf("telemetryConfig.remoteReport.token.secretKeyRef is required")
-	}
-
-	if config.ClusterIdentifier == "" {
-		return fmt.Errorf("telemetryConfig.clusterIdentifier is required")
-	}
-
-	if len(config.Collections) == 0 {
-		return fmt.Errorf("telemetryConfig.collections must contain at least one collection")
-	}
-
-	return nil
-}
-
-// createTelemetryResource creates a new HumioTelemetry resource
-func (r *HumioClusterReconciler) createTelemetryResource(ctx context.Context, hc *humiov1alpha1.HumioCluster, telemetryName string) (reconcile.Result, error) {
-	r.Log.Info("Creating HumioTelemetry resource", "name", telemetryName)
-
-	// Convert HumioCluster telemetry config to HumioTelemetry spec
-	ht := &humiov1alpha1.HumioTelemetry{
+	// Convert HumioCluster telemetry config to HumioTelemetryCollection spec
+	htc := &humiov1alpha1.HumioTelemetryCollection{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      telemetryName,
+			Name:      collectionName,
 			Namespace: hc.Namespace,
 			Labels: map[string]string{
 				"humio.com/managed-by": "humio-operator",
 				"humio.com/cluster":    hc.Name,
 			},
 		},
-		Spec: humiov1alpha1.HumioTelemetrySpec{
+		Spec: humiov1alpha1.HumioTelemetryCollectionSpec{
 			ClusterIdentifier:  hc.Spec.TelemetryConfig.ClusterIdentifier,
 			ManagedClusterName: hc.Name,
-			RemoteReport: humiov1alpha1.RemoteReportConfig{
-				URL:   hc.Spec.TelemetryConfig.RemoteReport.URL,
-				Token: hc.Spec.TelemetryConfig.RemoteReport.Token,
-			},
 		},
 	}
 
 	// Convert collections
 	for _, collection := range hc.Spec.TelemetryConfig.Collections {
-		ht.Spec.Collections = append(ht.Spec.Collections, humiov1alpha1.CollectionConfig(collection))
+		htc.Spec.Collections = append(htc.Spec.Collections, humiov1alpha1.CollectionConfig(collection))
 	}
 
 	// Set owner reference
-	if err := controllerutil.SetControllerReference(hc, ht, r.Scheme()); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to set owner reference: %w", err)
+	if err := controllerutil.SetControllerReference(hc, htc, r.Scheme()); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to set owner reference on collection: %w", err)
 	}
 
 	// Create the resource
-	if err := r.Create(ctx, ht); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to create telemetry resource: %w", err)
+	if err := r.Create(ctx, htc); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to create telemetry collection resource: %w", err)
 	}
 
-	// Update cluster status to reflect telemetry resource creation
-	hc.Status.TelemetryStatus = &humiov1alpha1.TelemetryStatus{
-		State:                 humiov1alpha1.HumioTelemetryStateEnabled,
-		TelemetryResourceName: telemetryName,
-	}
-
-	humioTelemetryPrometheusMetrics.Counters.TelemetryResourcesCreated.Inc()
-	r.Log.Info("Successfully created HumioTelemetry resource", "name", telemetryName)
-
-	return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc)
+	r.Log.Info("Successfully created HumioTelemetryCollection resource", "name", collectionName)
+	return reconcile.Result{Requeue: true}, nil
 }
 
-// updateTelemetryResource updates an existing HumioTelemetry resource if needed
-func (r *HumioClusterReconciler) updateTelemetryResource(ctx context.Context, hc *humiov1alpha1.HumioCluster, ht *humiov1alpha1.HumioTelemetry) (reconcile.Result, error) {
+// updateTelemetryCollectionResource updates an existing HumioTelemetryCollection resource if needed
+func (r *HumioClusterReconciler) updateTelemetryCollectionResource(ctx context.Context, hc *humiov1alpha1.HumioCluster, htc *humiov1alpha1.HumioTelemetryCollection) (reconcile.Result, error) {
 	needsUpdate := false
 
 	// Check if cluster identifier changed
-	if ht.Spec.ClusterIdentifier != hc.Spec.TelemetryConfig.ClusterIdentifier {
-		ht.Spec.ClusterIdentifier = hc.Spec.TelemetryConfig.ClusterIdentifier
-		needsUpdate = true
-	}
-
-	// Check if remote report config changed
-	if ht.Spec.RemoteReport.URL != hc.Spec.TelemetryConfig.RemoteReport.URL {
-		ht.Spec.RemoteReport.URL = hc.Spec.TelemetryConfig.RemoteReport.URL
-		needsUpdate = true
-	}
-
-	// Check if token reference changed (compare by name and key)
-	if ht.Spec.RemoteReport.Token.SecretKeyRef == nil ||
-		hc.Spec.TelemetryConfig.RemoteReport.Token.SecretKeyRef == nil ||
-		ht.Spec.RemoteReport.Token.SecretKeyRef.Name != hc.Spec.TelemetryConfig.RemoteReport.Token.SecretKeyRef.Name ||
-		ht.Spec.RemoteReport.Token.SecretKeyRef.Key != hc.Spec.TelemetryConfig.RemoteReport.Token.SecretKeyRef.Key {
-		ht.Spec.RemoteReport.Token = hc.Spec.TelemetryConfig.RemoteReport.Token
+	if htc.Spec.ClusterIdentifier != hc.Spec.TelemetryConfig.ClusterIdentifier {
+		htc.Spec.ClusterIdentifier = hc.Spec.TelemetryConfig.ClusterIdentifier
 		needsUpdate = true
 	}
 
 	// Check if collections changed
-	if len(ht.Spec.Collections) != len(hc.Spec.TelemetryConfig.Collections) {
+	if len(htc.Spec.Collections) != len(hc.Spec.TelemetryConfig.Collections) {
 		needsUpdate = true
 	} else {
 		for i, collection := range hc.Spec.TelemetryConfig.Collections {
-			if i >= len(ht.Spec.Collections) ||
-				ht.Spec.Collections[i].Interval != collection.Interval ||
-				!slices.Equal(ht.Spec.Collections[i].Include, collection.Include) {
+			if i >= len(htc.Spec.Collections) ||
+				htc.Spec.Collections[i].Interval != collection.Interval ||
+				!slices.Equal(htc.Spec.Collections[i].Include, collection.Include) {
 				needsUpdate = true
 				break
 			}
@@ -3309,38 +3262,436 @@ func (r *HumioClusterReconciler) updateTelemetryResource(ctx context.Context, hc
 	}
 
 	if needsUpdate {
-		r.Log.Info("Updating HumioTelemetry resource", "name", ht.Name)
+		r.Log.Info("Updating HumioTelemetryCollection resource", "name", htc.Name)
 
 		// Update collections
-		ht.Spec.Collections = nil
+		htc.Spec.Collections = nil
 		for _, collection := range hc.Spec.TelemetryConfig.Collections {
-			ht.Spec.Collections = append(ht.Spec.Collections, humiov1alpha1.CollectionConfig(collection))
+			htc.Spec.Collections = append(htc.Spec.Collections, humiov1alpha1.CollectionConfig(collection))
 		}
 
-		if err := r.Update(ctx, ht); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to update telemetry resource: %w", err)
+		if err := r.Update(ctx, htc); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to update telemetry collection resource: %w", err)
 		}
 
-		r.Log.Info("Successfully updated HumioTelemetry resource", "name", ht.Name)
+		r.Log.Info("Successfully updated HumioTelemetryCollection resource", "name", htc.Name)
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Update cluster status with telemetry information from the telemetry resource
-	if hc.Status.TelemetryStatus == nil ||
-		hc.Status.TelemetryStatus.TelemetryResourceName != ht.Name ||
-		hc.Status.TelemetryStatus.State != ht.Status.State {
+	return reconcile.Result{}, nil
+}
 
-		hc.Status.TelemetryStatus = &humiov1alpha1.TelemetryStatus{
-			State:                 ht.Status.State,
-			TelemetryResourceName: ht.Name,
-			LastCollectionTime:    ht.Status.LastCollectionTime,
-			LastExportTime:        ht.Status.LastExportTime,
-			CollectionErrors:      ht.Status.CollectionErrors,
-			ExportErrors:          ht.Status.ExportErrors,
+// createOrUpdateTelemetryExport creates or updates the HumioTelemetryExport resource
+func (r *HumioClusterReconciler) createOrUpdateTelemetryExport(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+	exportName := fmt.Sprintf("%s-telemetry-export", hc.Name)
+	collectionName := fmt.Sprintf("%s-telemetry-collection", hc.Name)
+
+	// Check if export resource already exists
+	hte := &humiov1alpha1.HumioTelemetryExport{}
+	err := r.Get(ctx, types.NamespacedName{Name: exportName, Namespace: hc.Namespace}, hte)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return reconcile.Result{}, fmt.Errorf("failed to get telemetry export resource: %w", err)
+	}
+
+	if k8serrors.IsNotFound(err) {
+		// Create new export resource
+		return r.createTelemetryExportResource(ctx, hc, exportName, collectionName)
+	}
+
+	// Update existing export resource if needed
+	return r.updateTelemetryExportResource(ctx, hc, hte, collectionName)
+}
+
+// createTelemetryExportResource creates a new HumioTelemetryExport resource
+func (r *HumioClusterReconciler) createTelemetryExportResource(ctx context.Context, hc *humiov1alpha1.HumioCluster, exportName, collectionName string) (reconcile.Result, error) {
+	r.Log.Info("Creating HumioTelemetryExport resource", "name", exportName)
+
+	// Convert HumioCluster telemetry config to HumioTelemetryExport spec
+	hte := &humiov1alpha1.HumioTelemetryExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      exportName,
+			Namespace: hc.Namespace,
+			Labels: map[string]string{
+				"humio.com/managed-by": "humio-operator",
+				"humio.com/cluster":    hc.Name,
+			},
+		},
+		Spec: humiov1alpha1.HumioTelemetryExportSpec{
+			RemoteReport: humiov1alpha1.HumioTelemetryRemoteReportConfig{
+				URL:   hc.Spec.TelemetryConfig.RemoteReport.URL,
+				Token: hc.Spec.TelemetryConfig.RemoteReport.Token,
+			},
+			SendCollectionErrors: func() *bool { b := true; return &b }(), // Default to true
+			RegisteredCollections: []humiov1alpha1.HumioTelemetryCollectionReference{{
+				Name: collectionName,
+				// Namespace defaults to export's namespace (same as HumioCluster)
+			}},
+		},
+	}
+
+	// Set owner reference
+	if err := controllerutil.SetControllerReference(hc, hte, r.Scheme()); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to set owner reference on export: %w", err)
+	}
+
+	// Create the resource
+	if err := r.Create(ctx, hte); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to create telemetry export resource: %w", err)
+	}
+
+	r.Log.Info("Successfully created HumioTelemetryExport resource", "name", exportName)
+	return reconcile.Result{Requeue: true}, nil
+}
+
+// updateTelemetryExportResource updates an existing HumioTelemetryExport resource if needed
+func (r *HumioClusterReconciler) updateTelemetryExportResource(ctx context.Context, hc *humiov1alpha1.HumioCluster, hte *humiov1alpha1.HumioTelemetryExport, collectionName string) (reconcile.Result, error) {
+	needsUpdate := false
+
+	// Check if remote report config changed
+	if hte.Spec.RemoteReport.URL != hc.Spec.TelemetryConfig.RemoteReport.URL {
+		hte.Spec.RemoteReport.URL = hc.Spec.TelemetryConfig.RemoteReport.URL
+		needsUpdate = true
+	}
+
+	// Check if token reference changed
+	if hte.Spec.RemoteReport.Token.SecretKeyRef == nil ||
+		hc.Spec.TelemetryConfig.RemoteReport.Token.SecretKeyRef == nil ||
+		hte.Spec.RemoteReport.Token.SecretKeyRef.Name != hc.Spec.TelemetryConfig.RemoteReport.Token.SecretKeyRef.Name ||
+		hte.Spec.RemoteReport.Token.SecretKeyRef.Key != hc.Spec.TelemetryConfig.RemoteReport.Token.SecretKeyRef.Key {
+		hte.Spec.RemoteReport.Token = hc.Spec.TelemetryConfig.RemoteReport.Token
+		needsUpdate = true
+	}
+
+	// Check if registered collections need updating (should reference the collection created by this cluster)
+	expectedCollection := humiov1alpha1.HumioTelemetryCollectionReference{Name: collectionName}
+	if len(hte.Spec.RegisteredCollections) != 1 || hte.Spec.RegisteredCollections[0].Name != expectedCollection.Name {
+		hte.Spec.RegisteredCollections = []humiov1alpha1.HumioTelemetryCollectionReference{expectedCollection}
+		needsUpdate = true
+	}
+
+	if needsUpdate {
+		r.Log.Info("Updating HumioTelemetryExport resource", "name", hte.Name)
+
+		if err := r.Update(ctx, hte); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to update telemetry export resource: %w", err)
 		}
 
+		r.Log.Info("Successfully updated HumioTelemetryExport resource", "name", hte.Name)
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// syncHumioTelemetryStatus syncs status from all related collection and export resources back to HumioCluster
+func (r *HumioClusterReconciler) syncHumioTelemetryStatus(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+	// Query all telemetry resources for this cluster
+	allCollections, relevantExports, err := r.queryTelemetryResources(ctx, hc)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Initialize status if needed
+	needsStatusUpdate := r.initializeTelemetryStatus(hc)
+
+	// Build status for collections and exports
+	collectionsStatus, activeCollections, latestCollectionTime := r.buildCollectionsStatus(allCollections.Items)
+	exportsStatus, activeExports, latestExportTime := r.buildExportsStatus(relevantExports)
+
+	// Clear deprecated fields if needed
+	if r.clearDeprecatedFields(hc) {
+		needsStatusUpdate = true
+	}
+
+	// Update list-based fields if changed
+	if r.updateListBasedFields(hc, collectionsStatus, exportsStatus) {
+		needsStatusUpdate = true
+	}
+
+	// Update timestamps if needed
+	if r.updateTimestamps(hc, latestCollectionTime, latestExportTime) {
+		needsStatusUpdate = true
+	}
+
+	// Update overall state
+	if r.updateOverallState(hc, allCollections.Items, relevantExports, activeCollections, activeExports) {
+		needsStatusUpdate = true
+	}
+
+	// Always update status when it's first initialized or when changes are detected
+	if needsStatusUpdate {
 		return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc)
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) queryTelemetryResources(ctx context.Context, hc *humiov1alpha1.HumioCluster) (*humiov1alpha1.HumioTelemetryCollectionList, []humiov1alpha1.HumioTelemetryExport, error) {
+	// Query all telemetry collections in the namespace and filter by managedClusterName
+	allCollections := &humiov1alpha1.HumioTelemetryCollectionList{}
+	err := r.List(ctx, allCollections, client.InNamespace(hc.Namespace))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list telemetry collections for cluster %s: %w", hc.Name, err)
+	}
+
+	// Filter collections that reference this cluster
+	filteredCollections := &humiov1alpha1.HumioTelemetryCollectionList{}
+	for _, collection := range allCollections.Items {
+		if collection.Spec.ManagedClusterName == hc.Name {
+			filteredCollections.Items = append(filteredCollections.Items, collection)
+		}
+	}
+
+	// Query all telemetry exports in the namespace (we'll filter by relevant ones)
+	allExports := &humiov1alpha1.HumioTelemetryExportList{}
+	err = r.List(ctx, allExports, client.InNamespace(hc.Namespace))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list telemetry exports for cluster %s: %w", hc.Name, err)
+	}
+
+	// Filter exports that reference any of our collections
+	collectionNames := make(map[string]bool)
+	for _, collection := range filteredCollections.Items {
+		collectionNames[collection.Name] = true
+	}
+
+	relevantExports := []humiov1alpha1.HumioTelemetryExport{}
+	for _, export := range allExports.Items {
+		for _, ref := range export.Spec.RegisteredCollections {
+			if collectionNames[ref.Name] {
+				relevantExports = append(relevantExports, export)
+				break
+			}
+		}
+	}
+
+	return filteredCollections, relevantExports, nil
+}
+
+func (r *HumioClusterReconciler) initializeTelemetryStatus(hc *humiov1alpha1.HumioCluster) bool {
+	if hc.Status.TelemetryStatus == nil {
+		hc.Status.TelemetryStatus = &humiov1alpha1.HumioTelemetryStatus{
+			Collections: []humiov1alpha1.HumioTelemetryResourceStatus{},
+			Exports:     []humiov1alpha1.HumioTelemetryResourceStatus{},
+			State:       "Disabled", // Initialize with a valid state
+		}
+		return true
+	}
+	return false
+}
+
+func (r *HumioClusterReconciler) buildCollectionsStatus(collections []humiov1alpha1.HumioTelemetryCollection) ([]humiov1alpha1.HumioTelemetryResourceStatus, int, *metav1.Time) {
+	collectionsStatus := []humiov1alpha1.HumioTelemetryResourceStatus{}
+	activeCollections := 0
+	var latestCollectionTime *metav1.Time
+
+	for _, collection := range collections {
+		status := humiov1alpha1.HumioTelemetryResourceStatus{
+			Name:         collection.Name,
+			State:        collection.Status.State,
+			LastActivity: collection.Status.LastCollectionTime,
+		}
+
+		// Count errors from collection status
+		if collection.Status.CollectionStatus != nil {
+			for _, collectionTypeStatus := range collection.Status.CollectionStatus {
+				if collectionTypeStatus.LastError != nil {
+					status.ErrorCount++
+					if status.LastError == "" {
+						status.LastError = collectionTypeStatus.LastError.Message
+					}
+				}
+			}
+		}
+
+		if collection.Status.State == humiov1alpha1.HumioTelemetryCollectionStateEnabled {
+			activeCollections++
+		}
+
+		if collection.Status.LastCollectionTime != nil {
+			if latestCollectionTime == nil || collection.Status.LastCollectionTime.After(latestCollectionTime.Time) {
+				latestCollectionTime = collection.Status.LastCollectionTime
+			}
+		}
+
+		collectionsStatus = append(collectionsStatus, status)
+	}
+
+	return collectionsStatus, activeCollections, latestCollectionTime
+}
+
+func (r *HumioClusterReconciler) buildExportsStatus(exports []humiov1alpha1.HumioTelemetryExport) ([]humiov1alpha1.HumioTelemetryResourceStatus, int, *metav1.Time) {
+	exportsStatus := []humiov1alpha1.HumioTelemetryResourceStatus{}
+	activeExports := 0
+	var latestExportTime *metav1.Time
+
+	for _, export := range exports {
+		status := humiov1alpha1.HumioTelemetryResourceStatus{
+			Name:         export.Name,
+			State:        export.Status.State,
+			LastActivity: export.Status.LastExportTime,
+			ErrorCount:   len(export.Status.ExportErrors),
+		}
+
+		if len(export.Status.ExportErrors) > 0 {
+			status.LastError = export.Status.ExportErrors[len(export.Status.ExportErrors)-1].Message
+		}
+
+		if export.Status.State == humiov1alpha1.HumioTelemetryExportStateEnabled {
+			activeExports++
+		}
+
+		if export.Status.LastExportTime != nil {
+			if latestExportTime == nil || export.Status.LastExportTime.After(latestExportTime.Time) {
+				latestExportTime = export.Status.LastExportTime
+			}
+		}
+
+		exportsStatus = append(exportsStatus, status)
+	}
+
+	return exportsStatus, activeExports, latestExportTime
+}
+
+func (r *HumioClusterReconciler) clearDeprecatedFields(hc *humiov1alpha1.HumioCluster) bool {
+	// Always clear deprecated single-resource fields - we now use list-based fields exclusively
+	if hc.Status.TelemetryStatus.CollectionResourceName != "" ||
+		hc.Status.TelemetryStatus.CollectionState != "" ||
+		hc.Status.TelemetryStatus.ExportResourceName != "" ||
+		hc.Status.TelemetryStatus.ExportState != "" ||
+		len(hc.Status.TelemetryStatus.ExportErrors) > 0 {
+
+		hc.Status.TelemetryStatus.CollectionResourceName = ""
+		hc.Status.TelemetryStatus.CollectionState = ""
+		hc.Status.TelemetryStatus.ExportResourceName = ""
+		hc.Status.TelemetryStatus.ExportState = ""
+		hc.Status.TelemetryStatus.ExportErrors = nil
+		return true
+	}
+	return false
+}
+
+func (r *HumioClusterReconciler) updateListBasedFields(hc *humiov1alpha1.HumioCluster, collectionsStatus, exportsStatus []humiov1alpha1.HumioTelemetryResourceStatus) bool {
+	// Always populate list-based fields for clean, comprehensive view
+	if !equalCollectionsStatus(hc.Status.TelemetryStatus.Collections, collectionsStatus) ||
+		!equalExportsStatus(hc.Status.TelemetryStatus.Exports, exportsStatus) {
+
+		hc.Status.TelemetryStatus.Collections = collectionsStatus
+		hc.Status.TelemetryStatus.Exports = exportsStatus
+		return true
+	}
+	return false
+}
+
+func (r *HumioClusterReconciler) updateTimestamps(hc *humiov1alpha1.HumioCluster, latestCollectionTime, latestExportTime *metav1.Time) bool {
+	needsUpdate := false
+
+	// Update overall timestamps if we found more recent ones
+	if latestCollectionTime != nil && !equalTimePointers(hc.Status.TelemetryStatus.LastCollectionTime, latestCollectionTime) {
+		hc.Status.TelemetryStatus.LastCollectionTime = latestCollectionTime
+		needsUpdate = true
+	}
+	if latestExportTime != nil && !equalTimePointers(hc.Status.TelemetryStatus.LastExportTime, latestExportTime) {
+		hc.Status.TelemetryStatus.LastExportTime = latestExportTime
+		needsUpdate = true
+	}
+
+	return needsUpdate
+}
+
+func (r *HumioClusterReconciler) updateOverallState(hc *humiov1alpha1.HumioCluster, collections []humiov1alpha1.HumioTelemetryCollection, exports []humiov1alpha1.HumioTelemetryExport, activeCollections, activeExports int) bool {
+	// Determine overall state based on all resources
+	overallState := "ConfigError"
+	if len(collections) > 0 && len(exports) > 0 {
+		if activeCollections > 0 && activeExports > 0 {
+			overallState = "Enabled"
+		} else if activeCollections == 0 && activeExports == 0 {
+			overallState = "Disabled"
+		}
+	} else if len(collections) == 0 && len(exports) == 0 {
+		overallState = "Disabled"
+	}
+
+	if hc.Status.TelemetryStatus.State != overallState {
+		hc.Status.TelemetryStatus.State = overallState
+		return true
+	}
+	return false
+}
+
+// Helper functions for status comparison
+func equalTimePointers(a, b *metav1.Time) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Equal(b)
+}
+
+// equalCollectionsStatus compares two slices of HumioTelemetryResourceStatus for collections
+func equalCollectionsStatus(a, b []humiov1alpha1.HumioTelemetryResourceStatus) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Create maps for comparison by name (order might be different)
+	aMap := make(map[string]humiov1alpha1.HumioTelemetryResourceStatus)
+	bMap := make(map[string]humiov1alpha1.HumioTelemetryResourceStatus)
+
+	for _, item := range a {
+		aMap[item.Name] = item
+	}
+	for _, item := range b {
+		bMap[item.Name] = item
+	}
+
+	for name, aItem := range aMap {
+		bItem, exists := bMap[name]
+		if !exists {
+			return false
+		}
+		if aItem.State != bItem.State ||
+			aItem.ErrorCount != bItem.ErrorCount ||
+			aItem.LastError != bItem.LastError ||
+			!equalTimePointers(aItem.LastActivity, bItem.LastActivity) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// equalExportsStatus compares two slices of HumioTelemetryResourceStatus for exports
+func equalExportsStatus(a, b []humiov1alpha1.HumioTelemetryResourceStatus) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Create maps for comparison by name (order might be different)
+	aMap := make(map[string]humiov1alpha1.HumioTelemetryResourceStatus)
+	bMap := make(map[string]humiov1alpha1.HumioTelemetryResourceStatus)
+
+	for _, item := range a {
+		aMap[item.Name] = item
+	}
+	for _, item := range b {
+		bMap[item.Name] = item
+	}
+
+	for name, aItem := range aMap {
+		bItem, exists := bMap[name]
+		if !exists {
+			return false
+		}
+		if aItem.State != bItem.State ||
+			aItem.ErrorCount != bItem.ErrorCount ||
+			aItem.LastError != bItem.LastError ||
+			!equalTimePointers(aItem.LastActivity, bItem.LastActivity) {
+			return false
+		}
+	}
+
+	return true
 }

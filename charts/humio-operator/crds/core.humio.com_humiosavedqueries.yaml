@@ -1,0 +1,203 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: humiosavedqueries.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.0.1'
+spec:
+  group: core.humio.com
+  names:
+    categories:
+    - humio
+    - all
+    kind: HumioSavedQuery
+    listKind: HumioSavedQueryList
+    plural: humiosavedqueries
+    shortNames:
+    - hsq
+    singular: humiosavedquery
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Status of the saved query
+      jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - description: The view containing the saved query
+      jsonPath: .spec.viewName
+      name: View
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioSavedQuery is the Schema for the humiosavedqueries API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioSavedQuerySpec defines the desired state of HumioSavedQuery.
+            properties:
+              description:
+                description: |-
+                  Description is the description of the SavedQuery.
+                  This field is only supported in LogScale 1.200.0 and later.
+                  For earlier versions, a warning condition is set but reconciliation continues.
+                maxLength: 4096
+                type: string
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
+                minLength: 1
+                type: string
+              labels:
+                description: |-
+                  Labels are a set of labels on the SavedQuery (maximum 10 labels allowed by LogScale).
+                  This field is only supported in LogScale 1.200.0 and later.
+                  For earlier versions, a warning condition is set but reconciliation continues.
+                items:
+                  type: string
+                maxItems: 10
+                type: array
+              managedClusterName:
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
+                minLength: 1
+                type: string
+              name:
+                description: Name is the name of the saved query inside Humio
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+              queryString:
+                description: QueryString is the actual query that will be saved
+                maxLength: 1048576
+                minLength: 1
+                type: string
+              viewName:
+                description: ViewName is the name of the Humio View under which the
+                  SavedQuery will be managed. This can also be a Repository
+                minLength: 1
+                type: string
+            required:
+            - name
+            - queryString
+            - viewName
+            type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
+          status:
+            description: HumioSavedQueryStatus defines the observed state of HumioSavedQuery.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the saved query's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastSyncedViewName:
+                description: |-
+                  LastSyncedViewName tracks the view name where the saved query was last successfully synced.
+                  This is used to detect and handle view migrations.
+                type: string
+              managedByOperator:
+                description: |-
+                  ManagedByOperator indicates whether the operator successfully owns this LogScale saved query.
+                  Set to true when the operator creates a new query or successfully adopts an existing one.
+                  Set to false when adoption is rejected.
+                  When false, the finalizer will not delete the query from LogScale.
+                type: boolean
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -1,0 +1,34 @@
+# Example HumioSavedQuery - creates a reusable query in LogScale
+apiVersion: core.humio.com/v1alpha1
+kind: HumioSavedQuery
+metadata:
+  name: example-humiosavedquery
+  # namespace: default  # Specify your namespace here, or use kubectl -n <namespace>
+spec:
+  # Cluster selection (choose one):
+  managedClusterName: "example-humiocluster"    # For HumioCluster managed by operator
+  # externalClusterName: "my-external-cluster"  # For external LogScale instance
+
+  # Name in LogScale (immutable after creation)
+  name: "example-query"
+
+  # Target view or repository
+  viewName: "humio"
+
+  # LogScale query language (LQL) query
+  queryString: |
+    #type=accesslog
+    | groupBy(method, function=count(as=requestCount))
+    | sort(requestCount, reverse=true)
+
+  # Optional: Description shown in LogScale UI
+  description: "Example query - shows request count by HTTP method"
+
+  # Optional: Labels for organization and filtering
+  labels:
+    - "example"
+    - "accesslog"
+
+# Check status: kubectl get hsq example-humiosavedquery -o yaml
+# Ready: True means the saved query exists in LogScale
+# Synced: True means configuration matches desired state

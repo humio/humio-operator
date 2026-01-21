@@ -932,6 +932,18 @@ func registerControllers(k8sOperatorManager ctrl.Manager, log logr.Logger) {
 	err = (humioPackageRegistryReconciler).SetupWithManager(k8sOperatorManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioSavedQueryReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controller.HumioPackageReconciler{
 		Client: k8sOperatorManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
@@ -942,6 +954,28 @@ func registerControllers(k8sOperatorManager ctrl.Manager, log logr.Logger) {
 		BaseLogger:  log,
 		Namespace:   clusterKey.Namespace,
 		HTTPClient:  mockHTTPClient,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioEventForwarderReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioEventForwardingRuleReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sOperatorManager)
 	Expect(err).NotTo(HaveOccurred())
 

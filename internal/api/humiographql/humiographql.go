@@ -2039,6 +2039,107 @@ func (v *CreateEmailActionResponse) GetCreateEmailAction() CreateEmailActionCrea
 	return v.CreateEmailAction
 }
 
+// CreateEventForwardingRuleCreateEventForwardingRule includes the requested fields of the GraphQL type EventForwardingRule.
+// The GraphQL type's documentation follows.
+//
+// An event forwarding rule
+type CreateEventForwardingRuleCreateEventForwardingRule struct {
+	EventForwardingRuleDetails `json:"-"`
+}
+
+// GetId returns CreateEventForwardingRuleCreateEventForwardingRule.Id, and is useful for accessing the field via an interface.
+func (v *CreateEventForwardingRuleCreateEventForwardingRule) GetId() string {
+	return v.EventForwardingRuleDetails.Id
+}
+
+// GetQueryString returns CreateEventForwardingRuleCreateEventForwardingRule.QueryString, and is useful for accessing the field via an interface.
+func (v *CreateEventForwardingRuleCreateEventForwardingRule) GetQueryString() string {
+	return v.EventForwardingRuleDetails.QueryString
+}
+
+// GetEventForwarderId returns CreateEventForwardingRuleCreateEventForwardingRule.EventForwarderId, and is useful for accessing the field via an interface.
+func (v *CreateEventForwardingRuleCreateEventForwardingRule) GetEventForwarderId() string {
+	return v.EventForwardingRuleDetails.EventForwarderId
+}
+
+// GetCreatedAt returns CreateEventForwardingRuleCreateEventForwardingRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateEventForwardingRuleCreateEventForwardingRule) GetCreatedAt() *int64 {
+	return v.EventForwardingRuleDetails.CreatedAt
+}
+
+// GetLanguageVersion returns CreateEventForwardingRuleCreateEventForwardingRule.LanguageVersion, and is useful for accessing the field via an interface.
+func (v *CreateEventForwardingRuleCreateEventForwardingRule) GetLanguageVersion() EventForwardingRuleDetailsLanguageVersion {
+	return v.EventForwardingRuleDetails.LanguageVersion
+}
+
+func (v *CreateEventForwardingRuleCreateEventForwardingRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateEventForwardingRuleCreateEventForwardingRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateEventForwardingRuleCreateEventForwardingRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.EventForwardingRuleDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateEventForwardingRuleCreateEventForwardingRule struct {
+	Id string `json:"id"`
+
+	QueryString string `json:"queryString"`
+
+	EventForwarderId string `json:"eventForwarderId"`
+
+	CreatedAt *int64 `json:"createdAt"`
+
+	LanguageVersion EventForwardingRuleDetailsLanguageVersion `json:"languageVersion"`
+}
+
+func (v *CreateEventForwardingRuleCreateEventForwardingRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateEventForwardingRuleCreateEventForwardingRule) __premarshalJSON() (*__premarshalCreateEventForwardingRuleCreateEventForwardingRule, error) {
+	var retval __premarshalCreateEventForwardingRuleCreateEventForwardingRule
+
+	retval.Id = v.EventForwardingRuleDetails.Id
+	retval.QueryString = v.EventForwardingRuleDetails.QueryString
+	retval.EventForwarderId = v.EventForwardingRuleDetails.EventForwarderId
+	retval.CreatedAt = v.EventForwardingRuleDetails.CreatedAt
+	retval.LanguageVersion = v.EventForwardingRuleDetails.LanguageVersion
+	return &retval, nil
+}
+
+// CreateEventForwardingRuleResponse is returned by CreateEventForwardingRule on success.
+type CreateEventForwardingRuleResponse struct {
+	// Create an event forwarding rule on a repository and return it
+	// Stability: Long-term
+	CreateEventForwardingRule CreateEventForwardingRuleCreateEventForwardingRule `json:"createEventForwardingRule"`
+}
+
+// GetCreateEventForwardingRule returns CreateEventForwardingRuleResponse.CreateEventForwardingRule, and is useful for accessing the field via an interface.
+func (v *CreateEventForwardingRuleResponse) GetCreateEventForwardingRule() CreateEventForwardingRuleCreateEventForwardingRule {
+	return v.CreateEventForwardingRule
+}
+
 // CreateFilterAlertCreateFilterAlert includes the requested fields of the GraphQL type FilterAlert.
 // The GraphQL type's documentation follows.
 //
@@ -2392,6 +2493,115 @@ type CreateIPFilterResponse struct {
 // GetCreateIPFilter returns CreateIPFilterResponse.CreateIPFilter, and is useful for accessing the field via an interface.
 func (v *CreateIPFilterResponse) GetCreateIPFilter() CreateIPFilterCreateIPFilter {
 	return v.CreateIPFilter
+}
+
+// CreateKafkaEventForwarderCreateKafkaEventForwarder includes the requested fields of the GraphQL type KafkaEventForwarder.
+// The GraphQL type's documentation follows.
+//
+// A Kafka event forwarder
+type CreateKafkaEventForwarderCreateKafkaEventForwarder struct {
+	KafkaEventForwarderDetails `json:"-"`
+}
+
+// GetId returns CreateKafkaEventForwarderCreateKafkaEventForwarder.Id, and is useful for accessing the field via an interface.
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) GetId() string {
+	return v.KafkaEventForwarderDetails.Id
+}
+
+// GetName returns CreateKafkaEventForwarderCreateKafkaEventForwarder.Name, and is useful for accessing the field via an interface.
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) GetName() string {
+	return v.KafkaEventForwarderDetails.Name
+}
+
+// GetDescription returns CreateKafkaEventForwarderCreateKafkaEventForwarder.Description, and is useful for accessing the field via an interface.
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) GetDescription() string {
+	return v.KafkaEventForwarderDetails.Description
+}
+
+// GetEnabled returns CreateKafkaEventForwarderCreateKafkaEventForwarder.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) GetEnabled() bool {
+	return v.KafkaEventForwarderDetails.Enabled
+}
+
+// GetTopic returns CreateKafkaEventForwarderCreateKafkaEventForwarder.Topic, and is useful for accessing the field via an interface.
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) GetTopic() string {
+	return v.KafkaEventForwarderDetails.Topic
+}
+
+// GetProperties returns CreateKafkaEventForwarderCreateKafkaEventForwarder.Properties, and is useful for accessing the field via an interface.
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) GetProperties() string {
+	return v.KafkaEventForwarderDetails.Properties
+}
+
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateKafkaEventForwarderCreateKafkaEventForwarder
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateKafkaEventForwarderCreateKafkaEventForwarder = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.KafkaEventForwarderDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateKafkaEventForwarderCreateKafkaEventForwarder struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description string `json:"description"`
+
+	Enabled bool `json:"enabled"`
+
+	Topic string `json:"topic"`
+
+	Properties string `json:"properties"`
+}
+
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateKafkaEventForwarderCreateKafkaEventForwarder) __premarshalJSON() (*__premarshalCreateKafkaEventForwarderCreateKafkaEventForwarder, error) {
+	var retval __premarshalCreateKafkaEventForwarderCreateKafkaEventForwarder
+
+	retval.Id = v.KafkaEventForwarderDetails.Id
+	retval.Name = v.KafkaEventForwarderDetails.Name
+	retval.Description = v.KafkaEventForwarderDetails.Description
+	retval.Enabled = v.KafkaEventForwarderDetails.Enabled
+	retval.Topic = v.KafkaEventForwarderDetails.Topic
+	retval.Properties = v.KafkaEventForwarderDetails.Properties
+	return &retval, nil
+}
+
+// CreateKafkaEventForwarderResponse is returned by CreateKafkaEventForwarder on success.
+type CreateKafkaEventForwarderResponse struct {
+	// Create a Kafka event forwarder and return it
+	// Stability: Long-term
+	CreateKafkaEventForwarder CreateKafkaEventForwarderCreateKafkaEventForwarder `json:"createKafkaEventForwarder"`
+}
+
+// GetCreateKafkaEventForwarder returns CreateKafkaEventForwarderResponse.CreateKafkaEventForwarder, and is useful for accessing the field via an interface.
+func (v *CreateKafkaEventForwarderResponse) GetCreateKafkaEventForwarder() CreateKafkaEventForwarderCreateKafkaEventForwarder {
+	return v.CreateKafkaEventForwarder
 }
 
 // CreateLocalMultiClusterSearchViewConnectionCreateLocalClusterConnection includes the requested fields of the GraphQL type LocalClusterConnection.
@@ -3021,6 +3231,230 @@ type CreateRoleResponse struct {
 // GetCreateRole returns CreateRoleResponse.CreateRole, and is useful for accessing the field via an interface.
 func (v *CreateRoleResponse) GetCreateRole() CreateRoleCreateRoleAddRoleMutation { return v.CreateRole }
 
+// CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload includes the requested fields of the GraphQL type CreateSavedQueryPayload.
+type CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload struct {
+	// Stability: Long-term
+	SavedQuery CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery `json:"savedQuery"`
+}
+
+// GetSavedQuery returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload.SavedQuery, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload) GetSavedQuery() CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery {
+	return v.SavedQuery
+}
+
+// CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery struct {
+	SavedQueryDetails `json:"-"`
+}
+
+// GetId returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetId() string {
+	return v.SavedQueryDetails.Id
+}
+
+// GetName returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetName() string {
+	return v.SavedQueryDetails.Name
+}
+
+// GetDisplayName returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetails.DisplayName
+}
+
+// GetQuery returns CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetQuery() SavedQueryDetailsQueryHumioQuery {
+	return v.SavedQueryDetails.Query
+}
+
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Query SavedQueryDetailsQueryHumioQuery `json:"query"`
+}
+
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery) __premarshalJSON() (*__premarshalCreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery, error) {
+	var retval __premarshalCreateSavedQueryCreateSavedQueryCreateSavedQueryPayloadSavedQuery
+
+	retval.Id = v.SavedQueryDetails.Id
+	retval.Name = v.SavedQueryDetails.Name
+	retval.DisplayName = v.SavedQueryDetails.DisplayName
+	retval.Query = v.SavedQueryDetails.Query
+	return &retval, nil
+}
+
+// CreateSavedQueryResponse is returned by CreateSavedQuery on success.
+type CreateSavedQueryResponse struct {
+	// Create a saved query.
+	// Stability: Long-term
+	CreateSavedQuery CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload `json:"createSavedQuery"`
+}
+
+// GetCreateSavedQuery returns CreateSavedQueryResponse.CreateSavedQuery, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryResponse) GetCreateSavedQuery() CreateSavedQueryCreateSavedQueryCreateSavedQueryPayload {
+	return v.CreateSavedQuery
+}
+
+// CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayload includes the requested fields of the GraphQL type CreateSavedQueryPayload.
+type CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayload struct {
+	// Stability: Long-term
+	SavedQuery CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery `json:"savedQuery"`
+}
+
+// GetSavedQuery returns CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayload.SavedQuery, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayload) GetSavedQuery() CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery {
+	return v.SavedQuery
+}
+
+// CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery struct {
+	SavedQueryDetailsV2 `json:"-"`
+}
+
+// GetId returns CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetId() string {
+	return v.SavedQueryDetailsV2.Id
+}
+
+// GetName returns CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetName() string {
+	return v.SavedQueryDetailsV2.Name
+}
+
+// GetDisplayName returns CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetailsV2.DisplayName
+}
+
+// GetDescription returns CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery.Description, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetDescription() *string {
+	return v.SavedQueryDetailsV2.Description
+}
+
+// GetLabels returns CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery.Labels, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetLabels() []string {
+	return v.SavedQueryDetailsV2.Labels
+}
+
+// GetQuery returns CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) GetQuery() SavedQueryDetailsV2QueryHumioQuery {
+	return v.SavedQueryDetailsV2.Query
+}
+
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetailsV2)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Description *string `json:"description"`
+
+	Labels []string `json:"labels"`
+
+	Query SavedQueryDetailsV2QueryHumioQuery `json:"query"`
+}
+
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery) __premarshalJSON() (*__premarshalCreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery, error) {
+	var retval __premarshalCreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayloadSavedQuery
+
+	retval.Id = v.SavedQueryDetailsV2.Id
+	retval.Name = v.SavedQueryDetailsV2.Name
+	retval.DisplayName = v.SavedQueryDetailsV2.DisplayName
+	retval.Description = v.SavedQueryDetailsV2.Description
+	retval.Labels = v.SavedQueryDetailsV2.Labels
+	retval.Query = v.SavedQueryDetailsV2.Query
+	return &retval, nil
+}
+
+// CreateSavedQueryV2Response is returned by CreateSavedQueryV2 on success.
+type CreateSavedQueryV2Response struct {
+	// Create a saved query.
+	// Stability: Long-term
+	CreateSavedQuery CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayload `json:"createSavedQuery"`
+}
+
+// GetCreateSavedQuery returns CreateSavedQueryV2Response.CreateSavedQuery, and is useful for accessing the field via an interface.
+func (v *CreateSavedQueryV2Response) GetCreateSavedQuery() CreateSavedQueryV2CreateSavedQueryCreateSavedQueryPayload {
+	return v.CreateSavedQuery
+}
+
 // CreateScheduledSearchCreateScheduledSearch includes the requested fields of the GraphQL type ScheduledSearch.
 // The GraphQL type's documentation follows.
 //
@@ -3575,6 +4009,28 @@ type DeleteAlertByIDResponse struct {
 // GetDeleteAlert returns DeleteAlertByIDResponse.DeleteAlert, and is useful for accessing the field via an interface.
 func (v *DeleteAlertByIDResponse) GetDeleteAlert() bool { return v.DeleteAlert }
 
+// DeleteEventForwarderResponse is returned by DeleteEventForwarder on success.
+type DeleteEventForwarderResponse struct {
+	// Delete an event forwarder
+	// Stability: Long-term
+	DeleteEventForwarder bool `json:"deleteEventForwarder"`
+}
+
+// GetDeleteEventForwarder returns DeleteEventForwarderResponse.DeleteEventForwarder, and is useful for accessing the field via an interface.
+func (v *DeleteEventForwarderResponse) GetDeleteEventForwarder() bool { return v.DeleteEventForwarder }
+
+// DeleteEventForwardingRuleResponse is returned by DeleteEventForwardingRule on success.
+type DeleteEventForwardingRuleResponse struct {
+	// Delete an event forwarding rule on a repository
+	// Stability: Long-term
+	DeleteEventForwardingRule bool `json:"deleteEventForwardingRule"`
+}
+
+// GetDeleteEventForwardingRule returns DeleteEventForwardingRuleResponse.DeleteEventForwardingRule, and is useful for accessing the field via an interface.
+func (v *DeleteEventForwardingRuleResponse) GetDeleteEventForwardingRule() bool {
+	return v.DeleteEventForwardingRule
+}
+
 // DeleteFilterAlertResponse is returned by DeleteFilterAlert on success.
 type DeleteFilterAlertResponse struct {
 	// Delete a filter alert.
@@ -3742,6 +4198,27 @@ func (v *DeleteRoleByIDResponse) GetRemoveRole() DeleteRoleByIDRemoveRoleBoolean
 	return v.RemoveRole
 }
 
+// DeleteSavedQueryDeleteSavedQueryBooleanResultType includes the requested fields of the GraphQL type BooleanResultType.
+type DeleteSavedQueryDeleteSavedQueryBooleanResultType struct {
+	// Stability: Long-term
+	Result bool `json:"result"`
+}
+
+// GetResult returns DeleteSavedQueryDeleteSavedQueryBooleanResultType.Result, and is useful for accessing the field via an interface.
+func (v *DeleteSavedQueryDeleteSavedQueryBooleanResultType) GetResult() bool { return v.Result }
+
+// DeleteSavedQueryResponse is returned by DeleteSavedQuery on success.
+type DeleteSavedQueryResponse struct {
+	// Deletes a saved query.
+	// Stability: Long-term
+	DeleteSavedQuery DeleteSavedQueryDeleteSavedQueryBooleanResultType `json:"deleteSavedQuery"`
+}
+
+// GetDeleteSavedQuery returns DeleteSavedQueryResponse.DeleteSavedQuery, and is useful for accessing the field via an interface.
+func (v *DeleteSavedQueryResponse) GetDeleteSavedQuery() DeleteSavedQueryDeleteSavedQueryBooleanResultType {
+	return v.DeleteSavedQuery
+}
+
 // DeleteScheduledSearchByIDResponse is returned by DeleteScheduledSearchByID on success.
 type DeleteScheduledSearchByIDResponse struct {
 	// Delete a scheduled search.
@@ -3798,6 +4275,18 @@ type DeleteTokenResponse struct {
 // GetDeleteToken returns DeleteTokenResponse.DeleteToken, and is useful for accessing the field via an interface.
 func (v *DeleteTokenResponse) GetDeleteToken() bool { return v.DeleteToken }
 
+// DisableEventForwarderResponse is returned by DisableEventForwarder on success.
+type DisableEventForwarderResponse struct {
+	// Disables an event forwarder
+	// Stability: Long-term
+	DisableEventForwarder bool `json:"disableEventForwarder"`
+}
+
+// GetDisableEventForwarder returns DisableEventForwarderResponse.DisableEventForwarder, and is useful for accessing the field via an interface.
+func (v *DisableEventForwarderResponse) GetDisableEventForwarder() bool {
+	return v.DisableEventForwarder
+}
+
 // DisableGlobalFeatureFlagResponse is returned by DisableGlobalFeatureFlag on success.
 type DisableGlobalFeatureFlagResponse struct {
 	// Disable a feature.
@@ -3830,6 +4319,16 @@ func (v *DisableS3ArchivingS3DisableArchivingBooleanResultType) GetTypename() *s
 	return v.Typename
 }
 
+// EnableEventForwarderResponse is returned by EnableEventForwarder on success.
+type EnableEventForwarderResponse struct {
+	// Enables an event forwarder
+	// Stability: Long-term
+	EnableEventForwarder bool `json:"enableEventForwarder"`
+}
+
+// GetEnableEventForwarder returns EnableEventForwarderResponse.EnableEventForwarder, and is useful for accessing the field via an interface.
+func (v *EnableEventForwarderResponse) GetEnableEventForwarder() bool { return v.EnableEventForwarder }
+
 // EnableGlobalFeatureFlagResponse is returned by EnableGlobalFeatureFlag on success.
 type EnableGlobalFeatureFlagResponse struct {
 	// Enable a feature.
@@ -3861,6 +4360,60 @@ type EnableS3ArchivingS3EnableArchivingBooleanResultType struct {
 func (v *EnableS3ArchivingS3EnableArchivingBooleanResultType) GetTypename() *string {
 	return v.Typename
 }
+
+// EventForwardingRuleDetails includes the GraphQL fields of EventForwardingRule requested by the fragment EventForwardingRuleDetails.
+// The GraphQL type's documentation follows.
+//
+// An event forwarding rule
+type EventForwardingRuleDetails struct {
+	// The unique id for the event forwarding rule
+	// Stability: Long-term
+	Id string `json:"id"`
+	// The query string for filtering and mapping the events to forward
+	// Stability: Long-term
+	QueryString string `json:"queryString"`
+	// The id of the event forwarder
+	// Stability: Long-term
+	EventForwarderId string `json:"eventForwarderId"`
+	// The unix timestamp that the event forwarder was created at
+	// Stability: Long-term
+	CreatedAt *int64 `json:"createdAt"`
+	// Stability: Long-term
+	LanguageVersion EventForwardingRuleDetailsLanguageVersion `json:"languageVersion"`
+}
+
+// GetId returns EventForwardingRuleDetails.Id, and is useful for accessing the field via an interface.
+func (v *EventForwardingRuleDetails) GetId() string { return v.Id }
+
+// GetQueryString returns EventForwardingRuleDetails.QueryString, and is useful for accessing the field via an interface.
+func (v *EventForwardingRuleDetails) GetQueryString() string { return v.QueryString }
+
+// GetEventForwarderId returns EventForwardingRuleDetails.EventForwarderId, and is useful for accessing the field via an interface.
+func (v *EventForwardingRuleDetails) GetEventForwarderId() string { return v.EventForwarderId }
+
+// GetCreatedAt returns EventForwardingRuleDetails.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EventForwardingRuleDetails) GetCreatedAt() *int64 { return v.CreatedAt }
+
+// GetLanguageVersion returns EventForwardingRuleDetails.LanguageVersion, and is useful for accessing the field via an interface.
+func (v *EventForwardingRuleDetails) GetLanguageVersion() EventForwardingRuleDetailsLanguageVersion {
+	return v.LanguageVersion
+}
+
+// EventForwardingRuleDetailsLanguageVersion includes the requested fields of the GraphQL type LanguageVersion.
+type EventForwardingRuleDetailsLanguageVersion struct {
+	// If non-null, this is a version known by the current version of LogScale.
+	// Stability: Long-term
+	Name *LanguageVersionEnum `json:"name"`
+	// If non-null, this is a version stored by a future LogScale version.
+	// Stability: Long-term
+	FutureName *string `json:"futureName"`
+}
+
+// GetName returns EventForwardingRuleDetailsLanguageVersion.Name, and is useful for accessing the field via an interface.
+func (v *EventForwardingRuleDetailsLanguageVersion) GetName() *LanguageVersionEnum { return v.Name }
+
+// GetFutureName returns EventForwardingRuleDetailsLanguageVersion.FutureName, and is useful for accessing the field via an interface.
+func (v *EventForwardingRuleDetailsLanguageVersion) GetFutureName() *string { return v.FutureName }
 
 // Represents a feature flag.
 type FeatureFlag string
@@ -6169,6 +6722,534 @@ type GetClusterResponse struct {
 
 // GetCluster returns GetClusterResponse.Cluster, and is useful for accessing the field via an interface.
 func (v *GetClusterResponse) GetCluster() GetClusterCluster { return v.Cluster }
+
+// GetEventForwardersEventForwardersEventForwarder includes the requested fields of the GraphQL interface EventForwarder.
+//
+// GetEventForwardersEventForwardersEventForwarder is implemented by the following types:
+// GetEventForwardersEventForwardersKafkaEventForwarder
+// The GraphQL type's documentation follows.
+//
+// An event forwarder
+type GetEventForwardersEventForwardersEventForwarder interface {
+	implementsGraphQLInterfaceGetEventForwardersEventForwardersEventForwarder()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+}
+
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) implementsGraphQLInterfaceGetEventForwardersEventForwardersEventForwarder() {
+}
+
+func __unmarshalGetEventForwardersEventForwardersEventForwarder(b []byte, v *GetEventForwardersEventForwardersEventForwarder) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "KafkaEventForwarder":
+		*v = new(GetEventForwardersEventForwardersKafkaEventForwarder)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing EventForwarder.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetEventForwardersEventForwardersEventForwarder: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetEventForwardersEventForwardersEventForwarder(v *GetEventForwardersEventForwardersEventForwarder) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetEventForwardersEventForwardersKafkaEventForwarder:
+		typename = "KafkaEventForwarder"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetEventForwardersEventForwardersKafkaEventForwarder
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetEventForwardersEventForwardersEventForwarder: "%T"`, v)
+	}
+}
+
+// GetEventForwardersEventForwardersKafkaEventForwarder includes the requested fields of the GraphQL type KafkaEventForwarder.
+// The GraphQL type's documentation follows.
+//
+// A Kafka event forwarder
+type GetEventForwardersEventForwardersKafkaEventForwarder struct {
+	Typename                   *string `json:"__typename"`
+	KafkaEventForwarderDetails `json:"-"`
+}
+
+// GetTypename returns GetEventForwardersEventForwardersKafkaEventForwarder.Typename, and is useful for accessing the field via an interface.
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) GetTypename() *string {
+	return v.Typename
+}
+
+// GetId returns GetEventForwardersEventForwardersKafkaEventForwarder.Id, and is useful for accessing the field via an interface.
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) GetId() string {
+	return v.KafkaEventForwarderDetails.Id
+}
+
+// GetName returns GetEventForwardersEventForwardersKafkaEventForwarder.Name, and is useful for accessing the field via an interface.
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) GetName() string {
+	return v.KafkaEventForwarderDetails.Name
+}
+
+// GetDescription returns GetEventForwardersEventForwardersKafkaEventForwarder.Description, and is useful for accessing the field via an interface.
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) GetDescription() string {
+	return v.KafkaEventForwarderDetails.Description
+}
+
+// GetEnabled returns GetEventForwardersEventForwardersKafkaEventForwarder.Enabled, and is useful for accessing the field via an interface.
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) GetEnabled() bool {
+	return v.KafkaEventForwarderDetails.Enabled
+}
+
+// GetTopic returns GetEventForwardersEventForwardersKafkaEventForwarder.Topic, and is useful for accessing the field via an interface.
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) GetTopic() string {
+	return v.KafkaEventForwarderDetails.Topic
+}
+
+// GetProperties returns GetEventForwardersEventForwardersKafkaEventForwarder.Properties, and is useful for accessing the field via an interface.
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) GetProperties() string {
+	return v.KafkaEventForwarderDetails.Properties
+}
+
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetEventForwardersEventForwardersKafkaEventForwarder
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetEventForwardersEventForwardersKafkaEventForwarder = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.KafkaEventForwarderDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetEventForwardersEventForwardersKafkaEventForwarder struct {
+	Typename *string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description string `json:"description"`
+
+	Enabled bool `json:"enabled"`
+
+	Topic string `json:"topic"`
+
+	Properties string `json:"properties"`
+}
+
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetEventForwardersEventForwardersKafkaEventForwarder) __premarshalJSON() (*__premarshalGetEventForwardersEventForwardersKafkaEventForwarder, error) {
+	var retval __premarshalGetEventForwardersEventForwardersKafkaEventForwarder
+
+	retval.Typename = v.Typename
+	retval.Id = v.KafkaEventForwarderDetails.Id
+	retval.Name = v.KafkaEventForwarderDetails.Name
+	retval.Description = v.KafkaEventForwarderDetails.Description
+	retval.Enabled = v.KafkaEventForwarderDetails.Enabled
+	retval.Topic = v.KafkaEventForwarderDetails.Topic
+	retval.Properties = v.KafkaEventForwarderDetails.Properties
+	return &retval, nil
+}
+
+// GetEventForwardersResponse is returned by GetEventForwarders on success.
+type GetEventForwardersResponse struct {
+	// This will list all of the event forwarders associated with an organization.
+	// Stability: Long-term
+	EventForwarders []GetEventForwardersEventForwardersEventForwarder `json:"-"`
+}
+
+// GetEventForwarders returns GetEventForwardersResponse.EventForwarders, and is useful for accessing the field via an interface.
+func (v *GetEventForwardersResponse) GetEventForwarders() []GetEventForwardersEventForwardersEventForwarder {
+	return v.EventForwarders
+}
+
+func (v *GetEventForwardersResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetEventForwardersResponse
+		EventForwarders []json.RawMessage `json:"eventForwarders"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetEventForwardersResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.EventForwarders
+		src := firstPass.EventForwarders
+		*dst = make(
+			[]GetEventForwardersEventForwardersEventForwarder,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = __unmarshalGetEventForwardersEventForwardersEventForwarder(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal GetEventForwardersResponse.EventForwarders: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetEventForwardersResponse struct {
+	EventForwarders []json.RawMessage `json:"eventForwarders"`
+}
+
+func (v *GetEventForwardersResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetEventForwardersResponse) __premarshalJSON() (*__premarshalGetEventForwardersResponse, error) {
+	var retval __premarshalGetEventForwardersResponse
+
+	{
+
+		dst := &retval.EventForwarders
+		src := v.EventForwarders
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalGetEventForwardersEventForwardersEventForwarder(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal GetEventForwardersResponse.EventForwarders: %w", err)
+			}
+		}
+	}
+	return &retval, nil
+}
+
+// GetEventForwardingRulesResponse is returned by GetEventForwardingRules on success.
+type GetEventForwardingRulesResponse struct {
+	// Stability: Long-term
+	SearchDomain GetEventForwardingRulesSearchDomain `json:"-"`
+}
+
+// GetSearchDomain returns GetEventForwardingRulesResponse.SearchDomain, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesResponse) GetSearchDomain() GetEventForwardingRulesSearchDomain {
+	return v.SearchDomain
+}
+
+func (v *GetEventForwardingRulesResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetEventForwardingRulesResponse
+		SearchDomain json.RawMessage `json:"searchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetEventForwardingRulesResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomain
+		src := firstPass.SearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalGetEventForwardingRulesSearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GetEventForwardingRulesResponse.SearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetEventForwardingRulesResponse struct {
+	SearchDomain json.RawMessage `json:"searchDomain"`
+}
+
+func (v *GetEventForwardingRulesResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetEventForwardingRulesResponse) __premarshalJSON() (*__premarshalGetEventForwardingRulesResponse, error) {
+	var retval __premarshalGetEventForwardingRulesResponse
+
+	{
+
+		dst := &retval.SearchDomain
+		src := v.SearchDomain
+		var err error
+		*dst, err = __marshalGetEventForwardingRulesSearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetEventForwardingRulesResponse.SearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GetEventForwardingRulesSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// GetEventForwardingRulesSearchDomain is implemented by the following types:
+// GetEventForwardingRulesSearchDomainRepository
+// GetEventForwardingRulesSearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type GetEventForwardingRulesSearchDomain interface {
+	implementsGraphQLInterfaceGetEventForwardingRulesSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+}
+
+func (v *GetEventForwardingRulesSearchDomainRepository) implementsGraphQLInterfaceGetEventForwardingRulesSearchDomain() {
+}
+func (v *GetEventForwardingRulesSearchDomainView) implementsGraphQLInterfaceGetEventForwardingRulesSearchDomain() {
+}
+
+func __unmarshalGetEventForwardingRulesSearchDomain(b []byte, v *GetEventForwardingRulesSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(GetEventForwardingRulesSearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(GetEventForwardingRulesSearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetEventForwardingRulesSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetEventForwardingRulesSearchDomain(v *GetEventForwardingRulesSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetEventForwardingRulesSearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetEventForwardingRulesSearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetEventForwardingRulesSearchDomainView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetEventForwardingRulesSearchDomainView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetEventForwardingRulesSearchDomain: "%T"`, v)
+	}
+}
+
+// GetEventForwardingRulesSearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type GetEventForwardingRulesSearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// The event forwarding rules configured for the repository
+	// Stability: Long-term
+	EventForwardingRules []GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule `json:"eventForwardingRules"`
+}
+
+// GetTypename returns GetEventForwardingRulesSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesSearchDomainRepository) GetTypename() *string { return v.Typename }
+
+// GetEventForwardingRules returns GetEventForwardingRulesSearchDomainRepository.EventForwardingRules, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesSearchDomainRepository) GetEventForwardingRules() []GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule {
+	return v.EventForwardingRules
+}
+
+// GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule includes the requested fields of the GraphQL type EventForwardingRule.
+// The GraphQL type's documentation follows.
+//
+// An event forwarding rule
+type GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule struct {
+	EventForwardingRuleDetails `json:"-"`
+}
+
+// GetId returns GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule.Id, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule) GetId() string {
+	return v.EventForwardingRuleDetails.Id
+}
+
+// GetQueryString returns GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule.QueryString, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule) GetQueryString() string {
+	return v.EventForwardingRuleDetails.QueryString
+}
+
+// GetEventForwarderId returns GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule.EventForwarderId, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule) GetEventForwarderId() string {
+	return v.EventForwardingRuleDetails.EventForwarderId
+}
+
+// GetCreatedAt returns GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule) GetCreatedAt() *int64 {
+	return v.EventForwardingRuleDetails.CreatedAt
+}
+
+// GetLanguageVersion returns GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule.LanguageVersion, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule) GetLanguageVersion() EventForwardingRuleDetailsLanguageVersion {
+	return v.EventForwardingRuleDetails.LanguageVersion
+}
+
+func (v *GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.EventForwardingRuleDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule struct {
+	Id string `json:"id"`
+
+	QueryString string `json:"queryString"`
+
+	EventForwarderId string `json:"eventForwarderId"`
+
+	CreatedAt *int64 `json:"createdAt"`
+
+	LanguageVersion EventForwardingRuleDetailsLanguageVersion `json:"languageVersion"`
+}
+
+func (v *GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule) __premarshalJSON() (*__premarshalGetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule, error) {
+	var retval __premarshalGetEventForwardingRulesSearchDomainRepositoryEventForwardingRulesEventForwardingRule
+
+	retval.Id = v.EventForwardingRuleDetails.Id
+	retval.QueryString = v.EventForwardingRuleDetails.QueryString
+	retval.EventForwarderId = v.EventForwardingRuleDetails.EventForwarderId
+	retval.CreatedAt = v.EventForwardingRuleDetails.CreatedAt
+	retval.LanguageVersion = v.EventForwardingRuleDetails.LanguageVersion
+	return &retval, nil
+}
+
+// GetEventForwardingRulesSearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type GetEventForwardingRulesSearchDomainView struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns GetEventForwardingRulesSearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *GetEventForwardingRulesSearchDomainView) GetTypename() *string { return v.Typename }
 
 // GetEvictionStatusCluster includes the requested fields of the GraphQL type Cluster.
 // The GraphQL type's documentation follows.
@@ -11070,6 +12151,46 @@ func (v *IsFeatureGloballyEnabledResponse) GetMeta() IsFeatureGloballyEnabledMet
 	return v.Meta
 }
 
+// Fragment for Kafka event forwarder details
+type KafkaEventForwarderDetails struct {
+	// Id of the event forwarder
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Name of the event forwarder
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Description of the event forwarder
+	// Stability: Long-term
+	Description string `json:"description"`
+	// Is the event forwarder enabled
+	// Stability: Long-term
+	Enabled bool `json:"enabled"`
+	// The Kafka topic the events should be forwarded to
+	// Stability: Long-term
+	Topic string `json:"topic"`
+	// The Kafka producer configuration used to forward events in the form of properties (x.y.z=abc). See https://library.humio.com/humio-server/ingesting-data-event-forwarders.html#kafka-configuration.
+	// Stability: Long-term
+	Properties string `json:"properties"`
+}
+
+// GetId returns KafkaEventForwarderDetails.Id, and is useful for accessing the field via an interface.
+func (v *KafkaEventForwarderDetails) GetId() string { return v.Id }
+
+// GetName returns KafkaEventForwarderDetails.Name, and is useful for accessing the field via an interface.
+func (v *KafkaEventForwarderDetails) GetName() string { return v.Name }
+
+// GetDescription returns KafkaEventForwarderDetails.Description, and is useful for accessing the field via an interface.
+func (v *KafkaEventForwarderDetails) GetDescription() string { return v.Description }
+
+// GetEnabled returns KafkaEventForwarderDetails.Enabled, and is useful for accessing the field via an interface.
+func (v *KafkaEventForwarderDetails) GetEnabled() bool { return v.Enabled }
+
+// GetTopic returns KafkaEventForwarderDetails.Topic, and is useful for accessing the field via an interface.
+func (v *KafkaEventForwarderDetails) GetTopic() string { return v.Topic }
+
+// GetProperties returns KafkaEventForwarderDetails.Properties, and is useful for accessing the field via an interface.
+func (v *KafkaEventForwarderDetails) GetProperties() string { return v.Properties }
+
 // The version of the LogScale query language to use.
 type LanguageVersionEnum string
 
@@ -13229,6 +14350,236 @@ func (v *ListAlertsSearchDomainView) GetTypename() *string { return v.Typename }
 // GetAlerts returns ListAlertsSearchDomainView.Alerts, and is useful for accessing the field via an interface.
 func (v *ListAlertsSearchDomainView) GetAlerts() []ListAlertsSearchDomainAlertsAlert { return v.Alerts }
 
+// ListAllEventForwardingRulesResponse is returned by ListAllEventForwardingRules on success.
+type ListAllEventForwardingRulesResponse struct {
+	// Stability: Long-term
+	SearchDomains []ListAllEventForwardingRulesSearchDomainsSearchDomain `json:"-"`
+}
+
+// GetSearchDomains returns ListAllEventForwardingRulesResponse.SearchDomains, and is useful for accessing the field via an interface.
+func (v *ListAllEventForwardingRulesResponse) GetSearchDomains() []ListAllEventForwardingRulesSearchDomainsSearchDomain {
+	return v.SearchDomains
+}
+
+func (v *ListAllEventForwardingRulesResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListAllEventForwardingRulesResponse
+		SearchDomains []json.RawMessage `json:"searchDomains"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListAllEventForwardingRulesResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomains
+		src := firstPass.SearchDomains
+		*dst = make(
+			[]ListAllEventForwardingRulesSearchDomainsSearchDomain,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = __unmarshalListAllEventForwardingRulesSearchDomainsSearchDomain(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal ListAllEventForwardingRulesResponse.SearchDomains: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalListAllEventForwardingRulesResponse struct {
+	SearchDomains []json.RawMessage `json:"searchDomains"`
+}
+
+func (v *ListAllEventForwardingRulesResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListAllEventForwardingRulesResponse) __premarshalJSON() (*__premarshalListAllEventForwardingRulesResponse, error) {
+	var retval __premarshalListAllEventForwardingRulesResponse
+
+	{
+
+		dst := &retval.SearchDomains
+		src := v.SearchDomains
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalListAllEventForwardingRulesSearchDomainsSearchDomain(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal ListAllEventForwardingRulesResponse.SearchDomains: %w", err)
+			}
+		}
+	}
+	return &retval, nil
+}
+
+// ListAllEventForwardingRulesSearchDomainsRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListAllEventForwardingRulesSearchDomainsRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+	// The event forwarding rules configured for the repository
+	// Stability: Long-term
+	EventForwardingRules []ListAllEventForwardingRulesSearchDomainsRepositoryEventForwardingRulesEventForwardingRule `json:"eventForwardingRules"`
+}
+
+// GetTypename returns ListAllEventForwardingRulesSearchDomainsRepository.Typename, and is useful for accessing the field via an interface.
+func (v *ListAllEventForwardingRulesSearchDomainsRepository) GetTypename() *string { return v.Typename }
+
+// GetName returns ListAllEventForwardingRulesSearchDomainsRepository.Name, and is useful for accessing the field via an interface.
+func (v *ListAllEventForwardingRulesSearchDomainsRepository) GetName() string { return v.Name }
+
+// GetEventForwardingRules returns ListAllEventForwardingRulesSearchDomainsRepository.EventForwardingRules, and is useful for accessing the field via an interface.
+func (v *ListAllEventForwardingRulesSearchDomainsRepository) GetEventForwardingRules() []ListAllEventForwardingRulesSearchDomainsRepositoryEventForwardingRulesEventForwardingRule {
+	return v.EventForwardingRules
+}
+
+// ListAllEventForwardingRulesSearchDomainsRepositoryEventForwardingRulesEventForwardingRule includes the requested fields of the GraphQL type EventForwardingRule.
+// The GraphQL type's documentation follows.
+//
+// An event forwarding rule
+type ListAllEventForwardingRulesSearchDomainsRepositoryEventForwardingRulesEventForwardingRule struct {
+	// The unique id for the event forwarding rule
+	// Stability: Long-term
+	Id string `json:"id"`
+	// The id of the event forwarder
+	// Stability: Long-term
+	EventForwarderId string `json:"eventForwarderId"`
+}
+
+// GetId returns ListAllEventForwardingRulesSearchDomainsRepositoryEventForwardingRulesEventForwardingRule.Id, and is useful for accessing the field via an interface.
+func (v *ListAllEventForwardingRulesSearchDomainsRepositoryEventForwardingRulesEventForwardingRule) GetId() string {
+	return v.Id
+}
+
+// GetEventForwarderId returns ListAllEventForwardingRulesSearchDomainsRepositoryEventForwardingRulesEventForwardingRule.EventForwarderId, and is useful for accessing the field via an interface.
+func (v *ListAllEventForwardingRulesSearchDomainsRepositoryEventForwardingRulesEventForwardingRule) GetEventForwarderId() string {
+	return v.EventForwarderId
+}
+
+// ListAllEventForwardingRulesSearchDomainsSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// ListAllEventForwardingRulesSearchDomainsSearchDomain is implemented by the following types:
+// ListAllEventForwardingRulesSearchDomainsRepository
+// ListAllEventForwardingRulesSearchDomainsView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type ListAllEventForwardingRulesSearchDomainsSearchDomain interface {
+	implementsGraphQLInterfaceListAllEventForwardingRulesSearchDomainsSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetName returns the interface-field "name" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetName() string
+}
+
+func (v *ListAllEventForwardingRulesSearchDomainsRepository) implementsGraphQLInterfaceListAllEventForwardingRulesSearchDomainsSearchDomain() {
+}
+func (v *ListAllEventForwardingRulesSearchDomainsView) implementsGraphQLInterfaceListAllEventForwardingRulesSearchDomainsSearchDomain() {
+}
+
+func __unmarshalListAllEventForwardingRulesSearchDomainsSearchDomain(b []byte, v *ListAllEventForwardingRulesSearchDomainsSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(ListAllEventForwardingRulesSearchDomainsRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(ListAllEventForwardingRulesSearchDomainsView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for ListAllEventForwardingRulesSearchDomainsSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalListAllEventForwardingRulesSearchDomainsSearchDomain(v *ListAllEventForwardingRulesSearchDomainsSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *ListAllEventForwardingRulesSearchDomainsRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListAllEventForwardingRulesSearchDomainsRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *ListAllEventForwardingRulesSearchDomainsView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListAllEventForwardingRulesSearchDomainsView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for ListAllEventForwardingRulesSearchDomainsSearchDomain: "%T"`, v)
+	}
+}
+
+// ListAllEventForwardingRulesSearchDomainsView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type ListAllEventForwardingRulesSearchDomainsView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+}
+
+// GetTypename returns ListAllEventForwardingRulesSearchDomainsView.Typename, and is useful for accessing the field via an interface.
+func (v *ListAllEventForwardingRulesSearchDomainsView) GetTypename() *string { return v.Typename }
+
+// GetName returns ListAllEventForwardingRulesSearchDomainsView.Name, and is useful for accessing the field via an interface.
+func (v *ListAllEventForwardingRulesSearchDomainsView) GetName() string { return v.Name }
+
 // ListFilterAlertsResponse is returned by ListFilterAlerts on success.
 type ListFilterAlertsResponse struct {
 	// Stability: Long-term
@@ -13845,6 +15196,565 @@ func (v *ListRolesRolesRole) __premarshalJSON() (*__premarshalListRolesRolesRole
 	retval.SystemPermissions = v.RoleDetails.SystemPermissions
 	retval.Groups = v.RoleDetails.Groups
 	return &retval, nil
+}
+
+// ListSavedQueriesResponse is returned by ListSavedQueries on success.
+type ListSavedQueriesResponse struct {
+	// Stability: Long-term
+	SearchDomain ListSavedQueriesSearchDomain `json:"-"`
+}
+
+// GetSearchDomain returns ListSavedQueriesResponse.SearchDomain, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesResponse) GetSearchDomain() ListSavedQueriesSearchDomain {
+	return v.SearchDomain
+}
+
+func (v *ListSavedQueriesResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListSavedQueriesResponse
+		SearchDomain json.RawMessage `json:"searchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListSavedQueriesResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomain
+		src := firstPass.SearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalListSavedQueriesSearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal ListSavedQueriesResponse.SearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalListSavedQueriesResponse struct {
+	SearchDomain json.RawMessage `json:"searchDomain"`
+}
+
+func (v *ListSavedQueriesResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListSavedQueriesResponse) __premarshalJSON() (*__premarshalListSavedQueriesResponse, error) {
+	var retval __premarshalListSavedQueriesResponse
+
+	{
+
+		dst := &retval.SearchDomain
+		src := v.SearchDomain
+		var err error
+		*dst, err = __marshalListSavedQueriesSearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal ListSavedQueriesResponse.SearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// ListSavedQueriesSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// ListSavedQueriesSearchDomain is implemented by the following types:
+// ListSavedQueriesSearchDomainRepository
+// ListSavedQueriesSearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type ListSavedQueriesSearchDomain interface {
+	implementsGraphQLInterfaceListSavedQueriesSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetSavedQueries returns the interface-field "savedQueries" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetSavedQueries() []ListSavedQueriesSearchDomainSavedQueriesSavedQuery
+}
+
+func (v *ListSavedQueriesSearchDomainRepository) implementsGraphQLInterfaceListSavedQueriesSearchDomain() {
+}
+func (v *ListSavedQueriesSearchDomainView) implementsGraphQLInterfaceListSavedQueriesSearchDomain() {}
+
+func __unmarshalListSavedQueriesSearchDomain(b []byte, v *ListSavedQueriesSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(ListSavedQueriesSearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(ListSavedQueriesSearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for ListSavedQueriesSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalListSavedQueriesSearchDomain(v *ListSavedQueriesSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *ListSavedQueriesSearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSavedQueriesSearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *ListSavedQueriesSearchDomainView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSavedQueriesSearchDomainView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for ListSavedQueriesSearchDomain: "%T"`, v)
+	}
+}
+
+// ListSavedQueriesSearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListSavedQueriesSearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	SavedQueries []ListSavedQueriesSearchDomainSavedQueriesSavedQuery `json:"savedQueries"`
+}
+
+// GetTypename returns ListSavedQueriesSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainRepository) GetTypename() *string { return v.Typename }
+
+// GetSavedQueries returns ListSavedQueriesSearchDomainRepository.SavedQueries, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainRepository) GetSavedQueries() []ListSavedQueriesSearchDomainSavedQueriesSavedQuery {
+	return v.SavedQueries
+}
+
+// ListSavedQueriesSearchDomainSavedQueriesSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type ListSavedQueriesSearchDomainSavedQueriesSavedQuery struct {
+	SavedQueryDetails `json:"-"`
+}
+
+// GetId returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetId() string {
+	return v.SavedQueryDetails.Id
+}
+
+// GetName returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetName() string {
+	return v.SavedQueryDetails.Name
+}
+
+// GetDisplayName returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetails.DisplayName
+}
+
+// GetQuery returns ListSavedQueriesSearchDomainSavedQueriesSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) GetQuery() SavedQueryDetailsQueryHumioQuery {
+	return v.SavedQueryDetails.Query
+}
+
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListSavedQueriesSearchDomainSavedQueriesSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListSavedQueriesSearchDomainSavedQueriesSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalListSavedQueriesSearchDomainSavedQueriesSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Query SavedQueryDetailsQueryHumioQuery `json:"query"`
+}
+
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListSavedQueriesSearchDomainSavedQueriesSavedQuery) __premarshalJSON() (*__premarshalListSavedQueriesSearchDomainSavedQueriesSavedQuery, error) {
+	var retval __premarshalListSavedQueriesSearchDomainSavedQueriesSavedQuery
+
+	retval.Id = v.SavedQueryDetails.Id
+	retval.Name = v.SavedQueryDetails.Name
+	retval.DisplayName = v.SavedQueryDetails.DisplayName
+	retval.Query = v.SavedQueryDetails.Query
+	return &retval, nil
+}
+
+// ListSavedQueriesSearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type ListSavedQueriesSearchDomainView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	SavedQueries []ListSavedQueriesSearchDomainSavedQueriesSavedQuery `json:"savedQueries"`
+}
+
+// GetTypename returns ListSavedQueriesSearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainView) GetTypename() *string { return v.Typename }
+
+// GetSavedQueries returns ListSavedQueriesSearchDomainView.SavedQueries, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesSearchDomainView) GetSavedQueries() []ListSavedQueriesSearchDomainSavedQueriesSavedQuery {
+	return v.SavedQueries
+}
+
+// ListSavedQueriesV2Response is returned by ListSavedQueriesV2 on success.
+type ListSavedQueriesV2Response struct {
+	// Stability: Long-term
+	SearchDomain ListSavedQueriesV2SearchDomain `json:"-"`
+}
+
+// GetSearchDomain returns ListSavedQueriesV2Response.SearchDomain, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2Response) GetSearchDomain() ListSavedQueriesV2SearchDomain {
+	return v.SearchDomain
+}
+
+func (v *ListSavedQueriesV2Response) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListSavedQueriesV2Response
+		SearchDomain json.RawMessage `json:"searchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListSavedQueriesV2Response = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomain
+		src := firstPass.SearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalListSavedQueriesV2SearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal ListSavedQueriesV2Response.SearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalListSavedQueriesV2Response struct {
+	SearchDomain json.RawMessage `json:"searchDomain"`
+}
+
+func (v *ListSavedQueriesV2Response) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListSavedQueriesV2Response) __premarshalJSON() (*__premarshalListSavedQueriesV2Response, error) {
+	var retval __premarshalListSavedQueriesV2Response
+
+	{
+
+		dst := &retval.SearchDomain
+		src := v.SearchDomain
+		var err error
+		*dst, err = __marshalListSavedQueriesV2SearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal ListSavedQueriesV2Response.SearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// ListSavedQueriesV2SearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// ListSavedQueriesV2SearchDomain is implemented by the following types:
+// ListSavedQueriesV2SearchDomainRepository
+// ListSavedQueriesV2SearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type ListSavedQueriesV2SearchDomain interface {
+	implementsGraphQLInterfaceListSavedQueriesV2SearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetSavedQueries returns the interface-field "savedQueries" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetSavedQueries() []ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery
+}
+
+func (v *ListSavedQueriesV2SearchDomainRepository) implementsGraphQLInterfaceListSavedQueriesV2SearchDomain() {
+}
+func (v *ListSavedQueriesV2SearchDomainView) implementsGraphQLInterfaceListSavedQueriesV2SearchDomain() {
+}
+
+func __unmarshalListSavedQueriesV2SearchDomain(b []byte, v *ListSavedQueriesV2SearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(ListSavedQueriesV2SearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(ListSavedQueriesV2SearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for ListSavedQueriesV2SearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalListSavedQueriesV2SearchDomain(v *ListSavedQueriesV2SearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *ListSavedQueriesV2SearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSavedQueriesV2SearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *ListSavedQueriesV2SearchDomainView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSavedQueriesV2SearchDomainView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for ListSavedQueriesV2SearchDomain: "%T"`, v)
+	}
+}
+
+// ListSavedQueriesV2SearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListSavedQueriesV2SearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	SavedQueries []ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery `json:"savedQueries"`
+}
+
+// GetTypename returns ListSavedQueriesV2SearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainRepository) GetTypename() *string { return v.Typename }
+
+// GetSavedQueries returns ListSavedQueriesV2SearchDomainRepository.SavedQueries, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainRepository) GetSavedQueries() []ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery {
+	return v.SavedQueries
+}
+
+// ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery struct {
+	SavedQueryDetailsV2 `json:"-"`
+}
+
+// GetId returns ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) GetId() string {
+	return v.SavedQueryDetailsV2.Id
+}
+
+// GetName returns ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) GetName() string {
+	return v.SavedQueryDetailsV2.Name
+}
+
+// GetDisplayName returns ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetailsV2.DisplayName
+}
+
+// GetDescription returns ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery.Description, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) GetDescription() *string {
+	return v.SavedQueryDetailsV2.Description
+}
+
+// GetLabels returns ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery.Labels, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) GetLabels() []string {
+	return v.SavedQueryDetailsV2.Labels
+}
+
+// GetQuery returns ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) GetQuery() SavedQueryDetailsV2QueryHumioQuery {
+	return v.SavedQueryDetailsV2.Query
+}
+
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetailsV2)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalListSavedQueriesV2SearchDomainSavedQueriesSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Description *string `json:"description"`
+
+	Labels []string `json:"labels"`
+
+	Query SavedQueryDetailsV2QueryHumioQuery `json:"query"`
+}
+
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery) __premarshalJSON() (*__premarshalListSavedQueriesV2SearchDomainSavedQueriesSavedQuery, error) {
+	var retval __premarshalListSavedQueriesV2SearchDomainSavedQueriesSavedQuery
+
+	retval.Id = v.SavedQueryDetailsV2.Id
+	retval.Name = v.SavedQueryDetailsV2.Name
+	retval.DisplayName = v.SavedQueryDetailsV2.DisplayName
+	retval.Description = v.SavedQueryDetailsV2.Description
+	retval.Labels = v.SavedQueryDetailsV2.Labels
+	retval.Query = v.SavedQueryDetailsV2.Query
+	return &retval, nil
+}
+
+// ListSavedQueriesV2SearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type ListSavedQueriesV2SearchDomainView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	SavedQueries []ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery `json:"savedQueries"`
+}
+
+// GetTypename returns ListSavedQueriesV2SearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainView) GetTypename() *string { return v.Typename }
+
+// GetSavedQueries returns ListSavedQueriesV2SearchDomainView.SavedQueries, and is useful for accessing the field via an interface.
+func (v *ListSavedQueriesV2SearchDomainView) GetSavedQueries() []ListSavedQueriesV2SearchDomainSavedQueriesSavedQuery {
+	return v.SavedQueries
 }
 
 // ListScheduledSearchesResponse is returned by ListScheduledSearches on success.
@@ -14605,6 +16515,366 @@ func (v *ListScheduledSearchesV2SearchDomainView) GetTypename() *string { return
 // GetScheduledSearches returns ListScheduledSearchesV2SearchDomainView.ScheduledSearches, and is useful for accessing the field via an interface.
 func (v *ListScheduledSearchesV2SearchDomainView) GetScheduledSearches() []ListScheduledSearchesV2SearchDomainScheduledSearchesScheduledSearch {
 	return v.ScheduledSearches
+}
+
+// ListSearchDomainsForTelemetryResponse is returned by ListSearchDomainsForTelemetry on success.
+type ListSearchDomainsForTelemetryResponse struct {
+	// Stability: Long-term
+	SearchDomains []ListSearchDomainsForTelemetrySearchDomainsSearchDomain `json:"-"`
+}
+
+// GetSearchDomains returns ListSearchDomainsForTelemetryResponse.SearchDomains, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetryResponse) GetSearchDomains() []ListSearchDomainsForTelemetrySearchDomainsSearchDomain {
+	return v.SearchDomains
+}
+
+func (v *ListSearchDomainsForTelemetryResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListSearchDomainsForTelemetryResponse
+		SearchDomains []json.RawMessage `json:"searchDomains"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListSearchDomainsForTelemetryResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomains
+		src := firstPass.SearchDomains
+		*dst = make(
+			[]ListSearchDomainsForTelemetrySearchDomainsSearchDomain,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = __unmarshalListSearchDomainsForTelemetrySearchDomainsSearchDomain(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal ListSearchDomainsForTelemetryResponse.SearchDomains: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalListSearchDomainsForTelemetryResponse struct {
+	SearchDomains []json.RawMessage `json:"searchDomains"`
+}
+
+func (v *ListSearchDomainsForTelemetryResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListSearchDomainsForTelemetryResponse) __premarshalJSON() (*__premarshalListSearchDomainsForTelemetryResponse, error) {
+	var retval __premarshalListSearchDomainsForTelemetryResponse
+
+	{
+
+		dst := &retval.SearchDomains
+		src := v.SearchDomains
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalListSearchDomainsForTelemetrySearchDomainsSearchDomain(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal ListSearchDomainsForTelemetryResponse.SearchDomains: %w", err)
+			}
+		}
+	}
+	return &retval, nil
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListSearchDomainsForTelemetrySearchDomainsRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+	// Common interface for Repositories and Views.
+	Description *string `json:"description"`
+	// Common interface for Repositories and Views.
+	AutomaticSearch bool `json:"automaticSearch"`
+	// Total size of data. Size is measured as the size after compression.
+	// Stability: Long-term
+	CompressedByteSize int64 `json:"compressedByteSize"`
+	// The maximum time (in days) to keep data. Data old than this will be deleted.
+	// Stability: Long-term
+	TimeBasedRetention *float64 `json:"timeBasedRetention"`
+	// Retention (in Gigabytes) based on the size of data when in storage, that is, after parsing and compression. LogScale will keep `at least` this amount of data, but as close to this number as possible.
+	// Stability: Long-term
+	StorageSizeBasedRetention *float64 `json:"storageSizeBasedRetention"`
+	// Retention (in Gigabytes) based on the size of data when it arrives to LogScale, that is before parsing and compression. LogScale will keep `at most` this amount of data.
+	// Stability: Long-term
+	IngestSizeBasedRetention *float64 `json:"ingestSizeBasedRetention"`
+}
+
+// GetTypename returns ListSearchDomainsForTelemetrySearchDomainsRepository.Typename, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetTypename() *string {
+	return v.Typename
+}
+
+// GetId returns ListSearchDomainsForTelemetrySearchDomainsRepository.Id, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetId() string { return v.Id }
+
+// GetName returns ListSearchDomainsForTelemetrySearchDomainsRepository.Name, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetName() string { return v.Name }
+
+// GetDescription returns ListSearchDomainsForTelemetrySearchDomainsRepository.Description, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetDescription() *string {
+	return v.Description
+}
+
+// GetAutomaticSearch returns ListSearchDomainsForTelemetrySearchDomainsRepository.AutomaticSearch, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetAutomaticSearch() bool {
+	return v.AutomaticSearch
+}
+
+// GetCompressedByteSize returns ListSearchDomainsForTelemetrySearchDomainsRepository.CompressedByteSize, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetCompressedByteSize() int64 {
+	return v.CompressedByteSize
+}
+
+// GetTimeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsRepository.TimeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetTimeBasedRetention() *float64 {
+	return v.TimeBasedRetention
+}
+
+// GetStorageSizeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsRepository.StorageSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetStorageSizeBasedRetention() *float64 {
+	return v.StorageSizeBasedRetention
+}
+
+// GetIngestSizeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsRepository.IngestSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) GetIngestSizeBasedRetention() *float64 {
+	return v.IngestSizeBasedRetention
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// ListSearchDomainsForTelemetrySearchDomainsSearchDomain is implemented by the following types:
+// ListSearchDomainsForTelemetrySearchDomainsRepository
+// ListSearchDomainsForTelemetrySearchDomainsView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type ListSearchDomainsForTelemetrySearchDomainsSearchDomain interface {
+	implementsGraphQLInterfaceListSearchDomainsForTelemetrySearchDomainsSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetId returns the interface-field "id" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetId() string
+	// GetName returns the interface-field "name" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetName() string
+	// GetDescription returns the interface-field "description" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetDescription() *string
+	// GetAutomaticSearch returns the interface-field "automaticSearch" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetAutomaticSearch() bool
+}
+
+func (v *ListSearchDomainsForTelemetrySearchDomainsRepository) implementsGraphQLInterfaceListSearchDomainsForTelemetrySearchDomainsSearchDomain() {
+}
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) implementsGraphQLInterfaceListSearchDomainsForTelemetrySearchDomainsSearchDomain() {
+}
+
+func __unmarshalListSearchDomainsForTelemetrySearchDomainsSearchDomain(b []byte, v *ListSearchDomainsForTelemetrySearchDomainsSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(ListSearchDomainsForTelemetrySearchDomainsRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(ListSearchDomainsForTelemetrySearchDomainsView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for ListSearchDomainsForTelemetrySearchDomainsSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalListSearchDomainsForTelemetrySearchDomainsSearchDomain(v *ListSearchDomainsForTelemetrySearchDomainsSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *ListSearchDomainsForTelemetrySearchDomainsRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSearchDomainsForTelemetrySearchDomainsRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *ListSearchDomainsForTelemetrySearchDomainsView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*ListSearchDomainsForTelemetrySearchDomainsView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for ListSearchDomainsForTelemetrySearchDomainsSearchDomain: "%T"`, v)
+	}
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type ListSearchDomainsForTelemetrySearchDomainsView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+	// Common interface for Repositories and Views.
+	Description *string `json:"description"`
+	// Common interface for Repositories and Views.
+	AutomaticSearch bool `json:"automaticSearch"`
+	// True if the view is federated, false otherwise.
+	// Stability: Preview
+	IsFederated bool `json:"isFederated"`
+	// Stability: Long-term
+	Connections []ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection `json:"connections"`
+}
+
+// GetTypename returns ListSearchDomainsForTelemetrySearchDomainsView.Typename, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetTypename() *string { return v.Typename }
+
+// GetId returns ListSearchDomainsForTelemetrySearchDomainsView.Id, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetId() string { return v.Id }
+
+// GetName returns ListSearchDomainsForTelemetrySearchDomainsView.Name, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetName() string { return v.Name }
+
+// GetDescription returns ListSearchDomainsForTelemetrySearchDomainsView.Description, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetDescription() *string {
+	return v.Description
+}
+
+// GetAutomaticSearch returns ListSearchDomainsForTelemetrySearchDomainsView.AutomaticSearch, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetAutomaticSearch() bool {
+	return v.AutomaticSearch
+}
+
+// GetIsFederated returns ListSearchDomainsForTelemetrySearchDomainsView.IsFederated, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetIsFederated() bool { return v.IsFederated }
+
+// GetConnections returns ListSearchDomainsForTelemetrySearchDomainsView.Connections, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsView) GetConnections() []ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection {
+	return v.Connections
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection includes the requested fields of the GraphQL type ViewConnection.
+// The GraphQL type's documentation follows.
+//
+// Represents the connection between a view and an underlying repository.
+type ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection struct {
+	// The underlying repository
+	// Stability: Long-term
+	Repository ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository `json:"repository"`
+}
+
+// GetRepository returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection.Repository, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnection) GetRepository() ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository {
+	return v.Repository
+}
+
+// ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository struct {
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Total size of data. Size is measured as the size after compression.
+	// Stability: Long-term
+	CompressedByteSize int64 `json:"compressedByteSize"`
+	// The maximum time (in days) to keep data. Data old than this will be deleted.
+	// Stability: Long-term
+	TimeBasedRetention *float64 `json:"timeBasedRetention"`
+	// Retention (in Gigabytes) based on the size of data when in storage, that is, after parsing and compression. LogScale will keep `at least` this amount of data, but as close to this number as possible.
+	// Stability: Long-term
+	StorageSizeBasedRetention *float64 `json:"storageSizeBasedRetention"`
+	// Retention (in Gigabytes) based on the size of data when it arrives to LogScale, that is before parsing and compression. LogScale will keep `at most` this amount of data.
+	// Stability: Long-term
+	IngestSizeBasedRetention *float64 `json:"ingestSizeBasedRetention"`
+}
+
+// GetName returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.Name, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetName() string {
+	return v.Name
+}
+
+// GetCompressedByteSize returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.CompressedByteSize, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetCompressedByteSize() int64 {
+	return v.CompressedByteSize
+}
+
+// GetTimeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.TimeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetTimeBasedRetention() *float64 {
+	return v.TimeBasedRetention
+}
+
+// GetStorageSizeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.StorageSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetStorageSizeBasedRetention() *float64 {
+	return v.StorageSizeBasedRetention
+}
+
+// GetIngestSizeBasedRetention returns ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository.IngestSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *ListSearchDomainsForTelemetrySearchDomainsViewConnectionsViewConnectionRepository) GetIngestSizeBasedRetention() *float64 {
+	return v.IngestSizeBasedRetention
 }
 
 // ListSearchDomainsResponse is returned by ListSearchDomains on success.
@@ -16452,6 +18722,94 @@ var AllS3ArchivingFormat = []S3ArchivingFormat{
 	S3ArchivingFormatRaw,
 	S3ArchivingFormatNdjson,
 }
+
+// SavedQueryDetails includes the GraphQL fields of SavedQuery requested by the fragment SavedQueryDetails.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type SavedQueryDetails struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Stability: Long-term
+	DisplayName string `json:"displayName"`
+	// Stability: Long-term
+	Query SavedQueryDetailsQueryHumioQuery `json:"query"`
+}
+
+// GetId returns SavedQueryDetails.Id, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetId() string { return v.Id }
+
+// GetName returns SavedQueryDetails.Name, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetName() string { return v.Name }
+
+// GetDisplayName returns SavedQueryDetails.DisplayName, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetDisplayName() string { return v.DisplayName }
+
+// GetQuery returns SavedQueryDetails.Query, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetails) GetQuery() SavedQueryDetailsQueryHumioQuery { return v.Query }
+
+// SavedQueryDetailsQueryHumioQuery includes the requested fields of the GraphQL type HumioQuery.
+// The GraphQL type's documentation follows.
+//
+// A LogScale query
+type SavedQueryDetailsQueryHumioQuery struct {
+	// Stability: Long-term
+	QueryString string `json:"queryString"`
+}
+
+// GetQueryString returns SavedQueryDetailsQueryHumioQuery.QueryString, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsQueryHumioQuery) GetQueryString() string { return v.QueryString }
+
+// SavedQueryDetailsV2 includes the GraphQL fields of SavedQuery requested by the fragment SavedQueryDetailsV2.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type SavedQueryDetailsV2 struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Stability: Long-term
+	DisplayName string `json:"displayName"`
+	// Stability: Long-term
+	Description *string `json:"description"`
+	// Stability: Long-term
+	Labels []string `json:"labels"`
+	// Stability: Long-term
+	Query SavedQueryDetailsV2QueryHumioQuery `json:"query"`
+}
+
+// GetId returns SavedQueryDetailsV2.Id, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsV2) GetId() string { return v.Id }
+
+// GetName returns SavedQueryDetailsV2.Name, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsV2) GetName() string { return v.Name }
+
+// GetDisplayName returns SavedQueryDetailsV2.DisplayName, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsV2) GetDisplayName() string { return v.DisplayName }
+
+// GetDescription returns SavedQueryDetailsV2.Description, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsV2) GetDescription() *string { return v.Description }
+
+// GetLabels returns SavedQueryDetailsV2.Labels, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsV2) GetLabels() []string { return v.Labels }
+
+// GetQuery returns SavedQueryDetailsV2.Query, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsV2) GetQuery() SavedQueryDetailsV2QueryHumioQuery { return v.Query }
+
+// SavedQueryDetailsV2QueryHumioQuery includes the requested fields of the GraphQL type HumioQuery.
+// The GraphQL type's documentation follows.
+//
+// A LogScale query
+type SavedQueryDetailsV2QueryHumioQuery struct {
+	// Stability: Long-term
+	QueryString string `json:"queryString"`
+}
+
+// GetQueryString returns SavedQueryDetailsV2QueryHumioQuery.QueryString, and is useful for accessing the field via an interface.
+func (v *SavedQueryDetailsV2QueryHumioQuery) GetQueryString() string { return v.QueryString }
 
 // ScheduledSearchDetails includes the GraphQL fields of ScheduledSearch requested by the fragment ScheduledSearchDetails.
 // The GraphQL type's documentation follows.
@@ -19236,6 +21594,107 @@ type UpdateEmailActionUpdateEmailAction struct {
 // GetTypename returns UpdateEmailActionUpdateEmailAction.Typename, and is useful for accessing the field via an interface.
 func (v *UpdateEmailActionUpdateEmailAction) GetTypename() *string { return v.Typename }
 
+// UpdateEventForwardingRuleResponse is returned by UpdateEventForwardingRule on success.
+type UpdateEventForwardingRuleResponse struct {
+	// Update an event forwarding rule on a repository and return it
+	// Stability: Long-term
+	UpdateEventForwardingRule UpdateEventForwardingRuleUpdateEventForwardingRule `json:"updateEventForwardingRule"`
+}
+
+// GetUpdateEventForwardingRule returns UpdateEventForwardingRuleResponse.UpdateEventForwardingRule, and is useful for accessing the field via an interface.
+func (v *UpdateEventForwardingRuleResponse) GetUpdateEventForwardingRule() UpdateEventForwardingRuleUpdateEventForwardingRule {
+	return v.UpdateEventForwardingRule
+}
+
+// UpdateEventForwardingRuleUpdateEventForwardingRule includes the requested fields of the GraphQL type EventForwardingRule.
+// The GraphQL type's documentation follows.
+//
+// An event forwarding rule
+type UpdateEventForwardingRuleUpdateEventForwardingRule struct {
+	EventForwardingRuleDetails `json:"-"`
+}
+
+// GetId returns UpdateEventForwardingRuleUpdateEventForwardingRule.Id, and is useful for accessing the field via an interface.
+func (v *UpdateEventForwardingRuleUpdateEventForwardingRule) GetId() string {
+	return v.EventForwardingRuleDetails.Id
+}
+
+// GetQueryString returns UpdateEventForwardingRuleUpdateEventForwardingRule.QueryString, and is useful for accessing the field via an interface.
+func (v *UpdateEventForwardingRuleUpdateEventForwardingRule) GetQueryString() string {
+	return v.EventForwardingRuleDetails.QueryString
+}
+
+// GetEventForwarderId returns UpdateEventForwardingRuleUpdateEventForwardingRule.EventForwarderId, and is useful for accessing the field via an interface.
+func (v *UpdateEventForwardingRuleUpdateEventForwardingRule) GetEventForwarderId() string {
+	return v.EventForwardingRuleDetails.EventForwarderId
+}
+
+// GetCreatedAt returns UpdateEventForwardingRuleUpdateEventForwardingRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateEventForwardingRuleUpdateEventForwardingRule) GetCreatedAt() *int64 {
+	return v.EventForwardingRuleDetails.CreatedAt
+}
+
+// GetLanguageVersion returns UpdateEventForwardingRuleUpdateEventForwardingRule.LanguageVersion, and is useful for accessing the field via an interface.
+func (v *UpdateEventForwardingRuleUpdateEventForwardingRule) GetLanguageVersion() EventForwardingRuleDetailsLanguageVersion {
+	return v.EventForwardingRuleDetails.LanguageVersion
+}
+
+func (v *UpdateEventForwardingRuleUpdateEventForwardingRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateEventForwardingRuleUpdateEventForwardingRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateEventForwardingRuleUpdateEventForwardingRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.EventForwardingRuleDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateEventForwardingRuleUpdateEventForwardingRule struct {
+	Id string `json:"id"`
+
+	QueryString string `json:"queryString"`
+
+	EventForwarderId string `json:"eventForwarderId"`
+
+	CreatedAt *int64 `json:"createdAt"`
+
+	LanguageVersion EventForwardingRuleDetailsLanguageVersion `json:"languageVersion"`
+}
+
+func (v *UpdateEventForwardingRuleUpdateEventForwardingRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateEventForwardingRuleUpdateEventForwardingRule) __premarshalJSON() (*__premarshalUpdateEventForwardingRuleUpdateEventForwardingRule, error) {
+	var retval __premarshalUpdateEventForwardingRuleUpdateEventForwardingRule
+
+	retval.Id = v.EventForwardingRuleDetails.Id
+	retval.QueryString = v.EventForwardingRuleDetails.QueryString
+	retval.EventForwarderId = v.EventForwardingRuleDetails.EventForwarderId
+	retval.CreatedAt = v.EventForwardingRuleDetails.CreatedAt
+	retval.LanguageVersion = v.EventForwardingRuleDetails.LanguageVersion
+	return &retval, nil
+}
+
 // UpdateFilterAlertResponse is returned by UpdateFilterAlert on success.
 type UpdateFilterAlertResponse struct {
 	// Update a filter alert.
@@ -19613,6 +22072,115 @@ type UpdateIngestBasedRetentionUpdateRetentionUpdateRetentionMutation struct {
 // GetTypename returns UpdateIngestBasedRetentionUpdateRetentionUpdateRetentionMutation.Typename, and is useful for accessing the field via an interface.
 func (v *UpdateIngestBasedRetentionUpdateRetentionUpdateRetentionMutation) GetTypename() *string {
 	return v.Typename
+}
+
+// UpdateKafkaEventForwarderResponse is returned by UpdateKafkaEventForwarder on success.
+type UpdateKafkaEventForwarderResponse struct {
+	// Update a Kafka event forwarder and return it
+	// Stability: Long-term
+	UpdateKafkaEventForwarder UpdateKafkaEventForwarderUpdateKafkaEventForwarder `json:"updateKafkaEventForwarder"`
+}
+
+// GetUpdateKafkaEventForwarder returns UpdateKafkaEventForwarderResponse.UpdateKafkaEventForwarder, and is useful for accessing the field via an interface.
+func (v *UpdateKafkaEventForwarderResponse) GetUpdateKafkaEventForwarder() UpdateKafkaEventForwarderUpdateKafkaEventForwarder {
+	return v.UpdateKafkaEventForwarder
+}
+
+// UpdateKafkaEventForwarderUpdateKafkaEventForwarder includes the requested fields of the GraphQL type KafkaEventForwarder.
+// The GraphQL type's documentation follows.
+//
+// A Kafka event forwarder
+type UpdateKafkaEventForwarderUpdateKafkaEventForwarder struct {
+	KafkaEventForwarderDetails `json:"-"`
+}
+
+// GetId returns UpdateKafkaEventForwarderUpdateKafkaEventForwarder.Id, and is useful for accessing the field via an interface.
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) GetId() string {
+	return v.KafkaEventForwarderDetails.Id
+}
+
+// GetName returns UpdateKafkaEventForwarderUpdateKafkaEventForwarder.Name, and is useful for accessing the field via an interface.
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) GetName() string {
+	return v.KafkaEventForwarderDetails.Name
+}
+
+// GetDescription returns UpdateKafkaEventForwarderUpdateKafkaEventForwarder.Description, and is useful for accessing the field via an interface.
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) GetDescription() string {
+	return v.KafkaEventForwarderDetails.Description
+}
+
+// GetEnabled returns UpdateKafkaEventForwarderUpdateKafkaEventForwarder.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) GetEnabled() bool {
+	return v.KafkaEventForwarderDetails.Enabled
+}
+
+// GetTopic returns UpdateKafkaEventForwarderUpdateKafkaEventForwarder.Topic, and is useful for accessing the field via an interface.
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) GetTopic() string {
+	return v.KafkaEventForwarderDetails.Topic
+}
+
+// GetProperties returns UpdateKafkaEventForwarderUpdateKafkaEventForwarder.Properties, and is useful for accessing the field via an interface.
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) GetProperties() string {
+	return v.KafkaEventForwarderDetails.Properties
+}
+
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateKafkaEventForwarderUpdateKafkaEventForwarder
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateKafkaEventForwarderUpdateKafkaEventForwarder = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.KafkaEventForwarderDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateKafkaEventForwarderUpdateKafkaEventForwarder struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description string `json:"description"`
+
+	Enabled bool `json:"enabled"`
+
+	Topic string `json:"topic"`
+
+	Properties string `json:"properties"`
+}
+
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateKafkaEventForwarderUpdateKafkaEventForwarder) __premarshalJSON() (*__premarshalUpdateKafkaEventForwarderUpdateKafkaEventForwarder, error) {
+	var retval __premarshalUpdateKafkaEventForwarderUpdateKafkaEventForwarder
+
+	retval.Id = v.KafkaEventForwarderDetails.Id
+	retval.Name = v.KafkaEventForwarderDetails.Name
+	retval.Description = v.KafkaEventForwarderDetails.Description
+	retval.Enabled = v.KafkaEventForwarderDetails.Enabled
+	retval.Topic = v.KafkaEventForwarderDetails.Topic
+	retval.Properties = v.KafkaEventForwarderDetails.Properties
+	return &retval, nil
 }
 
 // UpdateLicenseKeyResponse is returned by UpdateLicenseKey on success.
@@ -20030,6 +22598,230 @@ type UpdateS3ArchivingConfigurationS3ConfigureArchivingBooleanResultType struct 
 // GetTypename returns UpdateS3ArchivingConfigurationS3ConfigureArchivingBooleanResultType.Typename, and is useful for accessing the field via an interface.
 func (v *UpdateS3ArchivingConfigurationS3ConfigureArchivingBooleanResultType) GetTypename() *string {
 	return v.Typename
+}
+
+// UpdateSavedQueryResponse is returned by UpdateSavedQuery on success.
+type UpdateSavedQueryResponse struct {
+	// Updates a saved query.
+	// Stability: Long-term
+	UpdateSavedQuery UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload `json:"updateSavedQuery"`
+}
+
+// GetUpdateSavedQuery returns UpdateSavedQueryResponse.UpdateSavedQuery, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryResponse) GetUpdateSavedQuery() UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload {
+	return v.UpdateSavedQuery
+}
+
+// UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload includes the requested fields of the GraphQL type UpdateSavedQueryPayload.
+type UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload struct {
+	// Stability: Long-term
+	SavedQuery UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery `json:"savedQuery"`
+}
+
+// GetSavedQuery returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload.SavedQuery, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayload) GetSavedQuery() UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery {
+	return v.SavedQuery
+}
+
+// UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery struct {
+	SavedQueryDetails `json:"-"`
+}
+
+// GetId returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetId() string {
+	return v.SavedQueryDetails.Id
+}
+
+// GetName returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetName() string {
+	return v.SavedQueryDetails.Name
+}
+
+// GetDisplayName returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetails.DisplayName
+}
+
+// GetQuery returns UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetQuery() SavedQueryDetailsQueryHumioQuery {
+	return v.SavedQueryDetails.Query
+}
+
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Query SavedQueryDetailsQueryHumioQuery `json:"query"`
+}
+
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) __premarshalJSON() (*__premarshalUpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery, error) {
+	var retval __premarshalUpdateSavedQueryUpdateSavedQueryUpdateSavedQueryPayloadSavedQuery
+
+	retval.Id = v.SavedQueryDetails.Id
+	retval.Name = v.SavedQueryDetails.Name
+	retval.DisplayName = v.SavedQueryDetails.DisplayName
+	retval.Query = v.SavedQueryDetails.Query
+	return &retval, nil
+}
+
+// UpdateSavedQueryV2Response is returned by UpdateSavedQueryV2 on success.
+type UpdateSavedQueryV2Response struct {
+	// Updates a saved query.
+	// Stability: Long-term
+	UpdateSavedQuery UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayload `json:"updateSavedQuery"`
+}
+
+// GetUpdateSavedQuery returns UpdateSavedQueryV2Response.UpdateSavedQuery, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryV2Response) GetUpdateSavedQuery() UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayload {
+	return v.UpdateSavedQuery
+}
+
+// UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayload includes the requested fields of the GraphQL type UpdateSavedQueryPayload.
+type UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayload struct {
+	// Stability: Long-term
+	SavedQuery UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery `json:"savedQuery"`
+}
+
+// GetSavedQuery returns UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayload.SavedQuery, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayload) GetSavedQuery() UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery {
+	return v.SavedQuery
+}
+
+// UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery includes the requested fields of the GraphQL type SavedQuery.
+// The GraphQL type's documentation follows.
+//
+// A query saved for later use.
+type UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery struct {
+	SavedQueryDetailsV2 `json:"-"`
+}
+
+// GetId returns UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetId() string {
+	return v.SavedQueryDetailsV2.Id
+}
+
+// GetName returns UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetName() string {
+	return v.SavedQueryDetailsV2.Name
+}
+
+// GetDisplayName returns UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.DisplayName, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetDisplayName() string {
+	return v.SavedQueryDetailsV2.DisplayName
+}
+
+// GetDescription returns UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Description, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetDescription() *string {
+	return v.SavedQueryDetailsV2.Description
+}
+
+// GetLabels returns UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Labels, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetLabels() []string {
+	return v.SavedQueryDetailsV2.Labels
+}
+
+// GetQuery returns UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery.Query, and is useful for accessing the field via an interface.
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) GetQuery() SavedQueryDetailsV2QueryHumioQuery {
+	return v.SavedQueryDetailsV2.Query
+}
+
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SavedQueryDetailsV2)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	DisplayName string `json:"displayName"`
+
+	Description *string `json:"description"`
+
+	Labels []string `json:"labels"`
+
+	Query SavedQueryDetailsV2QueryHumioQuery `json:"query"`
+}
+
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery) __premarshalJSON() (*__premarshalUpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery, error) {
+	var retval __premarshalUpdateSavedQueryV2UpdateSavedQueryUpdateSavedQueryPayloadSavedQuery
+
+	retval.Id = v.SavedQueryDetailsV2.Id
+	retval.Name = v.SavedQueryDetailsV2.Name
+	retval.DisplayName = v.SavedQueryDetailsV2.DisplayName
+	retval.Description = v.SavedQueryDetailsV2.Description
+	retval.Labels = v.SavedQueryDetailsV2.Labels
+	retval.Query = v.SavedQueryDetailsV2.Query
+	return &retval, nil
 }
 
 // UpdateScheduledSearchResponse is returned by UpdateScheduledSearch on success.
@@ -21619,6 +24411,28 @@ func (v *__CreateEmailActionInput) GetBodyTemplate() *string { return v.BodyTemp
 // GetUseProxy returns __CreateEmailActionInput.UseProxy, and is useful for accessing the field via an interface.
 func (v *__CreateEmailActionInput) GetUseProxy() bool { return v.UseProxy }
 
+// __CreateEventForwardingRuleInput is used internally by genqlient
+type __CreateEventForwardingRuleInput struct {
+	RepoName         string               `json:"RepoName"`
+	QueryString      string               `json:"QueryString"`
+	EventForwarderID string               `json:"EventForwarderID"`
+	LanguageVersion  *LanguageVersionEnum `json:"LanguageVersion"`
+}
+
+// GetRepoName returns __CreateEventForwardingRuleInput.RepoName, and is useful for accessing the field via an interface.
+func (v *__CreateEventForwardingRuleInput) GetRepoName() string { return v.RepoName }
+
+// GetQueryString returns __CreateEventForwardingRuleInput.QueryString, and is useful for accessing the field via an interface.
+func (v *__CreateEventForwardingRuleInput) GetQueryString() string { return v.QueryString }
+
+// GetEventForwarderID returns __CreateEventForwardingRuleInput.EventForwarderID, and is useful for accessing the field via an interface.
+func (v *__CreateEventForwardingRuleInput) GetEventForwarderID() string { return v.EventForwarderID }
+
+// GetLanguageVersion returns __CreateEventForwardingRuleInput.LanguageVersion, and is useful for accessing the field via an interface.
+func (v *__CreateEventForwardingRuleInput) GetLanguageVersion() *LanguageVersionEnum {
+	return v.LanguageVersion
+}
+
 // __CreateFilterAlertInput is used internally by genqlient
 type __CreateFilterAlertInput struct {
 	SearchDomainName    string             `json:"SearchDomainName"`
@@ -21704,6 +24518,30 @@ func (v *__CreateIPFilterInput) GetName() string { return v.Name }
 
 // GetFilter returns __CreateIPFilterInput.Filter, and is useful for accessing the field via an interface.
 func (v *__CreateIPFilterInput) GetFilter() string { return v.Filter }
+
+// __CreateKafkaEventForwarderInput is used internally by genqlient
+type __CreateKafkaEventForwarderInput struct {
+	Name        string `json:"Name"`
+	Description string `json:"Description"`
+	Topic       string `json:"Topic"`
+	Properties  string `json:"Properties"`
+	Enabled     *bool  `json:"Enabled"`
+}
+
+// GetName returns __CreateKafkaEventForwarderInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateKafkaEventForwarderInput) GetName() string { return v.Name }
+
+// GetDescription returns __CreateKafkaEventForwarderInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateKafkaEventForwarderInput) GetDescription() string { return v.Description }
+
+// GetTopic returns __CreateKafkaEventForwarderInput.Topic, and is useful for accessing the field via an interface.
+func (v *__CreateKafkaEventForwarderInput) GetTopic() string { return v.Topic }
+
+// GetProperties returns __CreateKafkaEventForwarderInput.Properties, and is useful for accessing the field via an interface.
+func (v *__CreateKafkaEventForwarderInput) GetProperties() string { return v.Properties }
+
+// GetEnabled returns __CreateKafkaEventForwarderInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__CreateKafkaEventForwarderInput) GetEnabled() *bool { return v.Enabled }
 
 // __CreateLocalMultiClusterSearchViewConnectionInput is used internally by genqlient
 type __CreateLocalMultiClusterSearchViewConnectionInput struct {
@@ -21938,6 +24776,46 @@ func (v *__CreateRoleInput) GetOrganizationPermissions() []OrganizationPermissio
 
 // GetSystemPermissions returns __CreateRoleInput.SystemPermissions, and is useful for accessing the field via an interface.
 func (v *__CreateRoleInput) GetSystemPermissions() []SystemPermission { return v.SystemPermissions }
+
+// __CreateSavedQueryInput is used internally by genqlient
+type __CreateSavedQueryInput struct {
+	ViewName    string `json:"ViewName"`
+	Name        string `json:"Name"`
+	QueryString string `json:"QueryString"`
+}
+
+// GetViewName returns __CreateSavedQueryInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryInput) GetViewName() string { return v.ViewName }
+
+// GetName returns __CreateSavedQueryInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryInput) GetName() string { return v.Name }
+
+// GetQueryString returns __CreateSavedQueryInput.QueryString, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryInput) GetQueryString() string { return v.QueryString }
+
+// __CreateSavedQueryV2Input is used internally by genqlient
+type __CreateSavedQueryV2Input struct {
+	ViewName    string   `json:"ViewName"`
+	Name        string   `json:"Name"`
+	QueryString string   `json:"QueryString"`
+	Description *string  `json:"Description"`
+	Labels      []string `json:"Labels"`
+}
+
+// GetViewName returns __CreateSavedQueryV2Input.ViewName, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryV2Input) GetViewName() string { return v.ViewName }
+
+// GetName returns __CreateSavedQueryV2Input.Name, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryV2Input) GetName() string { return v.Name }
+
+// GetQueryString returns __CreateSavedQueryV2Input.QueryString, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryV2Input) GetQueryString() string { return v.QueryString }
+
+// GetDescription returns __CreateSavedQueryV2Input.Description, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryV2Input) GetDescription() *string { return v.Description }
+
+// GetLabels returns __CreateSavedQueryV2Input.Labels, and is useful for accessing the field via an interface.
+func (v *__CreateSavedQueryV2Input) GetLabels() []string { return v.Labels }
 
 // __CreateScheduledSearchInput is used internally by genqlient
 type __CreateScheduledSearchInput struct {
@@ -22277,6 +25155,26 @@ func (v *__DeleteAlertByIDInput) GetSearchDomainName() string { return v.SearchD
 // GetAlertID returns __DeleteAlertByIDInput.AlertID, and is useful for accessing the field via an interface.
 func (v *__DeleteAlertByIDInput) GetAlertID() string { return v.AlertID }
 
+// __DeleteEventForwarderInput is used internally by genqlient
+type __DeleteEventForwarderInput struct {
+	ID string `json:"ID"`
+}
+
+// GetID returns __DeleteEventForwarderInput.ID, and is useful for accessing the field via an interface.
+func (v *__DeleteEventForwarderInput) GetID() string { return v.ID }
+
+// __DeleteEventForwardingRuleInput is used internally by genqlient
+type __DeleteEventForwardingRuleInput struct {
+	RepoName string `json:"RepoName"`
+	ID       string `json:"ID"`
+}
+
+// GetRepoName returns __DeleteEventForwardingRuleInput.RepoName, and is useful for accessing the field via an interface.
+func (v *__DeleteEventForwardingRuleInput) GetRepoName() string { return v.RepoName }
+
+// GetID returns __DeleteEventForwardingRuleInput.ID, and is useful for accessing the field via an interface.
+func (v *__DeleteEventForwardingRuleInput) GetID() string { return v.ID }
+
 // __DeleteFilterAlertInput is used internally by genqlient
 type __DeleteFilterAlertInput struct {
 	SearchDomainName string `json:"SearchDomainName"`
@@ -22341,6 +25239,18 @@ type __DeleteRoleByIDInput struct {
 // GetRoleID returns __DeleteRoleByIDInput.RoleID, and is useful for accessing the field via an interface.
 func (v *__DeleteRoleByIDInput) GetRoleID() string { return v.RoleID }
 
+// __DeleteSavedQueryInput is used internally by genqlient
+type __DeleteSavedQueryInput struct {
+	ViewName     string `json:"ViewName"`
+	SavedQueryID string `json:"SavedQueryID"`
+}
+
+// GetViewName returns __DeleteSavedQueryInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__DeleteSavedQueryInput) GetViewName() string { return v.ViewName }
+
+// GetSavedQueryID returns __DeleteSavedQueryInput.SavedQueryID, and is useful for accessing the field via an interface.
+func (v *__DeleteSavedQueryInput) GetSavedQueryID() string { return v.SavedQueryID }
+
 // __DeleteScheduledSearchByIDInput is used internally by genqlient
 type __DeleteScheduledSearchByIDInput struct {
 	SearchDomainName  string `json:"SearchDomainName"`
@@ -22387,6 +25297,14 @@ type __DeleteTokenInput struct {
 // GetId returns __DeleteTokenInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteTokenInput) GetId() string { return v.Id }
 
+// __DisableEventForwarderInput is used internally by genqlient
+type __DisableEventForwarderInput struct {
+	ID string `json:"ID"`
+}
+
+// GetID returns __DisableEventForwarderInput.ID, and is useful for accessing the field via an interface.
+func (v *__DisableEventForwarderInput) GetID() string { return v.ID }
+
 // __DisableGlobalFeatureFlagInput is used internally by genqlient
 type __DisableGlobalFeatureFlagInput struct {
 	FeatureFlagName FeatureFlag `json:"FeatureFlagName"`
@@ -22402,6 +25320,14 @@ type __DisableS3ArchivingInput struct {
 
 // GetRepositoryName returns __DisableS3ArchivingInput.RepositoryName, and is useful for accessing the field via an interface.
 func (v *__DisableS3ArchivingInput) GetRepositoryName() string { return v.RepositoryName }
+
+// __EnableEventForwarderInput is used internally by genqlient
+type __EnableEventForwarderInput struct {
+	ID string `json:"ID"`
+}
+
+// GetID returns __EnableEventForwarderInput.ID, and is useful for accessing the field via an interface.
+func (v *__EnableEventForwarderInput) GetID() string { return v.ID }
 
 // __EnableGlobalFeatureFlagInput is used internally by genqlient
 type __EnableGlobalFeatureFlagInput struct {
@@ -22442,6 +25368,14 @@ func (v *__GetAggregateAlertByIDInput) GetSearchDomainName() string { return v.S
 
 // GetAggregateAlertID returns __GetAggregateAlertByIDInput.AggregateAlertID, and is useful for accessing the field via an interface.
 func (v *__GetAggregateAlertByIDInput) GetAggregateAlertID() string { return v.AggregateAlertID }
+
+// __GetEventForwardingRulesInput is used internally by genqlient
+type __GetEventForwardingRulesInput struct {
+	ViewName string `json:"ViewName"`
+}
+
+// GetViewName returns __GetEventForwardingRulesInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__GetEventForwardingRulesInput) GetViewName() string { return v.ViewName }
 
 // __GetFilterAlertByIDInput is used internally by genqlient
 type __GetFilterAlertByIDInput struct {
@@ -22610,6 +25544,22 @@ type __ListParsersInput struct {
 
 // GetRepositoryName returns __ListParsersInput.RepositoryName, and is useful for accessing the field via an interface.
 func (v *__ListParsersInput) GetRepositoryName() string { return v.RepositoryName }
+
+// __ListSavedQueriesInput is used internally by genqlient
+type __ListSavedQueriesInput struct {
+	ViewName string `json:"ViewName"`
+}
+
+// GetViewName returns __ListSavedQueriesInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__ListSavedQueriesInput) GetViewName() string { return v.ViewName }
+
+// __ListSavedQueriesV2Input is used internally by genqlient
+type __ListSavedQueriesV2Input struct {
+	ViewName string `json:"ViewName"`
+}
+
+// GetViewName returns __ListSavedQueriesV2Input.ViewName, and is useful for accessing the field via an interface.
+func (v *__ListSavedQueriesV2Input) GetViewName() string { return v.ViewName }
 
 // __ListScheduledSearchesInput is used internally by genqlient
 type __ListScheduledSearchesInput struct {
@@ -22947,6 +25897,32 @@ func (v *__UpdateEmailActionInput) GetBodyTemplate() *string { return v.BodyTemp
 // GetUseProxy returns __UpdateEmailActionInput.UseProxy, and is useful for accessing the field via an interface.
 func (v *__UpdateEmailActionInput) GetUseProxy() bool { return v.UseProxy }
 
+// __UpdateEventForwardingRuleInput is used internally by genqlient
+type __UpdateEventForwardingRuleInput struct {
+	RepoName         string               `json:"RepoName"`
+	ID               string               `json:"ID"`
+	QueryString      string               `json:"QueryString"`
+	EventForwarderID string               `json:"EventForwarderID"`
+	LanguageVersion  *LanguageVersionEnum `json:"LanguageVersion"`
+}
+
+// GetRepoName returns __UpdateEventForwardingRuleInput.RepoName, and is useful for accessing the field via an interface.
+func (v *__UpdateEventForwardingRuleInput) GetRepoName() string { return v.RepoName }
+
+// GetID returns __UpdateEventForwardingRuleInput.ID, and is useful for accessing the field via an interface.
+func (v *__UpdateEventForwardingRuleInput) GetID() string { return v.ID }
+
+// GetQueryString returns __UpdateEventForwardingRuleInput.QueryString, and is useful for accessing the field via an interface.
+func (v *__UpdateEventForwardingRuleInput) GetQueryString() string { return v.QueryString }
+
+// GetEventForwarderID returns __UpdateEventForwardingRuleInput.EventForwarderID, and is useful for accessing the field via an interface.
+func (v *__UpdateEventForwardingRuleInput) GetEventForwarderID() string { return v.EventForwarderID }
+
+// GetLanguageVersion returns __UpdateEventForwardingRuleInput.LanguageVersion, and is useful for accessing the field via an interface.
+func (v *__UpdateEventForwardingRuleInput) GetLanguageVersion() *LanguageVersionEnum {
+	return v.LanguageVersion
+}
+
 // __UpdateFilterAlertInput is used internally by genqlient
 type __UpdateFilterAlertInput struct {
 	SearchDomainName    string             `json:"SearchDomainName"`
@@ -23060,6 +26036,34 @@ func (v *__UpdateIngestBasedRetentionInput) GetRepositoryName() string { return 
 
 // GetIngestInGB returns __UpdateIngestBasedRetentionInput.IngestInGB, and is useful for accessing the field via an interface.
 func (v *__UpdateIngestBasedRetentionInput) GetIngestInGB() *float64 { return v.IngestInGB }
+
+// __UpdateKafkaEventForwarderInput is used internally by genqlient
+type __UpdateKafkaEventForwarderInput struct {
+	ID          string `json:"ID"`
+	Name        string `json:"Name"`
+	Description string `json:"Description"`
+	Topic       string `json:"Topic"`
+	Properties  string `json:"Properties"`
+	Enabled     *bool  `json:"Enabled"`
+}
+
+// GetID returns __UpdateKafkaEventForwarderInput.ID, and is useful for accessing the field via an interface.
+func (v *__UpdateKafkaEventForwarderInput) GetID() string { return v.ID }
+
+// GetName returns __UpdateKafkaEventForwarderInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateKafkaEventForwarderInput) GetName() string { return v.Name }
+
+// GetDescription returns __UpdateKafkaEventForwarderInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateKafkaEventForwarderInput) GetDescription() string { return v.Description }
+
+// GetTopic returns __UpdateKafkaEventForwarderInput.Topic, and is useful for accessing the field via an interface.
+func (v *__UpdateKafkaEventForwarderInput) GetTopic() string { return v.Topic }
+
+// GetProperties returns __UpdateKafkaEventForwarderInput.Properties, and is useful for accessing the field via an interface.
+func (v *__UpdateKafkaEventForwarderInput) GetProperties() string { return v.Properties }
+
+// GetEnabled returns __UpdateKafkaEventForwarderInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__UpdateKafkaEventForwarderInput) GetEnabled() *bool { return v.Enabled }
 
 // __UpdateLicenseKeyInput is used internally by genqlient
 type __UpdateLicenseKeyInput struct {
@@ -23256,6 +26260,54 @@ func (v *__UpdateS3ArchivingConfigurationInput) GetBucketRegion() string { retur
 
 // GetFormat returns __UpdateS3ArchivingConfigurationInput.Format, and is useful for accessing the field via an interface.
 func (v *__UpdateS3ArchivingConfigurationInput) GetFormat() S3ArchivingFormat { return v.Format }
+
+// __UpdateSavedQueryInput is used internally by genqlient
+type __UpdateSavedQueryInput struct {
+	ViewName     string  `json:"ViewName"`
+	SavedQueryID string  `json:"SavedQueryID"`
+	Name         *string `json:"Name"`
+	QueryString  *string `json:"QueryString"`
+}
+
+// GetViewName returns __UpdateSavedQueryInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetViewName() string { return v.ViewName }
+
+// GetSavedQueryID returns __UpdateSavedQueryInput.SavedQueryID, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetSavedQueryID() string { return v.SavedQueryID }
+
+// GetName returns __UpdateSavedQueryInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetName() *string { return v.Name }
+
+// GetQueryString returns __UpdateSavedQueryInput.QueryString, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryInput) GetQueryString() *string { return v.QueryString }
+
+// __UpdateSavedQueryV2Input is used internally by genqlient
+type __UpdateSavedQueryV2Input struct {
+	ViewName     string   `json:"ViewName"`
+	SavedQueryID string   `json:"SavedQueryID"`
+	Name         *string  `json:"Name"`
+	QueryString  *string  `json:"QueryString"`
+	Description  *string  `json:"Description"`
+	Labels       []string `json:"Labels"`
+}
+
+// GetViewName returns __UpdateSavedQueryV2Input.ViewName, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryV2Input) GetViewName() string { return v.ViewName }
+
+// GetSavedQueryID returns __UpdateSavedQueryV2Input.SavedQueryID, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryV2Input) GetSavedQueryID() string { return v.SavedQueryID }
+
+// GetName returns __UpdateSavedQueryV2Input.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryV2Input) GetName() *string { return v.Name }
+
+// GetQueryString returns __UpdateSavedQueryV2Input.QueryString, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryV2Input) GetQueryString() *string { return v.QueryString }
+
+// GetDescription returns __UpdateSavedQueryV2Input.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryV2Input) GetDescription() *string { return v.Description }
+
+// GetLabels returns __UpdateSavedQueryV2Input.Labels, and is useful for accessing the field via an interface.
+func (v *__UpdateSavedQueryV2Input) GetLabels() []string { return v.Labels }
 
 // __UpdateScheduledSearchInput is used internally by genqlient
 type __UpdateScheduledSearchInput struct {
@@ -24086,6 +27138,57 @@ func CreateEmailAction(
 	return data_, err_
 }
 
+// The mutation executed by CreateEventForwardingRule.
+const CreateEventForwardingRule_Operation = `
+mutation CreateEventForwardingRule ($RepoName: String!, $QueryString: String!, $EventForwarderID: String!, $LanguageVersion: LanguageVersionEnum) {
+	createEventForwardingRule(input: {repoName:$RepoName,queryString:$QueryString,eventForwarderId:$EventForwarderID,languageVersion:$LanguageVersion}) {
+		... EventForwardingRuleDetails
+	}
+}
+fragment EventForwardingRuleDetails on EventForwardingRule {
+	id
+	queryString
+	eventForwarderId
+	createdAt
+	languageVersion {
+		name
+		futureName
+	}
+}
+`
+
+// Mutation to create a new event forwarding rule
+func CreateEventForwardingRule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RepoName string,
+	QueryString string,
+	EventForwarderID string,
+	LanguageVersion *LanguageVersionEnum,
+) (data_ *CreateEventForwardingRuleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateEventForwardingRule",
+		Query:  CreateEventForwardingRule_Operation,
+		Variables: &__CreateEventForwardingRuleInput{
+			RepoName:         RepoName,
+			QueryString:      QueryString,
+			EventForwarderID: EventForwarderID,
+			LanguageVersion:  LanguageVersion,
+		},
+	}
+
+	data_ = &CreateEventForwardingRuleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateFilterAlert.
 const CreateFilterAlert_Operation = `
 mutation CreateFilterAlert ($SearchDomainName: RepoOrViewName!, $Name: String!, $Description: String, $QueryString: String!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $Enabled: Boolean!, $ThrottleField: String, $ThrottleTimeSeconds: Long!, $QueryOwnershipType: QueryOwnershipType!) {
@@ -24273,6 +27376,57 @@ func CreateIPFilter(
 	}
 
 	data_ = &CreateIPFilterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateKafkaEventForwarder.
+const CreateKafkaEventForwarder_Operation = `
+mutation CreateKafkaEventForwarder ($Name: String!, $Description: String!, $Topic: String!, $Properties: String!, $Enabled: Boolean) {
+	createKafkaEventForwarder(input: {name:$Name,description:$Description,topic:$Topic,properties:$Properties,enabled:$Enabled}) {
+		... KafkaEventForwarderDetails
+	}
+}
+fragment KafkaEventForwarderDetails on KafkaEventForwarder {
+	id
+	name
+	description
+	enabled
+	topic
+	properties
+}
+`
+
+// Create a new Kafka event forwarder
+func CreateKafkaEventForwarder(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Name string,
+	Description string,
+	Topic string,
+	Properties string,
+	Enabled *bool,
+) (data_ *CreateKafkaEventForwarderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateKafkaEventForwarder",
+		Query:  CreateKafkaEventForwarder_Operation,
+		Variables: &__CreateKafkaEventForwarderInput{
+			Name:        Name,
+			Description: Description,
+			Topic:       Topic,
+			Properties:  Properties,
+			Enabled:     Enabled,
+		},
+	}
+
+	data_ = &CreateKafkaEventForwarderResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -24747,6 +27901,108 @@ func CreateRole(
 	}
 
 	data_ = &CreateRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateSavedQuery.
+const CreateSavedQuery_Operation = `
+mutation CreateSavedQuery ($ViewName: String!, $Name: String!, $QueryString: String!) {
+	createSavedQuery(input: {viewName:$ViewName,name:$Name,queryString:$QueryString}) {
+		savedQuery {
+			... SavedQueryDetails
+		}
+	}
+}
+fragment SavedQueryDetails on SavedQuery {
+	id
+	name
+	displayName
+	query {
+		queryString
+	}
+}
+`
+
+func CreateSavedQuery(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	Name string,
+	QueryString string,
+) (data_ *CreateSavedQueryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateSavedQuery",
+		Query:  CreateSavedQuery_Operation,
+		Variables: &__CreateSavedQueryInput{
+			ViewName:    ViewName,
+			Name:        Name,
+			QueryString: QueryString,
+		},
+	}
+
+	data_ = &CreateSavedQueryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateSavedQueryV2.
+const CreateSavedQueryV2_Operation = `
+mutation CreateSavedQueryV2 ($ViewName: String!, $Name: String!, $QueryString: String!, $Description: String, $Labels: [String!]) {
+	createSavedQuery(input: {viewName:$ViewName,name:$Name,queryString:$QueryString,description:$Description,labels:$Labels}) {
+		savedQuery {
+			... SavedQueryDetailsV2
+		}
+	}
+}
+fragment SavedQueryDetailsV2 on SavedQuery {
+	id
+	name
+	displayName
+	description
+	labels
+	query {
+		queryString
+	}
+}
+`
+
+func CreateSavedQueryV2(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	Name string,
+	QueryString string,
+	Description *string,
+	Labels []string,
+) (data_ *CreateSavedQueryV2Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateSavedQueryV2",
+		Query:  CreateSavedQueryV2_Operation,
+		Variables: &__CreateSavedQueryV2Input{
+			ViewName:    ViewName,
+			Name:        Name,
+			QueryString: QueryString,
+			Description: Description,
+			Labels:      Labels,
+		},
+	}
+
+	data_ = &CreateSavedQueryV2Response{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -25326,6 +28582,74 @@ func DeleteAlertByID(
 	return data_, err_
 }
 
+// The mutation executed by DeleteEventForwarder.
+const DeleteEventForwarder_Operation = `
+mutation DeleteEventForwarder ($ID: String!) {
+	deleteEventForwarder(input: {id:$ID})
+}
+`
+
+// Delete an event forwarder
+func DeleteEventForwarder(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ID string,
+) (data_ *DeleteEventForwarderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteEventForwarder",
+		Query:  DeleteEventForwarder_Operation,
+		Variables: &__DeleteEventForwarderInput{
+			ID: ID,
+		},
+	}
+
+	data_ = &DeleteEventForwarderResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteEventForwardingRule.
+const DeleteEventForwardingRule_Operation = `
+mutation DeleteEventForwardingRule ($RepoName: String!, $ID: String!) {
+	deleteEventForwardingRule(input: {repoName:$RepoName,id:$ID})
+}
+`
+
+// Mutation to delete an event forwarding rule
+func DeleteEventForwardingRule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RepoName string,
+	ID string,
+) (data_ *DeleteEventForwardingRuleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteEventForwardingRule",
+		Query:  DeleteEventForwardingRule_Operation,
+		Variables: &__DeleteEventForwardingRuleInput{
+			RepoName: RepoName,
+			ID:       ID,
+		},
+	}
+
+	data_ = &DeleteEventForwardingRuleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteFilterAlert.
 const DeleteFilterAlert_Operation = `
 mutation DeleteFilterAlert ($SearchDomainName: RepoOrViewName!, $FilterAlertID: String!) {
@@ -25537,6 +28861,42 @@ func DeleteRoleByID(
 	return data_, err_
 }
 
+// The mutation executed by DeleteSavedQuery.
+const DeleteSavedQuery_Operation = `
+mutation DeleteSavedQuery ($ViewName: String!, $SavedQueryID: String!) {
+	deleteSavedQuery(input: {viewName:$ViewName,id:$SavedQueryID}) {
+		result
+	}
+}
+`
+
+func DeleteSavedQuery(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	SavedQueryID string,
+) (data_ *DeleteSavedQueryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteSavedQuery",
+		Query:  DeleteSavedQuery_Operation,
+		Variables: &__DeleteSavedQueryInput{
+			ViewName:     ViewName,
+			SavedQueryID: SavedQueryID,
+		},
+	}
+
+	data_ = &DeleteSavedQueryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteScheduledSearchByID.
 const DeleteScheduledSearchByID_Operation = `
 mutation DeleteScheduledSearchByID ($SearchDomainName: String!, $ScheduledSearchID: String!) {
@@ -25673,6 +29033,39 @@ func DeleteToken(
 	return data_, err_
 }
 
+// The mutation executed by DisableEventForwarder.
+const DisableEventForwarder_Operation = `
+mutation DisableEventForwarder ($ID: String!) {
+	disableEventForwarder(input: {id:$ID})
+}
+`
+
+// Disable an event forwarder
+func DisableEventForwarder(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ID string,
+) (data_ *DisableEventForwarderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DisableEventForwarder",
+		Query:  DisableEventForwarder_Operation,
+		Variables: &__DisableEventForwarderInput{
+			ID: ID,
+		},
+	}
+
+	data_ = &DisableEventForwarderResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DisableGlobalFeatureFlag.
 const DisableGlobalFeatureFlag_Operation = `
 mutation DisableGlobalFeatureFlag ($FeatureFlagName: FeatureFlag!) {
@@ -25728,6 +29121,39 @@ func DisableS3Archiving(
 	}
 
 	data_ = &DisableS3ArchivingResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EnableEventForwarder.
+const EnableEventForwarder_Operation = `
+mutation EnableEventForwarder ($ID: String!) {
+	enableEventForwarder(input: {id:$ID})
+}
+`
+
+// Enable an event forwarder
+func EnableEventForwarder(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ID string,
+) (data_ *EnableEventForwarderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EnableEventForwarder",
+		Query:  EnableEventForwarder_Operation,
+		Variables: &__EnableEventForwarderInput{
+			ID: ID,
+		},
+	}
+
+	data_ = &EnableEventForwarderResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -25991,6 +29417,98 @@ func GetCluster(
 	}
 
 	data_ = &GetClusterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetEventForwarders.
+const GetEventForwarders_Operation = `
+query GetEventForwarders {
+	eventForwarders {
+		__typename
+		... on KafkaEventForwarder {
+			... KafkaEventForwarderDetails
+		}
+	}
+}
+fragment KafkaEventForwarderDetails on KafkaEventForwarder {
+	id
+	name
+	description
+	enabled
+	topic
+	properties
+}
+`
+
+// Query to list all event forwarders
+func GetEventForwarders(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *GetEventForwardersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetEventForwarders",
+		Query:  GetEventForwarders_Operation,
+	}
+
+	data_ = &GetEventForwardersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetEventForwardingRules.
+const GetEventForwardingRules_Operation = `
+query GetEventForwardingRules ($ViewName: String!) {
+	searchDomain(name: $ViewName) {
+		__typename
+		... on Repository {
+			eventForwardingRules {
+				... EventForwardingRuleDetails
+			}
+		}
+	}
+}
+fragment EventForwardingRuleDetails on EventForwardingRule {
+	id
+	queryString
+	eventForwarderId
+	createdAt
+	languageVersion {
+		name
+		futureName
+	}
+}
+`
+
+// Query to list all event forwarding rules in a repository/view
+func GetEventForwardingRules(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+) (data_ *GetEventForwardingRulesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetEventForwardingRules",
+		Query:  GetEventForwardingRules_Operation,
+		Variables: &__GetEventForwardingRulesInput{
+			ViewName: ViewName,
+		},
+	}
+
+	data_ = &GetEventForwardingRulesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -27106,6 +30624,45 @@ func ListAlerts(
 	return data_, err_
 }
 
+// The query executed by ListAllEventForwardingRules.
+const ListAllEventForwardingRules_Operation = `
+query ListAllEventForwardingRules {
+	searchDomains {
+		__typename
+		name
+		... on Repository {
+			eventForwardingRules {
+				id
+				eventForwarderId
+			}
+		}
+	}
+}
+`
+
+// Query to list all repositories with their event forwarding rules
+// Used to check for dependent rules before deleting a forwarder
+func ListAllEventForwardingRules(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *ListAllEventForwardingRulesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListAllEventForwardingRules",
+		Query:  ListAllEventForwardingRules_Operation,
+	}
+
+	data_ = &ListAllEventForwardingRulesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ListFilterAlerts.
 const ListFilterAlerts_Operation = `
 query ListFilterAlerts ($SearchDomainName: String!) {
@@ -27331,6 +30888,98 @@ func ListRoles(
 	return data_, err_
 }
 
+// The query executed by ListSavedQueries.
+const ListSavedQueries_Operation = `
+query ListSavedQueries ($ViewName: String!) {
+	searchDomain(name: $ViewName) {
+		__typename
+		savedQueries {
+			... SavedQueryDetails
+		}
+	}
+}
+fragment SavedQueryDetails on SavedQuery {
+	id
+	name
+	displayName
+	query {
+		queryString
+	}
+}
+`
+
+func ListSavedQueries(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+) (data_ *ListSavedQueriesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListSavedQueries",
+		Query:  ListSavedQueries_Operation,
+		Variables: &__ListSavedQueriesInput{
+			ViewName: ViewName,
+		},
+	}
+
+	data_ = &ListSavedQueriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListSavedQueriesV2.
+const ListSavedQueriesV2_Operation = `
+query ListSavedQueriesV2 ($ViewName: String!) {
+	searchDomain(name: $ViewName) {
+		__typename
+		savedQueries {
+			... SavedQueryDetailsV2
+		}
+	}
+}
+fragment SavedQueryDetailsV2 on SavedQuery {
+	id
+	name
+	displayName
+	description
+	labels
+	query {
+		queryString
+	}
+}
+`
+
+func ListSavedQueriesV2(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+) (data_ *ListSavedQueriesV2Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListSavedQueriesV2",
+		Query:  ListSavedQueriesV2_Operation,
+		Variables: &__ListSavedQueriesV2Input{
+			ViewName: ViewName,
+		},
+	}
+
+	data_ = &ListSavedQueriesV2Response{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ListScheduledSearches.
 const ListScheduledSearches_Operation = `
 query ListScheduledSearches ($SearchDomainName: String!) {
@@ -27482,6 +31131,58 @@ func ListSearchDomains(
 	}
 
 	data_ = &ListSearchDomainsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListSearchDomainsForTelemetry.
+const ListSearchDomainsForTelemetry_Operation = `
+query ListSearchDomainsForTelemetry {
+	searchDomains {
+		__typename
+		id
+		name
+		description
+		automaticSearch
+		... on Repository {
+			compressedByteSize
+			timeBasedRetention
+			storageSizeBasedRetention
+			ingestSizeBasedRetention
+		}
+		... on View {
+			isFederated
+			connections {
+				repository {
+					name
+					compressedByteSize
+					timeBasedRetention
+					storageSizeBasedRetention
+					ingestSizeBasedRetention
+				}
+			}
+		}
+	}
+}
+`
+
+func ListSearchDomainsForTelemetry(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *ListSearchDomainsForTelemetryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListSearchDomainsForTelemetry",
+		Query:  ListSearchDomainsForTelemetry_Operation,
+	}
+
+	data_ = &ListSearchDomainsForTelemetryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -28259,6 +31960,59 @@ func UpdateEmailAction(
 	return data_, err_
 }
 
+// The mutation executed by UpdateEventForwardingRule.
+const UpdateEventForwardingRule_Operation = `
+mutation UpdateEventForwardingRule ($RepoName: String!, $ID: String!, $QueryString: String!, $EventForwarderID: String!, $LanguageVersion: LanguageVersionEnum) {
+	updateEventForwardingRule(input: {repoName:$RepoName,id:$ID,queryString:$QueryString,eventForwarderId:$EventForwarderID,languageVersion:$LanguageVersion}) {
+		... EventForwardingRuleDetails
+	}
+}
+fragment EventForwardingRuleDetails on EventForwardingRule {
+	id
+	queryString
+	eventForwarderId
+	createdAt
+	languageVersion {
+		name
+		futureName
+	}
+}
+`
+
+// Mutation to update an existing event forwarding rule
+func UpdateEventForwardingRule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RepoName string,
+	ID string,
+	QueryString string,
+	EventForwarderID string,
+	LanguageVersion *LanguageVersionEnum,
+) (data_ *UpdateEventForwardingRuleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateEventForwardingRule",
+		Query:  UpdateEventForwardingRule_Operation,
+		Variables: &__UpdateEventForwardingRuleInput{
+			RepoName:         RepoName,
+			ID:               ID,
+			QueryString:      QueryString,
+			EventForwarderID: EventForwarderID,
+			LanguageVersion:  LanguageVersion,
+		},
+	}
+
+	data_ = &UpdateEventForwardingRuleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateFilterAlert.
 const UpdateFilterAlert_Operation = `
 mutation UpdateFilterAlert ($SearchDomainName: RepoOrViewName!, $ID: String!, $Name: String!, $Description: String, $QueryString: String!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $Enabled: Boolean!, $ThrottleField: String, $ThrottleTimeSeconds: Long!, $QueryOwnershipType: QueryOwnershipType!) {
@@ -28490,6 +32244,59 @@ func UpdateIngestBasedRetention(
 	}
 
 	data_ = &UpdateIngestBasedRetentionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateKafkaEventForwarder.
+const UpdateKafkaEventForwarder_Operation = `
+mutation UpdateKafkaEventForwarder ($ID: String!, $Name: String!, $Description: String!, $Topic: String!, $Properties: String!, $Enabled: Boolean) {
+	updateKafkaEventForwarder(input: {id:$ID,name:$Name,description:$Description,topic:$Topic,properties:$Properties,enabled:$Enabled}) {
+		... KafkaEventForwarderDetails
+	}
+}
+fragment KafkaEventForwarderDetails on KafkaEventForwarder {
+	id
+	name
+	description
+	enabled
+	topic
+	properties
+}
+`
+
+// Update an existing Kafka event forwarder
+func UpdateKafkaEventForwarder(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ID string,
+	Name string,
+	Description string,
+	Topic string,
+	Properties string,
+	Enabled *bool,
+) (data_ *UpdateKafkaEventForwarderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateKafkaEventForwarder",
+		Query:  UpdateKafkaEventForwarder_Operation,
+		Variables: &__UpdateKafkaEventForwarderInput{
+			ID:          ID,
+			Name:        Name,
+			Description: Description,
+			Topic:       Topic,
+			Properties:  Properties,
+			Enabled:     Enabled,
+		},
+	}
+
+	data_ = &UpdateKafkaEventForwarderResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -28838,6 +32645,112 @@ func UpdateS3ArchivingConfiguration(
 	}
 
 	data_ = &UpdateS3ArchivingConfigurationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateSavedQuery.
+const UpdateSavedQuery_Operation = `
+mutation UpdateSavedQuery ($ViewName: String!, $SavedQueryID: String!, $Name: String, $QueryString: String) {
+	updateSavedQuery(input: {viewName:$ViewName,id:$SavedQueryID,name:$Name,queryString:$QueryString}) {
+		savedQuery {
+			... SavedQueryDetails
+		}
+	}
+}
+fragment SavedQueryDetails on SavedQuery {
+	id
+	name
+	displayName
+	query {
+		queryString
+	}
+}
+`
+
+func UpdateSavedQuery(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	SavedQueryID string,
+	Name *string,
+	QueryString *string,
+) (data_ *UpdateSavedQueryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSavedQuery",
+		Query:  UpdateSavedQuery_Operation,
+		Variables: &__UpdateSavedQueryInput{
+			ViewName:     ViewName,
+			SavedQueryID: SavedQueryID,
+			Name:         Name,
+			QueryString:  QueryString,
+		},
+	}
+
+	data_ = &UpdateSavedQueryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateSavedQueryV2.
+const UpdateSavedQueryV2_Operation = `
+mutation UpdateSavedQueryV2 ($ViewName: String!, $SavedQueryID: String!, $Name: String, $QueryString: String, $Description: String, $Labels: [String!]) {
+	updateSavedQuery(input: {viewName:$ViewName,id:$SavedQueryID,name:$Name,queryString:$QueryString,description:$Description,labels:$Labels}) {
+		savedQuery {
+			... SavedQueryDetailsV2
+		}
+	}
+}
+fragment SavedQueryDetailsV2 on SavedQuery {
+	id
+	name
+	displayName
+	description
+	labels
+	query {
+		queryString
+	}
+}
+`
+
+func UpdateSavedQueryV2(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	SavedQueryID string,
+	Name *string,
+	QueryString *string,
+	Description *string,
+	Labels []string,
+) (data_ *UpdateSavedQueryV2Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSavedQueryV2",
+		Query:  UpdateSavedQueryV2_Operation,
+		Variables: &__UpdateSavedQueryV2Input{
+			ViewName:     ViewName,
+			SavedQueryID: SavedQueryID,
+			Name:         Name,
+			QueryString:  QueryString,
+			Description:  Description,
+			Labels:       Labels,
+		},
+	}
+
+	data_ = &UpdateSavedQueryV2Response{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

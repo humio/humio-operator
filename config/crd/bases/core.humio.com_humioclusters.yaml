@@ -15813,8 +15813,8 @@ spec:
                     description: Collections defines what data to collect and how
                       frequently
                     items:
-                      description: TelemetryCollectionConfig defines what data to
-                        collect and collection frequency
+                      description: HumioTelemetryCollectionConfig defines what data
+                        to collect and collection frequency
                       properties:
                         include:
                           description: Include defines which data types to collect
@@ -15832,6 +15832,15 @@ spec:
                     description: RemoteReport defines the configuration for sending
                       telemetry data to a remote cluster
                     properties:
+                      tls:
+                        description: TLS contains TLS configuration for the connection
+                        properties:
+                          insecureSkipVerify:
+                            default: false
+                            description: InsecureSkipVerify controls whether the client
+                              verifies the server's certificate chain and hostname
+                            type: boolean
+                        type: object
                       token:
                         description: Token contains the authentication token for the
                           telemetry cluster
@@ -15866,7 +15875,11 @@ spec:
                       url:
                         description: URL is the endpoint URL for the telemetry cluster
                           HEC endpoint
+                        pattern: ^https?://
                         type: string
+                    required:
+                    - token
+                    - url
                     type: object
                 type: object
               terminationGracePeriodSeconds:
@@ -16273,11 +16286,61 @@ spec:
                 description: TelemetryStatus shows the status of telemetry collection
                   for this cluster
                 properties:
-                  collectionErrors:
-                    description: CollectionErrors contains any errors from data collection
+                  activeCollections:
+                    description: ActiveCollections is the number of collection resources
+                      in an active/enabled state
+                    type: integer
+                  activeExports:
+                    description: ActiveExports is the number of export resources in
+                      an active/enabled state
+                    type: integer
+                  collectionResourceName:
+                    description: |-
+                      CollectionResourceName is the name of the HumioTelemetryCollection resource
+                      Deprecated: Use Collections list instead. This field is only populated when there is exactly one collection resource.
+                    type: string
+                  collectionState:
+                    description: |-
+                      CollectionState is the state of the collection resource
+                      Deprecated: Use Collections list instead. This field is only populated when there is exactly one collection resource.
+                    type: string
+                  collections:
+                    description: Collections contains status information for all HumioTelemetryCollection
+                      resources that reference this cluster
                     items:
-                      description: TelemetryError represents an error that occurred
-                        during telemetry operations
+                      description: HumioTelemetryResourceStatus represents the status
+                        of a single telemetry resource (collection or export)
+                      properties:
+                        errorCount:
+                          description: ErrorCount is the number of errors encountered
+                            by this resource
+                          type: integer
+                        lastActivity:
+                          description: LastActivity indicates when this resource last
+                            performed its function (collection or export)
+                          format: date-time
+                          type: string
+                        lastError:
+                          description: LastError contains the most recent error message
+                            from this resource
+                          type: string
+                        name:
+                          description: Name is the name of the telemetry resource
+                          type: string
+                        state:
+                          description: State is the current state of the resource
+                            (e.g., "Enabled", "Disabled", "ConfigError")
+                          type: string
+                      required:
+                      - name
+                      - state
+                      type: object
+                    type: array
+                  exportErrors:
+                    description: ExportErrors contains any errors from data export
+                    items:
+                      description: HumioTelemetryExportError represents an error that
+                        occurred during telemetry export operations
                       properties:
                         dataType:
                           description: DataType indicates which data type this error
@@ -16291,8 +16354,8 @@ spec:
                           format: date-time
                           type: string
                         type:
-                          description: Type is the category of error (e.g., "collection",
-                            "export", "configuration")
+                          description: Type is the category of error (e.g., "export",
+                            "configuration")
                           type: string
                       required:
                       - message
@@ -16300,31 +16363,46 @@ spec:
                       - type
                       type: object
                     type: array
-                  exportErrors:
-                    description: ExportErrors contains any errors from data export
+                  exportResourceName:
+                    description: |-
+                      ExportResourceName is the name of the HumioTelemetryExport resource
+                      Deprecated: Use Exports list instead. This field is only populated when there is exactly one export resource.
+                    type: string
+                  exportState:
+                    description: |-
+                      ExportState is the state of the export resource
+                      Deprecated: Use Exports list instead. This field is only populated when there is exactly one export resource.
+                    type: string
+                  exports:
+                    description: Exports contains status information for all HumioTelemetryExport
+                      resources that reference this cluster
                     items:
-                      description: TelemetryError represents an error that occurred
-                        during telemetry operations
+                      description: HumioTelemetryResourceStatus represents the status
+                        of a single telemetry resource (collection or export)
                       properties:
-                        dataType:
-                          description: DataType indicates which data type this error
-                            relates to (if applicable)
-                          type: string
-                        message:
-                          description: Message is the human-readable error message
-                          type: string
-                        timestamp:
-                          description: Timestamp indicates when this error occurred
+                        errorCount:
+                          description: ErrorCount is the number of errors encountered
+                            by this resource
+                          type: integer
+                        lastActivity:
+                          description: LastActivity indicates when this resource last
+                            performed its function (collection or export)
                           format: date-time
                           type: string
-                        type:
-                          description: Type is the category of error (e.g., "collection",
-                            "export", "configuration")
+                        lastError:
+                          description: LastError contains the most recent error message
+                            from this resource
+                          type: string
+                        name:
+                          description: Name is the name of the telemetry resource
+                          type: string
+                        state:
+                          description: State is the current state of the resource
+                            (e.g., "Enabled", "Disabled", "ConfigError")
                           type: string
                       required:
-                      - message
-                      - timestamp
-                      - type
+                      - name
+                      - state
                       type: object
                     type: array
                   lastCollectionTime:
@@ -16339,10 +16417,14 @@ spec:
                   state:
                     description: State represents the current state of telemetry collection
                     type: string
-                  telemetryResourceName:
-                    description: TelemetryResourceName is the name of the HumioTelemetry
-                      resource managing this cluster's telemetry
-                    type: string
+                  totalCollections:
+                    description: TotalCollections is the total number of collection
+                      resources referencing this cluster
+                    type: integer
+                  totalExports:
+                    description: TotalExports is the total number of export resources
+                      referencing this cluster
+                    type: integer
                 type: object
               version:
                 description: Version is the version of humio running
