@@ -575,16 +575,16 @@ func (r *HumioClusterReconciler) logExtraKafkaConfigsDeprecationInfo(ctx context
 
 	humioVersion := HumioVersionFromString(hnp.GetImage())
 
-	if ok, _ := humioVersion.AtLeast(HumioVersionExtraKafkaConfigsRemoved); ok {
-		r.Log.Info("Skipping EXTRA_KAFKA_CONFIGS_FILE for LogScale 1.225.0+ to prevent startup failure",
-			"cluster", hc.Name,
-			"version", humioVersion.SemVer().String(),
-			"recommendation", "Use spec.environmentVariables or spec.commonEnvironmentVariables with KAFKA_COMMON_ prefix")
-	} else if ok, _ := humioVersion.AtLeast(HumioVersionExtraKafkaConfigsDeprecated); ok {
-		r.Log.Info("EXTRA_KAFKA_CONFIGS_FILE is deprecated, consider migrating to individual Kafka environment variables",
-			"cluster", hc.Name,
-			"version", humioVersion.SemVer().String(),
-			"removal_version", "1.225.0")
+	// For 1.225.0+, validation already happened and would have errored in validateExtraKafkaConfigs
+	// So this only logs for 1.173.0 - 1.224.x range
+	if ok, _ := humioVersion.AtLeast(HumioVersionExtraKafkaConfigsDeprecated); ok {
+		// Don't log if >= 1.225.0, since validateExtraKafkaConfigs would have already errored
+		if ok225, _ := humioVersion.AtLeast(HumioVersionExtraKafkaConfigsRemoved); !ok225 {
+			r.Log.Info("EXTRA_KAFKA_CONFIGS_FILE is deprecated, consider migrating to individual Kafka environment variables",
+				"cluster", hc.Name,
+				"version", humioVersion.SemVer().String(),
+				"removal_version", "1.225.0")
+		}
 	}
 
 	return nil
@@ -2777,6 +2777,14 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if err := r.setImageFromSource(ctx, pool); err != nil {
 			r.Log.Info(fmt.Sprintf("failed to setImageFromSource, so setting ConfigError err=%v", err))
+			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
+		}
+
+		// Validate extraKafkaConfigs after image resolution to ensure we have the correct version
+		if err := pool.validateExtraKafkaConfigsForVersion(); err != nil {
+			r.Log.Error(err, "extraKafkaConfigs validation failed", "cluster", hc.Name, "nodePool", pool.GetNodePoolName())
 			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))

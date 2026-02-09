@@ -519,3 +519,307 @@ func TestShouldUseExtraKafkaConfigsFileEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestTransformPropertyNameToEnvVarName tests the transformation of Kafka property names to env var names
+func TestTransformPropertyNameToEnvVarName(t *testing.T) {
+	testCases := []struct {
+		name         string
+		propertyName string
+		expected     string
+	}{
+		{
+			name:         "security.protocol transformation",
+			propertyName: "security.protocol",
+			expected:     "KAFKA_COMMON_SECURITY_PROTOCOL",
+		},
+		{
+			name:         "ssl.truststore.location transformation",
+			propertyName: "ssl.truststore.location",
+			expected:     "KAFKA_COMMON_SSL_TRUSTSTORE_LOCATION",
+		},
+		{
+			name:         "bootstrap.servers transformation",
+			propertyName: "bootstrap.servers",
+			expected:     "KAFKA_COMMON_BOOTSTRAP_SERVERS",
+		},
+		{
+			name:         "request.timeout.ms transformation",
+			propertyName: "request.timeout.ms",
+			expected:     "KAFKA_COMMON_REQUEST_TIMEOUT_MS",
+		},
+		{
+			name:         "simple property without dots",
+			propertyName: "acks",
+			expected:     "KAFKA_COMMON_ACKS",
+		},
+		{
+			name:         "property with multiple dots",
+			propertyName: "ssl.keystore.certificate.chain",
+			expected:     "KAFKA_COMMON_SSL_KEYSTORE_CERTIFICATE_CHAIN",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := transformPropertyNameToEnvVarName(tc.propertyName)
+			if result != tc.expected {
+				t.Errorf("Test %s failed: expected %s, got %s", tc.name, tc.expected, result)
+			}
+		})
+	}
+}
+
+// TestParseExtraKafkaConfigsToEnvVars tests the parsing of Kafka properties into environment variables
+func TestParseExtraKafkaConfigsToEnvVars(t *testing.T) {
+	testCases := []struct {
+		name           string
+		properties     string
+		expectedCount  int
+		expectedEnvVar map[string]string
+		expectError    bool
+	}{
+		{
+			name:          "Empty string returns empty slice",
+			properties:    "",
+			expectedCount: 0,
+			expectError:   false,
+		},
+		{
+			name:          "Single SSL property",
+			properties:    "security.protocol=SSL",
+			expectedCount: 1,
+			expectedEnvVar: map[string]string{
+				"KAFKA_COMMON_SECURITY_PROTOCOL": "SSL",
+			},
+			expectError: false,
+		},
+		{
+			name: "Multiple SSL properties",
+			properties: `security.protocol=SSL
+ssl.truststore.location=/etc/ssl/certs/truststore.jks
+ssl.keystore.location=/etc/ssl/certs/keystore.jks`,
+			expectedCount: 3,
+			expectedEnvVar: map[string]string{
+				"KAFKA_COMMON_SECURITY_PROTOCOL":       "SSL",
+				"KAFKA_COMMON_SSL_TRUSTSTORE_LOCATION": "/etc/ssl/certs/truststore.jks",
+				"KAFKA_COMMON_SSL_KEYSTORE_LOCATION":   "/etc/ssl/certs/keystore.jks",
+			},
+			expectError: false,
+		},
+		{
+			name: "Properties with comments and whitespace",
+			properties: `# Kafka SSL Configuration
+security.protocol=SSL
+
+# Truststore
+ssl.truststore.location=/path/to/truststore.jks`,
+			expectedCount: 2,
+			expectedEnvVar: map[string]string{
+				"KAFKA_COMMON_SECURITY_PROTOCOL":       "SSL",
+				"KAFKA_COMMON_SSL_TRUSTSTORE_LOCATION": "/path/to/truststore.jks",
+			},
+			expectError: false,
+		},
+		{
+			name:          "Properties with mixed line endings",
+			properties:    "security.protocol=SSL\r\nbootstrap.servers=kafka:9092\nacks=all",
+			expectedCount: 3,
+			expectedEnvVar: map[string]string{
+				"KAFKA_COMMON_SECURITY_PROTOCOL": "SSL",
+				"KAFKA_COMMON_BOOTSTRAP_SERVERS": "kafka:9092",
+				"KAFKA_COMMON_ACKS":              "all",
+			},
+			expectError: false,
+		},
+		{
+			name:          "Property with spaces around equals",
+			properties:    "security.protocol = SSL\nbootstrap.servers=kafka:9092",
+			expectedCount: 2,
+			expectedEnvVar: map[string]string{
+				"KAFKA_COMMON_SECURITY_PROTOCOL": "SSL",
+				"KAFKA_COMMON_BOOTSTRAP_SERVERS": "kafka:9092",
+			},
+			expectError: false,
+		},
+		{
+			name:          "Property with value containing equals",
+			properties:    "sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass=word\"",
+			expectedCount: 1,
+			expectedEnvVar: map[string]string{
+				"KAFKA_COMMON_SASL_JAAS_CONFIG": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass=word\"",
+			},
+			expectError: false,
+		},
+		{
+			name:          "Invalid property format (no equals) is skipped",
+			properties:    "invalid-line-without-equals\nsecurity.protocol=SSL",
+			expectedCount: 1,
+			expectedEnvVar: map[string]string{
+				"KAFKA_COMMON_SECURITY_PROTOCOL": "SSL",
+			},
+			expectError: false,
+		},
+		{
+			name: "Duplicate keys - last value wins",
+			properties: `security.protocol=PLAINTEXT
+security.protocol=SSL`,
+			expectedCount: 1,
+			expectedEnvVar: map[string]string{
+				"KAFKA_COMMON_SECURITY_PROTOCOL": "SSL",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := parseExtraKafkaConfigsToEnvVars(tc.properties)
+
+			if tc.expectError && err == nil {
+				t.Errorf("Test %s: expected error but got none", tc.name)
+			}
+			if !tc.expectError && err != nil {
+				t.Errorf("Test %s: unexpected error: %v", tc.name, err)
+			}
+
+			if len(result) != tc.expectedCount {
+				t.Errorf("Test %s: expected %d env vars, got %d", tc.name, tc.expectedCount, len(result))
+			}
+
+			// Check specific env vars
+			for _, envVar := range result {
+				expectedValue, exists := tc.expectedEnvVar[envVar.Name]
+				if exists {
+					if envVar.Value != expectedValue {
+						t.Errorf("Test %s: env var %s expected value %s, got %s",
+							tc.name, envVar.Name, expectedValue, envVar.Value)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestValidateExtraKafkaConfigsForVersion tests the validation logic
+func TestValidateExtraKafkaConfigsForVersion(t *testing.T) {
+	testCases := []struct {
+		name              string
+		image             string
+		extraKafkaConfigs string
+		expectError       bool
+		errorContains     string
+	}{
+		{
+			name:              "Empty config with 1.225.0+ returns no error",
+			image:             "humio/humio-core:1.225.0",
+			extraKafkaConfigs: "",
+			expectError:       false,
+		},
+		{
+			name:              "Config with version < 1.225.0 returns no error",
+			image:             "humio/humio-core:1.222.0",
+			extraKafkaConfigs: "security.protocol=SSL",
+			expectError:       false,
+		},
+		{
+			name:              "Config with version 1.225.0 returns error",
+			image:             "humio/humio-core:1.225.0",
+			extraKafkaConfigs: "security.protocol=SSL",
+			expectError:       true,
+			errorContains:     "extraKafkaConfigs is not supported in LogScale 1.225.0+",
+		},
+		{
+			name:              "Config with version 1.230.0 returns error",
+			image:             "humio/humio-core:1.230.0",
+			extraKafkaConfigs: "security.protocol=SSL",
+			expectError:       true,
+			errorContains:     "extraKafkaConfigs is not supported in LogScale 1.225.0+",
+		},
+		{
+			name:              "Error message contains KAFKA_COMMON_SECURITY_PROTOCOL",
+			image:             "humio/humio-core:1.225.0",
+			extraKafkaConfigs: "security.protocol=SSL",
+			expectError:       true,
+			errorContains:     "KAFKA_COMMON_SECURITY_PROTOCOL",
+		},
+		{
+			name:              "Error message contains SSL value",
+			image:             "humio/humio-core:1.225.0",
+			extraKafkaConfigs: "security.protocol=SSL",
+			expectError:       true,
+			errorContains:     "value: SSL",
+		},
+		{
+			name:  "Error message contains multiple properties",
+			image: "humio/humio-core:1.225.0",
+			extraKafkaConfigs: `security.protocol=SSL
+bootstrap.servers=kafka:9092`,
+			expectError:   true,
+			errorContains: "KAFKA_COMMON_BOOTSTRAP_SERVERS",
+		},
+		{
+			name:              "Error message contains migration instructions",
+			image:             "humio/humio-core:1.225.0",
+			extraKafkaConfigs: "security.protocol=SSL",
+			expectError:       true,
+			errorContains:     "spec.commonEnvironmentVariables",
+		},
+		{
+			name:              "Error message references docs",
+			image:             "humio/humio-core:1.225.0",
+			extraKafkaConfigs: "security.protocol=SSL",
+			expectError:       true,
+			errorContains:     "operator 0.34.0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			hc := &humiov1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Spec: humiov1alpha1.HumioClusterSpec{
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						Image:             tc.image,
+						ExtraKafkaConfigs: tc.extraKafkaConfigs,
+					},
+				},
+			}
+
+			hnp := NewHumioNodeManagerFromHumioCluster(hc)
+			err := hnp.validateExtraKafkaConfigsForVersion()
+
+			if tc.expectError && err == nil {
+				t.Errorf("Test %s: expected error but got none", tc.name)
+			}
+			if !tc.expectError && err != nil {
+				t.Errorf("Test %s: unexpected error: %v", tc.name, err)
+			}
+
+			if tc.expectError && err != nil {
+				errorMsg := err.Error()
+				if tc.errorContains != "" && !stringContains(errorMsg, tc.errorContains) {
+					t.Errorf("Test %s: error message should contain %q, got: %s",
+						tc.name, tc.errorContains, errorMsg)
+				}
+			}
+		})
+	}
+}
+
+// Helper function for string contains check
+func stringContains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && stringContainsHelper(s, substr)))
+}
+
+func stringContainsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

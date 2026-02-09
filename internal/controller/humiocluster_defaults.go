@@ -19,6 +19,7 @@ package controller
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -803,6 +804,146 @@ func (hnp *HumioNodePool) ShouldUseExtraKafkaConfigsFile() bool {
 	}
 
 	return true // Use for LogScale < 1.225.0
+}
+
+// transformPropertyNameToEnvVarName converts a Kafka property name to a KAFKA_COMMON_* environment variable name.
+// Examples:
+//   - security.protocol → KAFKA_COMMON_SECURITY_PROTOCOL
+//   - ssl.truststore.location → KAFKA_COMMON_SSL_TRUSTSTORE_LOCATION
+//   - bootstrap.servers → KAFKA_COMMON_BOOTSTRAP_SERVERS
+func transformPropertyNameToEnvVarName(propertyKey string) string {
+	// Uppercase the entire key
+	upper := strings.ToUpper(propertyKey)
+	// Replace dots with underscores
+	withUnderscores := strings.ReplaceAll(upper, ".", "_")
+	// Add KAFKA_COMMON_ prefix
+	return fmt.Sprintf("KAFKA_COMMON_%s", withUnderscores)
+}
+
+// parseExtraKafkaConfigsToEnvVars converts extraKafkaConfigs properties format (key=value per line)
+// to KAFKA_COMMON_* environment variables for migration guidance.
+// This function is based on normalizeKafkaProperties() from humioeventforwarder_controller.go
+// but returns EnvVars instead of normalized string.
+//
+// DoS protection limits (same as event forwarder):
+// - Max 1MB total length
+// - Max 1000 properties
+// - Max 256 bytes per key
+// - Max 64KB per value
+func parseExtraKafkaConfigsToEnvVars(properties string) ([]corev1.EnvVar, error) {
+	if properties == "" {
+		return []corev1.EnvVar{}, nil
+	}
+
+	// DoS protection: Check total length
+	const maxPropertiesLength = 1024 * 1024 // 1MB
+	const maxPropertiesCount = 1000
+	const maxPropertyKeyLength = 256
+	const maxPropertyValueLength = 65536 // 64KB
+
+	if len(properties) > maxPropertiesLength {
+		return nil, fmt.Errorf("properties exceed maximum length of %d bytes", maxPropertiesLength)
+	}
+
+	// Parse properties into a map
+	propMap := make(map[string]string)
+
+	for _, line := range strings.Split(properties, "\n") {
+		// Handle different line ending formats (Windows \r\n -> Unix \n)
+		line = strings.TrimRight(line, "\r")
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Parse key=value
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			// Skip invalid lines instead of failing - more user-friendly
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		if key == "" {
+			continue
+		}
+
+		// DoS protection: Check key and value lengths
+		if len(key) > maxPropertyKeyLength {
+			return nil, fmt.Errorf("property key too long: %d bytes (max %d)", len(key), maxPropertyKeyLength)
+		}
+		if len(value) > maxPropertyValueLength {
+			return nil, fmt.Errorf("property value for key %s too long: %d bytes (max %d)",
+				key, len(value), maxPropertyValueLength)
+		}
+
+		// Note: If duplicate keys exist, last value wins
+		propMap[key] = value
+	}
+
+	// DoS protection: Check total property count
+	if len(propMap) > maxPropertiesCount {
+		return nil, fmt.Errorf("too many properties: %d (max %d)", len(propMap), maxPropertiesCount)
+	}
+
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(propMap))
+	for k := range propMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Build environment variables
+	envVars := make([]corev1.EnvVar, 0, len(keys))
+	for _, k := range keys {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  transformPropertyNameToEnvVarName(k),
+			Value: propMap[k],
+		})
+	}
+
+	return envVars, nil
+}
+
+// validateExtraKafkaConfigsForVersion returns an error if extraKafkaConfigs is set
+// with LogScale 1.225.0+. The error message contains suggested environment variables
+// in YAML format for easy migration.
+func (hnp *HumioNodePool) validateExtraKafkaConfigsForVersion() error {
+	if hnp.GetExtraKafkaConfigs() == "" {
+		return nil
+	}
+
+	humioVersion := HumioVersionFromString(hnp.GetImage())
+	if ok, _ := humioVersion.AtLeast(HumioVersionExtraKafkaConfigsRemoved); !ok {
+		return nil // Still supported for < 1.225.0
+	}
+
+	// Version is 1.225.0+ and extraKafkaConfigs is set - return error with migration instructions
+	convertedEnvVars, err := parseExtraKafkaConfigsToEnvVars(hnp.GetExtraKafkaConfigs())
+	if err != nil {
+		// If parsing fails, still return an error but with generic message
+		return fmt.Errorf("extraKafkaConfigs is not supported in LogScale 1.225.0+. Failed to parse existing configuration for migration guidance: %w. Please migrate to environment variables manually. See release notes for operator 0.34.0 for more details", err)
+	}
+
+	if len(convertedEnvVars) == 0 {
+		return fmt.Errorf("extraKafkaConfigs is not supported in LogScale 1.225.0+. Please remove extraKafkaConfigs from spec. See release notes for operator 0.34.0 for more details")
+	}
+
+	// Build a helpful error message with YAML-formatted environment variables
+	var msg strings.Builder
+	msg.WriteString("extraKafkaConfigs is not supported in LogScale 1.225.0+. Please migrate to environment variables.\n\n")
+	msg.WriteString("Add these to spec.commonEnvironmentVariables:\n")
+	for _, env := range convertedEnvVars {
+		msg.WriteString(fmt.Sprintf("- name: %s\n  value: %s\n", env.Name, env.Value))
+	}
+	msg.WriteString("\nThen remove spec.extraKafkaConfigs from your HumioCluster.\n")
+	msg.WriteString("See release notes for operator 0.34.0 for more details.")
+
+	return fmt.Errorf("%s", msg.String())
 }
 
 func (hnp *HumioNodePool) GetViewGroupPermissions() string {
