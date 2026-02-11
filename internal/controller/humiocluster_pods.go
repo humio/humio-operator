@@ -823,6 +823,14 @@ func (r *HumioClusterReconciler) getDesiredBootstrapTokenHash(ctx context.Contex
 		return "", fmt.Errorf("could not find bootstrap token matching labels %+v: %w", kubernetes.LabelsForHumioBootstrapToken(hc.GetName()), err)
 	}
 
+	if len(humioBootstrapTokens) > 1 {
+		var tokenNames []string
+		for _, token := range humioBootstrapTokens {
+			tokenNames = append(tokenNames, token.Name)
+		}
+		r.Log.Error(fmt.Errorf("multiple bootstrap tokens found"), fmt.Sprintf("found multiple bootstrap tokens (%v) with managedClusterName '%s'. Using the first token '%s'. Please remove duplicate bootstrap tokens or update their managedClusterName to reference different clusters", tokenNames, hc.GetName(), humioBootstrapTokens[0].Name))
+	}
+
 	if humioBootstrapTokens[0].Status.State != humiov1alpha1.HumioBootstrapTokenStateReady {
 		return "", fmt.Errorf("bootstrap token not ready. status=%s", humioBootstrapTokens[0].Status.State)
 	}

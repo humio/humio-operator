@@ -24,6 +24,8 @@ import (
 const (
 	// HumioBootstrapTokenStateNotReady is the NotReady state of the bootstrap token
 	HumioBootstrapTokenStateNotReady = "NotReady"
+	// HumioBootstrapTokenStateConfigError is the state of the bootstrap token when user-provided specification results in configuration error, such as missing referenced secrets
+	HumioBootstrapTokenStateConfigError = "ConfigError"
 	// HumioBootstrapTokenStateReady is the Ready state of the bootstrap token
 	HumioBootstrapTokenStateReady = "Ready"
 )
