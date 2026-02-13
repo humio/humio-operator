@@ -302,7 +302,7 @@ type EventForwardersClient interface {
 
 type ConnectionDetailsIncludingAPIToken struct {
 	humiov1alpha1.HumioMultiClusterSearchViewConnection
-	APIToken string
+	APIToken string // #nosec G117
 }
 
 // ClientConfig stores our Humio api client

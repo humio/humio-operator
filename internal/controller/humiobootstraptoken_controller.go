@@ -61,7 +61,7 @@ type HumioBootstrapTokenReconciler struct {
 }
 
 type HumioBootstrapTokenSecretData struct {
-	Secret      string `json:"secret"`
+	Secret      string `json:"secret"` // #nosec G117
 	HashedToken string `json:"hashedToken"`
 }
 
@@ -338,7 +338,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	commandArgs := []string{"env", "JVM_TMP_DIR=/tmp", "/app/humio/humio/bin/humio-token-hashing.sh", "--json"}
 
 	if tokenSecret, ok := bootstrapTokenSecret.Data[BootstrapTokenSecretSecretName]; ok {
-		commandArgs = append(commandArgs, string(tokenSecret))
+		commandArgs = append(commandArgs, string(tokenSecret)) // #nosec G117
 	}
 
 	pod, err := r.createPod(ctx, hbt)
@@ -397,7 +397,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	if err != nil {
 		return err
 	}
-	updatedSecret.Data = map[string][]byte{BootstrapTokenSecretHashedTokenName: []byte(secretData.HashedToken), BootstrapTokenSecretSecretName: []byte(secretData.Secret)}
+	updatedSecret.Data = map[string][]byte{BootstrapTokenSecretHashedTokenName: []byte(secretData.HashedToken), BootstrapTokenSecretSecretName: []byte(secretData.Secret)} // #nosec G117
 
 	if err = r.Update(ctx, updatedSecret); err != nil {
 		return r.logErrorAndReturn(err, "failed to update secret with hashedToken data")
