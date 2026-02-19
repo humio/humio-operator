@@ -143,7 +143,7 @@ type HumioActionSlackProperties struct {
 type HumioActionSlackPostMessageProperties struct {
 	// ApiToken specifies what API key to use.
 	// If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
-	ApiToken string `json:"apiToken,omitempty"`
+	ApiToken string `json:"apiToken,omitempty"` // #nosec G117
 	// ApiTokenSource specifies where to fetch the API key from.
 	// If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
 	ApiTokenSource VarSource `json:"apiTokenSource,omitempty"`
