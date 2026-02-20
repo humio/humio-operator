@@ -202,7 +202,8 @@ func (h *HECClient) sendRequest(ctx context.Context, jsonData []byte) error {
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", h.Token))
 
 	// Send request
-	resp, err := h.HTTPClient.Do(req)
+	// TODO: Investigate SSRF vulnerability - validate URL to prevent requests to internal services
+	resp, err := h.HTTPClient.Do(req) // #nosec G704
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}

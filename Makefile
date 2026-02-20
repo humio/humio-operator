@@ -108,6 +108,25 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 lint-config: golangci-lint ## Verify golangci-lint linter configuration
 	$(GOLANGCI_LINT) config verify
 
+.PHONY: deadcode
+deadcode: ## Run deadcode analysis to find unused code
+	@command -v deadcode >/dev/null 2>&1 || { \
+		echo "Installing deadcode..." ; \
+		PATH=$$PATH:$(GOBIN) go install golang.org/x/tools/cmd/deadcode@latest ; \
+	}
+	PATH=$$PATH:$(GOBIN) deadcode ./...
+
+.PHONY: security
+security: ## Run gosec security scanner
+	@command -v gosec >/dev/null 2>&1 || { \
+		echo "Installing gosec..." ; \
+		PATH=$$PATH:$(GOBIN) go install github.com/securego/gosec/v2/cmd/gosec@latest ; \
+	}
+	PATH=$$PATH:$(GOBIN) gosec -exclude-dir images/logscale-dummy -exclude-generated ./...
+
+.PHONY: check-all
+check-all: fmt vet lint deadcode security ## Run all code quality checks
+
 ##@ Build
 
 .PHONY: build

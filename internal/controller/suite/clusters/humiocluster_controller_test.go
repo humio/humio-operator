@@ -250,6 +250,97 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster ExtraKafkaConfigs with LogScale 1.225.0+", Label("envtest", "dummy", "real"), func() {
+		It("Should reject extraKafkaConfigs with version 1.225.0+ and show migration instructions", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-kafka-config-error",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = "humio/humio-core:1.225.0"
+			toCreate.Spec.ExtraKafkaConfigs = "security.protocol=SSL\nbootstrap.servers=kafka:9092"
+
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateConfigError, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			suite.UsingClusterBy(key.Name, "should contain migration instructions in error message")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
+				return updatedHumioCluster.Status.Message
+			}, testTimeout, suite.TestInterval).Should(ContainSubstring("extraKafkaConfigs is not supported in LogScale 1.225.0+"))
+
+			suite.UsingClusterBy(key.Name, "error message should contain KAFKA_COMMON_SECURITY_PROTOCOL env var")
+			Expect(updatedHumioCluster.Status.Message).Should(ContainSubstring("KAFKA_COMMON_SECURITY_PROTOCOL"))
+
+			suite.UsingClusterBy(key.Name, "error message should contain KAFKA_COMMON_BOOTSTRAP_SERVERS env var")
+			Expect(updatedHumioCluster.Status.Message).Should(ContainSubstring("KAFKA_COMMON_BOOTSTRAP_SERVERS"))
+
+			suite.UsingClusterBy(key.Name, "error message should contain SSL value")
+			Expect(updatedHumioCluster.Status.Message).Should(ContainSubstring("value: SSL"))
+
+			suite.UsingClusterBy(key.Name, "error message should reference migration docs")
+			Expect(updatedHumioCluster.Status.Message).Should(ContainSubstring("operator 0.34.0"))
+
+			suite.UsingClusterBy(key.Name, "error message should reference spec.commonEnvironmentVariables")
+			Expect(updatedHumioCluster.Status.Message).Should(ContainSubstring("spec.commonEnvironmentVariables"))
+		})
+
+		It("Should allow extraKafkaConfigs with version < 1.225.0 (before removal)", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-kafka-config-ok",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			// Use default version (1.159.1) which is < 1.225.0 and should allow extraKafkaConfigs
+			// extraKafkaConfigs is already set to "security.protocol=PLAINTEXT" by ConstructBasicSingleNodeHumioCluster
+
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			suite.UsingClusterBy(key.Name, "should reach running state (not ConfigError)")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "should have EXTRA_KAFKA_CONFIGS_FILE env var in pods")
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			Expect(clusterPods).ToNot(BeEmpty())
+
+			foundEnvVar := false
+			for _, container := range clusterPods[0].Spec.Containers {
+				if container.Name == humioContainerName {
+					for _, env := range container.Env {
+						if env.Name == "EXTRA_KAFKA_CONFIGS_FILE" {
+							foundEnvVar = true
+							break
+						}
+					}
+				}
+			}
+			Expect(foundEnvVar).To(BeTrue(), "EXTRA_KAFKA_CONFIGS_FILE env var should be present for version < 1.225.0")
+		})
+	})
+
 	Context("Humio Cluster Update Image", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
