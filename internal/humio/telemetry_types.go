@@ -125,24 +125,24 @@ type TelemetryIngestionMetrics struct {
 	OrgID   string `json:"org_id,omitempty"`
 	OrgName string `json:"org_name,omitempty"`
 
-	// Contract and subscription information
+	// Contract and subscription information (bytes as strings for exact precision)
 	Subscription                string  `json:"subscription,omitempty"`
-	ContractedDailyIngestBase10 float64 `json:"contracted_daily_ingest_base10,omitempty"`
-	ContractedDailyIngest       float64 `json:"contracted_daily_ingest,omitempty"`
+	ContractedDailyIngestBase10 string  `json:"contracted_daily_ingest_base10,omitempty"`
+	ContractedDailyIngest       string  `json:"contracted_daily_ingest,omitempty"`
 	ContractedRetention         float64 `json:"contracted_retention,omitempty"`
 	Cloud                       string  `json:"cloud,omitempty"`
 
-	// Storage metrics
-	StorageSize       float64 `json:"storage_size_gb,omitempty"`
-	FalconStorageSize float64 `json:"falcon_storage_size_gb,omitempty"`
+	// Storage metrics (in bytes as strings for exact precision)
+	StorageSize       string `json:"storage_size,omitempty"`
+	FalconStorageSize string `json:"falcon_storage_size,omitempty"`
 
-	// Ingestion metrics (daily averages)
-	AverageDailyIngestLast30Days      float64 `json:"average_daily_ingest_last_30_days_gb,omitempty"`
-	ProcessedEventsSize               float64 `json:"processed_events_size_gb,omitempty"`
-	RemovedFieldsSize                 float64 `json:"removed_fields_size_gb,omitempty"`
-	IngestAfterFieldRemovalSize       float64 `json:"ingest_after_field_removal_size_gb,omitempty"`
-	FalconSegmentWriteBytes           float64 `json:"falcon_segment_write_bytes_gb,omitempty"`
-	FalconIngestAfterFieldRemovalSize float64 `json:"falcon_ingest_after_field_removal_size_gb,omitempty"`
+	// Ingestion metrics (in bytes as strings for exact precision)
+	AverageDailyIngestLast30Days      string `json:"average_daily_ingest_last_30_days,omitempty"`
+	ProcessedEventsSize               string `json:"processed_events_size,omitempty"`
+	RemovedFieldsSize                 string `json:"removed_fields_size,omitempty"`
+	IngestAfterFieldRemovalSize       string `json:"ingest_after_field_removal_size,omitempty"`
+	FalconSegmentWriteBytes           string `json:"falcon_segment_write_bytes,omitempty"`
+	FalconIngestAfterFieldRemovalSize string `json:"falcon_ingest_after_field_removal_size,omitempty"`
 
 	// Measurement metadata
 	MeasurementPoint string `json:"measurement_point,omitempty"`
@@ -239,6 +239,31 @@ type QuerySettings struct {
 	MaxResultSize    int64         `json:"max_result_size"`
 	TimeoutRetries   int           `json:"timeout_retries"`
 	TimeRangeMode    string        `json:"time_range_mode"` // "relative", "fixed"
+}
+
+// WithTimeout creates a copy of QuerySettings with modified execution timeout
+// This avoids redundant copying of individual fields
+func (qs QuerySettings) WithTimeout(timeout time.Duration) QuerySettings {
+	qs.MaxExecutionTime = timeout
+	return qs
+}
+
+// WithMaxResultSize creates a copy of QuerySettings with modified max result size
+func (qs QuerySettings) WithMaxResultSize(size int64) QuerySettings {
+	qs.MaxResultSize = size
+	return qs
+}
+
+// WithRetries creates a copy of QuerySettings with modified retry count
+func (qs QuerySettings) WithRetries(retries int) QuerySettings {
+	qs.TimeoutRetries = retries
+	return qs
+}
+
+// WithTimeRangeMode creates a copy of QuerySettings with modified time range mode
+func (qs QuerySettings) WithTimeRangeMode(mode string) QuerySettings {
+	qs.TimeRangeMode = mode
+	return qs
 }
 
 // DefaultQuerySettings provides sensible defaults for query execution

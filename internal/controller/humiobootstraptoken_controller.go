@@ -51,6 +51,20 @@ const (
 	BootstrapTokenSecretSecretName = "secret"
 )
 
+// HumioBootstrapTokenConfigurationError represents an error in user configuration that should result in ConfigError state
+type HumioBootstrapTokenConfigurationError struct {
+	message string
+}
+
+func (e HumioBootstrapTokenConfigurationError) Error() string {
+	return e.message
+}
+
+// NewHumioBootstrapTokenConfigurationError creates a new bootstrap token configuration error
+func NewHumioBootstrapTokenConfigurationError(message string) HumioBootstrapTokenConfigurationError {
+	return HumioBootstrapTokenConfigurationError{message: message}
+}
+
 // HumioBootstrapTokenReconciler reconciles a HumioBootstrapToken object
 type HumioBootstrapTokenReconciler struct {
 	client.Client
@@ -61,7 +75,7 @@ type HumioBootstrapTokenReconciler struct {
 }
 
 type HumioBootstrapTokenSecretData struct {
-	Secret      string `json:"secret"`
+	Secret      string `json:"secret"` // #nosec G117
 	HashedToken string `json:"hashedToken"`
 }
 
@@ -101,19 +115,36 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	if err := r.Get(ctx, hcRequest, hc); err != nil {
 		if k8serrors.IsNotFound(err) {
-			r.Log.Error(err, fmt.Sprintf("humiocluster %s not found", hcRequest.Name))
+			r.Log.Info(fmt.Sprintf("humiocluster %s not found, will process bootstrap token anyway", hcRequest.Name))
+			hc = nil
+		} else {
+			r.Log.Error(err, fmt.Sprintf("problem fetching humiocluster %s", hcRequest.Name))
 			return reconcile.Result{}, err
 		}
-		r.Log.Error(err, fmt.Sprintf("problem fetching humiocluster %s", hcRequest.Name))
-		return reconcile.Result{}, err
 	}
 
 	if err := r.ensureBootstrapTokenSecret(ctx, hbt, hc); err != nil {
+		// Check if it's a configuration error (user's responsibility to fix)
+		if _, isConfigError := err.(HumioBootstrapTokenConfigurationError); isConfigError {
+			// Don't override the ConfigError status and don't retry immediately
+			r.Log.Error(err, "Configuration error detected, user intervention required")
+			return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+		}
+		// For other errors, set to NotReady and retry
 		_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateNotReady)
 		return reconcile.Result{}, err
 	}
 
+	// Generate hashed token regardless of cluster existence
+	// The hashed token generation is self-contained and doesn't require the cluster to exist
 	if err := r.ensureBootstrapTokenHashedToken(ctx, hbt, hc); err != nil {
+		// Check if it's a configuration error (user's responsibility to fix)
+		if _, isConfigError := err.(HumioBootstrapTokenConfigurationError); isConfigError {
+			// Don't override the ConfigError status and don't retry immediately
+			r.Log.Error(err, "Configuration error detected, user intervention required")
+			return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+		}
+		// For other errors, set to NotReady and retry
 		_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateNotReady)
 		return reconcile.Result{}, err
 	}
@@ -129,10 +160,13 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, state string) error {
 	hbt.Status.State = state
 	if state == humiov1alpha1.HumioBootstrapTokenStateReady {
+		humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, nil)
+		secretName := humioBootstrapTokenConfig.bootstrapTokenSecretName()
+
 		hbt.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-%s", hbt.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+					Name: secretName,
 				},
 				Key: BootstrapTokenSecretSecretName,
 			},
@@ -140,7 +174,7 @@ func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *h
 		hbt.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-%s", hbt.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+					Name: secretName,
 				},
 				Key: BootstrapTokenSecretHashedTokenName,
 			},
@@ -276,25 +310,37 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 		if hbt.Spec.TokenSecret.SecretKeyRef != nil {
 			secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
 			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					// User-provided secret is missing - this is a configuration error
+					_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateConfigError)
+					return NewHumioBootstrapTokenConfigurationError(fmt.Sprintf("user-provided TokenSecret %s not found. Please create the secret or remove the tokenSecret.secretKeyRef from the HumioBootstrapToken spec", hbt.Spec.TokenSecret.SecretKeyRef.Name))
+				}
 				return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
 			}
 			if secretValue, ok := secret.Data[hbt.Spec.TokenSecret.SecretKeyRef.Key]; ok {
 				secretData[BootstrapTokenSecretSecretName] = secretValue
 			} else {
-				return r.logErrorAndReturn(err, fmt.Sprintf("could not get value from secret %s. "+
-					"secret does not contain value for key \"%s\"", hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Spec.TokenSecret.SecretKeyRef.Key))
+				// User-provided secret is missing the expected key - this is a configuration error
+				_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateConfigError)
+				return NewHumioBootstrapTokenConfigurationError(fmt.Sprintf("user-provided TokenSecret %s does not contain key \"%s\". Please add the key or update the tokenSecret.secretKeyRef.key in the HumioBootstrapToken spec", hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Spec.TokenSecret.SecretKeyRef.Key))
 			}
 		}
 		if hbt.Spec.HashedTokenSecret.SecretKeyRef != nil {
-			secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
+			secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Namespace)
 			if err != nil {
-				return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
+				if k8serrors.IsNotFound(err) {
+					// User-provided secret is missing - this is a configuration error
+					_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateConfigError)
+					return NewHumioBootstrapTokenConfigurationError(fmt.Sprintf("user-provided HashedTokenSecret %s not found. Please create the secret or remove the hashedTokenSecret.secretKeyRef from the HumioBootstrapToken spec", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name))
+				}
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name))
 			}
 			if hashedTokenValue, ok := secret.Data[hbt.Spec.HashedTokenSecret.SecretKeyRef.Key]; ok {
 				secretData[BootstrapTokenSecretHashedTokenName] = hashedTokenValue
 			} else {
-				return r.logErrorAndReturn(err, fmt.Sprintf("could not get value from secret %s. "+
-					"secret does not contain value for key \"%s\"", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
+				// User-provided secret is missing the expected key - this is a configuration error
+				_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateConfigError)
+				return NewHumioBootstrapTokenConfigurationError(fmt.Sprintf("user-provided HashedTokenSecret %s does not contain key \"%s\". Please add the key or update the hashedTokenSecret.secretKeyRef.key in the HumioBootstrapToken spec", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
 			}
 		}
 		if err := humioBootstrapTokenConfig.validate(); err != nil {
@@ -335,10 +381,52 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return nil
 	}
 
-	commandArgs := []string{"env", "JVM_TMP_DIR=/tmp", "/app/humio/humio/bin/humio-token-hashing.sh", "--json"}
+	// Handle case where tokenSecret and hashedTokenSecret are provided as separate secrets
+	if hbt.Spec.TokenSecret.SecretKeyRef != nil && hbt.Spec.HashedTokenSecret.SecretKeyRef != nil {
+		// Check if they point to different secrets
+		if hbt.Spec.TokenSecret.SecretKeyRef.Name != hbt.Spec.HashedTokenSecret.SecretKeyRef.Name {
+			r.Log.Info("tokenSecret and hashedTokenSecret provided as separate secrets, combining them")
+
+			// Get the hashed token from the separate hashed token secret
+			hashedSecret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Namespace)
+			if err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not get hashed token secret %s", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name))
+			}
+
+			hashedTokenValue, ok := hashedSecret.Data[hbt.Spec.HashedTokenSecret.SecretKeyRef.Key]
+			if !ok {
+				return r.logErrorAndReturn(fmt.Errorf("key not found"), fmt.Sprintf("could not get hashed token value from secret %s, key %s", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
+			}
+
+			// Update the bootstrap token secret with both values
+			bootstrapTokenSecret.Data[BootstrapTokenSecretHashedTokenName] = hashedTokenValue
+
+			if err = r.Update(ctx, bootstrapTokenSecret); err != nil {
+				return r.logErrorAndReturn(err, "failed to update secret with hashedToken data from separate secret")
+			}
+
+			return nil
+		} else {
+			// Both point to the same secret - check if hashedToken key already exists with a value
+			if hashedTokenValue, exists := bootstrapTokenSecret.Data[hbt.Spec.HashedTokenSecret.SecretKeyRef.Key]; exists && len(hashedTokenValue) > 0 {
+				r.Log.Info("hashedToken already provided in secret, using existing value")
+				// Ensure the hashedToken is also available under the standard key name if different
+				if hbt.Spec.HashedTokenSecret.SecretKeyRef.Key != BootstrapTokenSecretHashedTokenName {
+					bootstrapTokenSecret.Data[BootstrapTokenSecretHashedTokenName] = hashedTokenValue
+					if err = r.Update(ctx, bootstrapTokenSecret); err != nil {
+						return r.logErrorAndReturn(err, "failed to update secret with existing hashedToken data")
+					}
+				}
+				return nil
+			}
+		}
+		// If they point to the same secret but the hashedToken key doesn't exist, continue with normal pod creation logic
+	}
+
+	commandArgs := []string{"env", "JVM_TMP_DIR=/tmp", "/app/humio/humio/bin/humio-run-class.sh", "-Dlog4j2.configurationFile=bin/tools-log4j2.xml", "com.humio.main.TokenHashing", "--json"}
 
 	if tokenSecret, ok := bootstrapTokenSecret.Data[BootstrapTokenSecretSecretName]; ok {
-		commandArgs = append(commandArgs, string(tokenSecret))
+		commandArgs = append(commandArgs, string(tokenSecret)) // #nosec G117
 	}
 
 	pod, err := r.createPod(ctx, hbt)
@@ -397,7 +485,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	if err != nil {
 		return err
 	}
-	updatedSecret.Data = map[string][]byte{BootstrapTokenSecretHashedTokenName: []byte(secretData.HashedToken), BootstrapTokenSecretSecretName: []byte(secretData.Secret)}
+	updatedSecret.Data = map[string][]byte{BootstrapTokenSecretHashedTokenName: []byte(secretData.HashedToken), BootstrapTokenSecretSecretName: []byte(secretData.Secret)} // #nosec G117
 
 	if err = r.Update(ctx, updatedSecret); err != nil {
 		return r.logErrorAndReturn(err, "failed to update secret with hashedToken data")

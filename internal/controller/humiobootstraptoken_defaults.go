@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/humio/humio-operator/internal/controller/versions"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -11,7 +12,6 @@ import (
 )
 
 const (
-	bootstrapTokenSecretSuffix  = "bootstrap-token"
 	bootstrapTokenPodNameSuffix = "bootstrap-token-onetime"
 )
 
@@ -28,7 +28,7 @@ func (b *HumioBootstrapTokenConfig) bootstrapTokenSecretName() string {
 	if b.BootstrapToken.Spec.TokenSecret.SecretKeyRef != nil {
 		return b.BootstrapToken.Spec.TokenSecret.SecretKeyRef.Name
 	}
-	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, bootstrapTokenSecretSuffix)
+	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, kubernetes.BootstrapTokenSecretNameSuffix)
 }
 
 func (b *HumioBootstrapTokenConfig) create() (bool, error) {
@@ -55,10 +55,10 @@ func (b *HumioBootstrapTokenConfig) image() string {
 	if b.BootstrapToken.Spec.Image != "" {
 		return b.BootstrapToken.Spec.Image
 	}
-	if b.ManagedHumioCluster.Spec.Image != "" {
-		return b.ManagedHumioCluster.Spec.Image
-	}
 	if b.ManagedHumioCluster != nil {
+		if b.ManagedHumioCluster.Spec.Image != "" {
+			return b.ManagedHumioCluster.Spec.Image
+		}
 		if len(b.ManagedHumioCluster.Spec.NodePools) > 0 {
 			if b.ManagedHumioCluster.Spec.NodePools[0].Image != "" {
 				return b.ManagedHumioCluster.Spec.NodePools[0].Image
@@ -69,11 +69,10 @@ func (b *HumioBootstrapTokenConfig) image() string {
 }
 
 func (b *HumioBootstrapTokenConfig) imageSource() *humiov1alpha1.HumioImageSource {
-
-	if b.ManagedHumioCluster.Spec.ImageSource != nil {
-		return b.ManagedHumioCluster.Spec.ImageSource
-	}
 	if b.ManagedHumioCluster != nil {
+		if b.ManagedHumioCluster.Spec.ImageSource != nil {
+			return b.ManagedHumioCluster.Spec.ImageSource
+		}
 		if len(b.ManagedHumioCluster.Spec.NodePools) > 0 {
 			if b.ManagedHumioCluster.Spec.NodePools[0].ImageSource != nil {
 				return b.ManagedHumioCluster.Spec.NodePools[0].ImageSource
@@ -87,10 +86,10 @@ func (b *HumioBootstrapTokenConfig) imagePullSecrets() []corev1.LocalObjectRefer
 	if len(b.BootstrapToken.Spec.ImagePullSecrets) > 0 {
 		return b.BootstrapToken.Spec.ImagePullSecrets
 	}
-	if len(b.ManagedHumioCluster.Spec.ImagePullSecrets) > 0 {
-		return b.ManagedHumioCluster.Spec.ImagePullSecrets
-	}
 	if b.ManagedHumioCluster != nil {
+		if len(b.ManagedHumioCluster.Spec.ImagePullSecrets) > 0 {
+			return b.ManagedHumioCluster.Spec.ImagePullSecrets
+		}
 		if len(b.ManagedHumioCluster.Spec.NodePools) > 0 {
 			if len(b.ManagedHumioCluster.Spec.NodePools[0].ImagePullSecrets) > 0 {
 				return b.ManagedHumioCluster.Spec.NodePools[0].ImagePullSecrets
@@ -104,12 +103,14 @@ func (b *HumioBootstrapTokenConfig) affinity() *corev1.Affinity {
 	if b.BootstrapToken.Spec.Affinity != nil {
 		return b.BootstrapToken.Spec.Affinity
 	}
-	humioNodePools := getHumioNodePoolManagers(b.ManagedHumioCluster)
-	for idx := range humioNodePools.Items {
-		if humioNodePools.Items[idx].GetNodeCount() > 0 {
-			pod, err := ConstructPod(humioNodePools.Items[idx], "", &podAttachments{})
-			if err == nil {
-				return pod.Spec.Affinity
+	if b.ManagedHumioCluster != nil {
+		humioNodePools := getHumioNodePoolManagers(b.ManagedHumioCluster)
+		for idx := range humioNodePools.Items {
+			if humioNodePools.Items[idx].GetNodeCount() > 0 {
+				pod, err := ConstructPod(humioNodePools.Items[idx], "", &podAttachments{})
+				if err == nil {
+					return pod.Spec.Affinity
+				}
 			}
 		}
 	}
@@ -120,12 +121,14 @@ func (b *HumioBootstrapTokenConfig) tolerations() []corev1.Toleration {
 	if b.BootstrapToken.Spec.Tolerations != nil {
 		return *b.BootstrapToken.Spec.Tolerations
 	}
-	humioNodePools := getHumioNodePoolManagers(b.ManagedHumioCluster)
-	for idx := range humioNodePools.Items {
-		if humioNodePools.Items[idx].GetNodeCount() > 0 {
-			pod, err := ConstructPod(humioNodePools.Items[idx], "", &podAttachments{})
-			if err == nil {
-				return pod.Spec.Tolerations
+	if b.ManagedHumioCluster != nil {
+		humioNodePools := getHumioNodePoolManagers(b.ManagedHumioCluster)
+		for idx := range humioNodePools.Items {
+			if humioNodePools.Items[idx].GetNodeCount() > 0 {
+				pod, err := ConstructPod(humioNodePools.Items[idx], "", &podAttachments{})
+				if err == nil {
+					return pod.Spec.Tolerations
+				}
 			}
 		}
 	}

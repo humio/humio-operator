@@ -47,10 +47,6 @@ spec:
       - interval: "1h"
         include:
           - "repository_usage"
-      - interval: "10m"
-        include:
-          - "user_activity"
-          - "detailed_analytics"
 ```
 
 Before applying this configuration, create the required token secret:
@@ -100,12 +96,6 @@ spec:
     - interval: "1h"
       include:
         - "repository_usage"
-
-    # High-frequency collection for detailed monitoring
-    - interval: "10m"
-      include:
-        - "user_activity"
-        - "detailed_analytics"
 ```
 
 ### 3. Create HumioTelemetryExport
@@ -179,12 +169,6 @@ spec:
     - interval: "1h"
       include:
         - "repository_usage"  # Per-repository storage and activity
-
-    # High-frequency monitoring
-    - interval: "10m"
-      include:
-        - "user_activity"     # Active users, query patterns
-        - "detailed_analytics" # Performance metrics
 
 ---
 # Telemetry Export Configuration
@@ -290,39 +274,6 @@ Each collection type gathers specific telemetry data. Here's what each collects 
 
 **Collection method:** GraphQL + LogScale search queries
 
-### `user_activity` (Recommended: 10-60 minutes)
-**What it collects:**
-- Active users (24h, 7d, 30d windows)
-- Query activity metrics (total queries, average duration)
-- Login activity and failed attempts
-- Top query types (search, dashboard, alert)
-- User engagement patterns
-
-**Why you want it:**
-- Track user adoption and engagement
-- Identify performance issues affecting users
-- Monitor security (failed login attempts)
-- Optimize dashboards and search performance
-- License planning based on active users
-
-**Collection method:** LogScale search queries on `humio` repository
-
-### `detailed_analytics` (Recommended: 10-30 minutes)
-**What it collects:**
-- Performance metrics (query execution times)
-- Usage patterns and peak hour analysis
-- System resource utilization
-- Custom analytics data
-
-**Why you want it:**
-- Deep performance monitoring and optimization
-- Identify system bottlenecks
-- Plan infrastructure scaling
-- Optimize query performance
-- Track SLA compliance
-
-**Collection method:** LogScale search queries with custom analytics
-
 ## Interval Guidelines
 
 Choose collection intervals based on your monitoring needs and data volume:
@@ -331,8 +282,6 @@ Choose collection intervals based on your monitoring needs and data volume:
 |----------|----------|------------------|---------|
 | `1d` | Business metrics | `license`, `cluster_info`, `ingestion_metrics` | Low impact, good for trends |
 | `1h` | Operational monitoring | `repository_usage` | Medium impact, good for capacity planning |
-| `15m` | Active monitoring | `user_activity`, `detailed_analytics` | Higher impact, real-time insights |
-| `10m` | High-frequency monitoring | `user_activity`, `detailed_analytics` | Highest impact, near real-time |
 
 **Note:** More frequent collection increases load on your LogScale cluster and telemetry storage. Balance monitoring needs with performance impact.
 
@@ -375,11 +324,6 @@ spec:
     - interval: "1h"
       include:
         - "repository_usage"  # May contain repository names/patterns
-
-    - interval: "15m"
-      include:
-        - "user_activity"     # User behavior patterns
-        - "detailed_analytics" # Detailed performance data
 
 ---
 # Export basic data to both local and remote systems
@@ -449,8 +393,6 @@ spec:
 | `cluster_info` | Low | ✅ Remote + Local |
 | `ingestion_metrics` | Low-Medium | ✅ Remote + Local (aggregated data only) |
 | `repository_usage` | Medium | ⚠️ Local Only (contains repository names) |
-| `user_activity` | High | ❌ Local Only (user behavior patterns) |
-| `detailed_analytics` | High | ❌ Local Only (performance details) |
 
 ### Multiple Collections → Single Exporter
 
@@ -563,10 +505,6 @@ kubectl describe humiotelemetrycollection my-cluster-telemetry
 ```yaml
 Status:
   Collection Status:
-    detailed_analytics:
-      Collection Count:       144
-      Error Count:           0
-      Last Collection Time:  2024-01-15T10:30:00Z
     ingestion_metrics:
       Collection Count:       24
       Error Count:           0
@@ -582,7 +520,6 @@ Status:
       Total Pushes:     169
   Last Collection Time:    2024-01-15T10:30:00Z
   Next Scheduled Collection:
-    detailed_analytics:  2024-01-15T10:40:00Z
     ingestion_metrics:   2024-01-15T11:00:00Z
     license:            2024-01-16T00:00:00Z
   State:                 Enabled
@@ -655,10 +592,9 @@ Status:
 
 **Solutions:**
 
-**For search-based collections (`ingestion_metrics`, `repository_usage`, `user_activity`):**
+**For search-based collections (`ingestion_metrics`, `repository_usage`):**
 1. Verify the LogScale cluster has the required system repositories:
    - `humio-usage` (for ingestion metrics)
-   - `humio` (for user activity)
 2. Check if the cluster has data in these repositories
 3. Verify cluster API connectivity from the operator
 
@@ -722,7 +658,7 @@ Status:
    collections:
      - interval: "1h"  # Instead of "10m"
        include:
-         - "detailed_analytics"
+         - "repository_usage"
    ```
 2. Stagger collection times across multiple collections
 3. Monitor LogScale cluster performance during collection
@@ -825,7 +761,6 @@ Look for log entries containing:
 **A:** It depends on your use case:
 - **Business/compliance**: Daily for license and ingestion metrics
 - **Operational monitoring**: Hourly for repository usage
-- **Performance monitoring**: 15-30 minutes for user activity and detailed analytics
 - **Development/debugging**: 5-10 minutes temporarily, then reduce
 
 ### Q: What's the impact on my LogScale cluster?
@@ -834,7 +769,6 @@ Look for log entries containing:
 - GraphQL queries (license, cluster_info) have minimal impact
 - Search queries are limited to 30 seconds execution time and 1MB result size
 - Collections are scheduled to avoid overlapping execution
-- Most intensive collections (detailed_analytics) should run less frequently
 
 ### Q: Can I collect telemetry without sending it anywhere?
 
@@ -847,8 +781,6 @@ Look for log entries containing:
 
 **A:** Some collection types require specific system repositories:
 - `ingestion_metrics`: Needs `humio-usage` repository with organizational usage data
-- `user_activity`: Needs `humio` system repository with audit logs
-- `detailed_analytics`: Needs `humio` system repository
 
 These repositories are automatically created in most LogScale installations, but may not exist in:
 - Very new clusters (< 24 hours old)
@@ -933,8 +865,6 @@ The operator will:
 
 **Advanced Collection (Local Export Only):**
 - `repository_usage`: Contains repository names/patterns
-- `user_activity`: User behavior and query patterns
-- `detailed_analytics`: Detailed performance metrics
 
 **Benefits:**
 - Meet compliance requirements for sensitive data
@@ -983,7 +913,7 @@ This pattern is especially useful for:
      name: operations-export
    spec:
      registeredCollections:
-       - name: "performance-collection"  # Only collects user_activity, detailed_analytics
+       - name: "performance-collection"  # Only collects repository_usage
    ```
 
 2. **Split collection resources** by data sensitivity and route to different exports

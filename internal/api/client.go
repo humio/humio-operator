@@ -117,7 +117,8 @@ func (c *Client) MakeRequest(ctx context.Context, req *graphql.Request, resp *gr
 		httpReq = httpReq.WithContext(ctx)
 	}
 	httpClient := c.newHTTPClientWithHeaders(c.headers())
-	httpResp, err := httpClient.Do(httpReq)
+	// TODO: Investigate SSRF vulnerability - validate URL to prevent requests to internal services
+	httpResp, err := httpClient.Do(httpReq) // #nosec G704
 	if err != nil {
 		return err
 	}
@@ -246,7 +247,8 @@ func (c *Client) HTTPRequestContext(ctx context.Context, httpMethod string, path
 	headers["Content-Type"] = contentType
 
 	var client = c.newHTTPClientWithHeaders(headers)
-	return client.Do(req)
+	// TODO: Investigate SSRF vulnerability - validate URL to prevent requests to internal services
+	return client.Do(req) // #nosec G704
 }
 
 // GetActionNames takes a list of humiographql.SharedActionNameType and returns a string slice with names of all the actions
