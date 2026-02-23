@@ -170,7 +170,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if result, err := r.ensureHumioClusterBootstrapToken(ctx, hc); result != emptyResult || err != nil {
 		if err != nil {
 			_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-				withMessage(err.Error()))
+				withMessage(err.Error()).
+				withState(humiov1alpha1.HumioClusterStateConfigError))
 		}
 		return result, err
 	}
@@ -488,6 +489,12 @@ func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Co
 		}
 		r.Log.Info("secret not populated yet, waiting on HumioBootstrapTokenReconciler")
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// Check if bootstrap token auto-creation is disabled
+	if !bootstrapTokenAutoCreateOrDefault(hc) {
+		r.Log.Info("spec.bootstrapToken.autoCreate is false but no bootstrap token found, setting ConfigError state")
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("spec.bootstrapToken.autoCreate is false but no bootstrap token found which references cluster %s", hc.Name)
 	}
 
 	hbt := kubernetes.ConstructHumioBootstrapToken(hc.GetName(), hc.GetNamespace())

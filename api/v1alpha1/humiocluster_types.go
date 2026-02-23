@@ -56,6 +56,8 @@ type HumioClusterSpec struct {
 	// If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
 	// Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.
 	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
+	// BootstrapToken controls bootstrap token creation behavior
+	BootstrapToken *HumioBootstrapTokenConfig `json:"bootstrapToken,omitempty"`
 	// OperatorFeatureFlags contains feature flags applied to the Humio operator.
 	OperatorFeatureFlags HumioOperatorFeatureFlags `json:"featureFlags,omitempty"`
 	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
@@ -110,6 +112,14 @@ type HumioClusterSpec struct {
 	// TelemetryConfig contains the configuration for telemetry collection when enabled
 	// Telemetry is enabled if this field is not nil
 	TelemetryConfig *HumioTelemetryConfig `json:"telemetryConfig,omitempty"`
+}
+
+// HumioBootstrapTokenConfig controls bootstrap token creation behavior for a HumioCluster
+type HumioBootstrapTokenConfig struct {
+	// AutoCreate controls whether the operator should automatically create HumioBootstrapToken CRs.
+	// When false, the operator expects users to create their own HumioBootstrapToken CR.
+	// When nil, defaults to true (maintains backward compatibility).
+	AutoCreate *bool `json:"autoCreate,omitempty"`
 }
 
 // HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.

@@ -7312,4 +7312,155 @@ var _ = Describe("HumioCluster Telemetry Integration", func() {
 			suite.CleanupCluster(ctx, k8sClient, cluster)
 		})
 	})
+
+	Context("Bootstrap Token Auto Creation Control", Label("envtest", "dummy", "real"), func() {
+		It("Should enter ConfigError state when autoCreate is false and no bootstrap token exists", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-bootstrap-false-no-token",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.BootstrapToken = &humiov1alpha1.HumioBootstrapTokenConfig{
+				AutoCreate: helpers.BoolPtr(false),
+			}
+
+			ctx := context.Background()
+
+			// Create the required license secret and other resources but NOT the bootstrap token
+			suite.CreateLicenseSecretIfNeeded(ctx, key, k8sClient, toCreate, true)
+
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Confirming cluster enters ConfigError state")
+			Eventually(func() string {
+				var updatedHumioCluster humiov1alpha1.HumioCluster
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return ""
+				}
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			suite.UsingClusterBy(key.Name, "Confirming error message contains expected text")
+			Eventually(func() string {
+				var updatedHumioCluster humiov1alpha1.HumioCluster
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return ""
+				}
+				return updatedHumioCluster.Status.Message
+			}, testTimeout, suite.TestInterval).Should(ContainSubstring("spec.bootstrapToken.autoCreate is false but no bootstrap token found"))
+		})
+
+		It("Should work correctly with user-provided bootstrap token when autoCreate is false", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-bootstrap-false-with-token",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.BootstrapToken = &humiov1alpha1.HumioBootstrapTokenConfig{
+				AutoCreate: helpers.BoolPtr(false),
+			}
+
+			ctx := context.Background()
+
+			// Create user-provided bootstrap token BEFORE creating cluster
+			userBootstrapToken := kubernetes.ConstructHumioBootstrapToken(key.Name, key.Namespace)
+			Expect(k8sClient.Create(ctx, userBootstrapToken)).Should(Succeed())
+
+			// Use existing helper pattern to create and bootstrap cluster
+			suite.UsingClusterBy(key.Name, "Creating cluster with user-provided bootstrap token")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Confirming user-provided bootstrap token is used by the cluster")
+			Eventually(func() error {
+				// First, wait for the user bootstrap token to be ready
+				var currentUserBootstrapToken humiov1alpha1.HumioBootstrapToken
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      userBootstrapToken.Name,
+					Namespace: userBootstrapToken.Namespace,
+				}, &currentUserBootstrapToken); err != nil {
+					return fmt.Errorf("failed to get user bootstrap token: %w", err)
+				}
+
+				if currentUserBootstrapToken.Status.State != humiov1alpha1.HumioBootstrapTokenStateReady {
+					return fmt.Errorf("user bootstrap token not ready yet, state: %s", currentUserBootstrapToken.Status.State)
+				}
+
+				// Validate the bootstrap token has the expected structure
+				if currentUserBootstrapToken.Status.HashedTokenSecretKeyRef.SecretKeyRef == nil {
+					return fmt.Errorf("userBootstrapToken.Status.HashedTokenSecretKeyRef.SecretKeyRef is nil")
+				}
+
+				// Get the current HumioCluster to check its status
+				var currentHumioCluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &currentHumioCluster); err != nil {
+					return err
+				}
+
+				// Find the node pool status for the main cluster (same name as cluster)
+				var nodePoolStatus *humiov1alpha1.HumioNodePoolStatus
+				for _, status := range currentHumioCluster.Status.NodePoolStatus {
+					if status.Name == key.Name {
+						nodePoolStatus = &status
+						break
+					}
+				}
+
+				if nodePoolStatus == nil {
+					return fmt.Errorf("node pool status not found for cluster %s", key.Name)
+				}
+
+				// Get the expected hash from the user-provided bootstrap token
+				secretKeyRef := currentUserBootstrapToken.Status.HashedTokenSecretKeyRef.SecretKeyRef
+				if secretKeyRef.Name == "" {
+					return fmt.Errorf("bootstrap token secret name is empty")
+				}
+				if secretKeyRef.Key == "" {
+					return fmt.Errorf("bootstrap token secret key is empty")
+				}
+
+				bootstrapTokenSecret := &corev1.Secret{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Namespace: currentUserBootstrapToken.Namespace,
+					Name:      secretKeyRef.Name,
+				}, bootstrapTokenSecret); err != nil {
+					return fmt.Errorf("failed to get bootstrap token secret: %w", err)
+				}
+
+				if bootstrapTokenSecret.Data == nil {
+					return fmt.Errorf("bootstrap token secret data is nil")
+				}
+
+				secretData, exists := bootstrapTokenSecret.Data[secretKeyRef.Key]
+				if !exists {
+					return fmt.Errorf("bootstrap token secret key %s not found", secretKeyRef.Key)
+				}
+				if len(secretData) == 0 {
+					return fmt.Errorf("bootstrap token secret data is empty")
+				}
+
+				expectedHash := helpers.AsSHA256(string(secretData))
+
+				// Check that the cluster's desired bootstrap token hash matches the user-provided token
+				if nodePoolStatus.DesiredBootstrapTokenHash != expectedHash {
+					return fmt.Errorf("expected bootstrap token hash %s, got %s", expectedHash, nodePoolStatus.DesiredBootstrapTokenHash)
+				}
+
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Confirming cluster enters Running state")
+			Eventually(func() string {
+				var updatedHumioCluster humiov1alpha1.HumioCluster
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return ""
+				}
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+		})
+	})
 })
