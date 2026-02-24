@@ -83,7 +83,6 @@ type HumioEventForwardingRuleSpec struct {
 	// NOTE: This is NOT the LogScale rule ID. LogScale auto-generates UUIDs for event
 	// forwarding rules, which are stored in the core.humio.com/event-forwarding-rule-id annotation.
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
@@ -91,7 +90,6 @@ type HumioEventForwardingRuleSpec struct {
 	// NOTE: Event forwarding rules can only be applied to repositories, not views.
 	// This field must reference a HumioRepository resource or an existing repository in LogScale.
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	RepositoryName string `json:"repositoryName"`
 
@@ -121,6 +119,10 @@ type HumioEventForwardingRuleSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=legacy;xdr1;xdrdetects1;filteralert;federated1
 	LanguageVersion *string `json:"languageVersion,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioEventForwardingRuleStatus defines the observed state of HumioEventForwardingRule.
@@ -133,6 +135,12 @@ type HumioEventForwardingRuleStatus struct {
 	// ResolvedEventForwarderID is the actual forwarder ID resolved from either eventForwarderID or eventForwarderRef.
 	// +optional
 	ResolvedEventForwarderID string `json:"resolvedEventForwarderID,omitempty"`
+
+	// LastSyncedName tracks the last successfully synced name in LogScale
+	// to detect rename operations. When spec.name differs from this value,
+	// the controller will delete the old event forwarding rule and create a new one.
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 
 	// Conditions represent the latest available observations of the event forwarding rule's state.
 	// +optional

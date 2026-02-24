@@ -19,6 +19,7 @@ import (
 
 // HumioSystemTokenSpec defines the desired state of HumioSystemToken
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.ipFilterName) || self.ipFilterName == oldSelf.ipFilterName",message="Value is immutable"
 type HumioSystemTokenSpec struct {
 	HumioTokenSpec `json:",inline"`
 }
@@ -32,6 +33,7 @@ type HumioSystemTokenStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humiosystemtokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the System Token"
 // +kubebuilder:printcolumn:name="HumioID",type="string",JSONPath=".status.humioId",description="Humio generated ID"
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio System Token"

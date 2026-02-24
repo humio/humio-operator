@@ -15,6 +15,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -64,13 +67,24 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	cluster, err := helpers.NewCluster(ctx, r, hg.Spec.ManagedClusterName, hg.Spec.ExternalClusterName, hg.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioGroupStateConfigError, hg)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
+		setConditionErr := r.setCondition(ctx, hg, humiov1alpha1.GroupConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.GroupReasonConfigError, "Unable to obtain humio client config")
+		if setConditionErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setConditionErr, "unable to set group condition")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hg)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle group rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
 
 	// delete
 	r.Log.Info("checking if group is marked to be deleted")
@@ -114,14 +128,14 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	defer func(ctx context.Context, hg *humiov1alpha1.HumioGroup) {
 		_, err := r.HumioClient.GetGroup(ctx, humioHttpClient, hg)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioGroupStateNotFound, hg)
+			_ = r.setCondition(ctx, hg, humiov1alpha1.GroupConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.GroupReasonNotFound, "Group not found")
 			return
 		}
 		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioGroupStateUnknown, hg)
+			_ = r.setCondition(ctx, hg, humiov1alpha1.GroupConditionTypeReady, metav1.ConditionUnknown, humiov1alpha1.GroupReasonConfigError, fmt.Sprintf("Failed to get group: %v", err))
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioGroupStateExists, hg)
+		_ = r.setCondition(ctx, hg, humiov1alpha1.GroupConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.GroupReasonReady, "Group is ready")
 	}(ctx, hg)
 
 	r.Log.Info("get current group")
@@ -161,13 +175,54 @@ func (r *HumioGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioGroupReconciler) setState(ctx context.Context, state string, hg *humiov1alpha1.HumioGroup) error {
-	if hg.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioGroup resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioGroupReconciler) setCondition(ctx context.Context,
+	hg *humiov1alpha1.HumioGroup,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioGroup{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hg), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = groupStateFromCondition(status, reason)
+
+		// Track the synced name when group is ready
+		if conditionType == humiov1alpha1.GroupConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+func groupStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioGroupStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting group state to %s", state))
-	hg.Status.State = state
-	return r.Status().Update(ctx, hg)
+	switch reason {
+	case humiov1alpha1.GroupReasonNotFound:
+		return humiov1alpha1.HumioGroupStateNotFound
+	case humiov1alpha1.GroupReasonConfigError:
+		return humiov1alpha1.HumioGroupStateConfigError
+	default:
+		return humiov1alpha1.HumioGroupStateUnknown
+	}
 }
 
 func (r *HumioGroupReconciler) logErrorAndReturn(err error, msg string) error {
@@ -186,4 +241,40 @@ func groupAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioGro
 	}
 
 	return len(keyValues) == 0, keyValues
+}
+
+// detectAndHandleRename checks if the group name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioGroupReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hg *humiov1alpha1.HumioGroup) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "group",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioGroup).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioGroup).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioGroup).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioGroup).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteGroup(ctx, apiClient, obj.(*humiov1alpha1.HumioGroup))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioGroup),
+				humiov1alpha1.GroupConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.GroupReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hg, config, r.Log)
 }

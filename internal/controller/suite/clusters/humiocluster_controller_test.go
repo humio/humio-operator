@@ -40,6 +40,7 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -384,6 +385,19 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return cluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+
+			By("Verifying Ready condition is set correctly")
+			Eventually(func() bool {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, clusterKey, &cluster); err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(cluster.Status.Conditions,
+					humiov1alpha1.ClusterConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.ClusterReasonRunning
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			By("Verifying ENABLE_SCHEDULED_REPORT and DEFAULT_PDF_RENDER_SERVICE_URL are correctly set in HumioCluster pods")
 			Eventually(func() bool {
@@ -4843,6 +4857,19 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return cluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateConfigError))
+
+			By("Verifying Ready condition reflects the error")
+			Eventually(func() bool {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(cluster.Status.Conditions,
+					humiov1alpha1.ClusterConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionFalse &&
+					readyCondition.Reason == humiov1alpha1.ClusterReasonConfigError
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 		It("Should correctly handle non-existent init service account by marking cluster as ConfigError", func() {
 			key := types.NamespacedName{

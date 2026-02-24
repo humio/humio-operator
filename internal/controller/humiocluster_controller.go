@@ -257,7 +257,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 			_, err = r.updateStatus(ctx, r.Status(), hc, statusOptions().
 				withNodePoolState(hc.Status.State, pool.GetNodePoolName(), desiredPodRevision, pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), ""))
-			return reconcile.Result{Requeue: true}, err
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -2024,7 +2027,10 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		r.Log.Info(fmt.Sprintf("updating cluster state as no difference was detected, updating from=%s to=%s", hnp.GetState(), humiov1alpha1.HumioClusterStateRunning))
 		_, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().
 			withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), ""))
-		return reconcile.Result{Requeue: true}, err
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// we expect an annotation for the bootstrap token to be present
@@ -2063,7 +2069,10 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			))
 
 			_, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().withNodePoolState(hc.Status.State, hnp.GetNodePoolName(), newRevision, desiredPodHash, desiredBootstrapTokenHash, ""))
-			return reconcile.Result{Requeue: true}, err
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 

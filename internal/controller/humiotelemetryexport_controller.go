@@ -28,6 +28,7 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -238,7 +239,45 @@ func (r *HumioTelemetryExportReconciler) updateStatusWithCollections(ctx context
 		}
 
 		// Update status fields
+		// BACKWARD COMPATIBILITY: Update State field
 		current.Status.State = state
+
+		// Update Conditions
+		var conditionStatus metav1.ConditionStatus
+		var reason string
+		var message string
+
+		switch state {
+		case humiov1alpha1.HumioTelemetryExportStateExporting:
+			conditionStatus = metav1.ConditionTrue
+			reason = humiov1alpha1.TelemetryExportReasonExporting
+			message = "Telemetry export in progress"
+		case humiov1alpha1.HumioTelemetryExportStateEnabled:
+			conditionStatus = metav1.ConditionTrue
+			reason = humiov1alpha1.TelemetryExportReasonEnabled
+			message = "Telemetry export enabled and operational"
+		case humiov1alpha1.HumioTelemetryExportStateDisabled:
+			conditionStatus = metav1.ConditionFalse
+			reason = humiov1alpha1.TelemetryExportReasonDisabled
+			message = "Telemetry export disabled"
+		case humiov1alpha1.HumioTelemetryExportStateConfigError:
+			conditionStatus = metav1.ConditionFalse
+			reason = humiov1alpha1.TelemetryExportReasonConfigError
+			message = "Configuration error"
+		default:
+			conditionStatus = metav1.ConditionUnknown
+			reason = humiov1alpha1.TelemetryExportReasonUnknown
+			message = "Unknown state"
+		}
+
+		meta.SetStatusCondition(&current.Status.Conditions, metav1.Condition{
+			Type:               humiov1alpha1.TelemetryExportConditionTypeReady,
+			Status:             conditionStatus,
+			ObservedGeneration: current.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
 
 		if collectionStatuses != nil {
 			if current.Status.RegisteredCollectionStatus == nil {

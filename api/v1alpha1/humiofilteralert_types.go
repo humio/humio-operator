@@ -31,6 +31,30 @@ const (
 	HumioFilterAlertStateConfigError = "ConfigError"
 )
 
+const (
+	// FilterAlertConditionTypeReady indicates whether the filter alert is ready
+	FilterAlertConditionTypeReady = "Ready"
+	// FilterAlertConditionTypeSynced indicates whether the filter alert is synced with LogScale
+	FilterAlertConditionTypeSynced = "Synced"
+)
+
+const (
+	// FilterAlertReasonReady indicates the filter alert is ready
+	FilterAlertReasonReady = "Ready"
+	// FilterAlertReasonCreated indicates the filter alert was created
+	FilterAlertReasonCreated = "Created"
+	// FilterAlertReasonUpdated indicates the filter alert was updated
+	FilterAlertReasonUpdated = "Updated"
+	// FilterAlertReasonNotFound indicates the filter alert was not found
+	FilterAlertReasonNotFound = "NotFound"
+	// FilterAlertReasonConfigError indicates a configuration error
+	FilterAlertReasonConfigError = "ConfigurationError"
+	// FilterAlertReasonConfigSynced indicates the configuration is synced
+	FilterAlertReasonConfigSynced = "ConfigurationSynced"
+	// FilterAlertReasonConfigDrifted indicates the configuration has drifted
+	FilterAlertReasonConfigDrifted = "ConfigurationDrifted"
+)
+
 // HumioFilterAlertSpec defines the desired state of HumioFilterAlert.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioFilterAlertSpec struct {
@@ -47,7 +71,6 @@ type HumioFilterAlertSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the filter alert inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the filter alert will be managed. This can also be a Repository
@@ -75,16 +98,31 @@ type HumioFilterAlertSpec struct {
 	// Labels are a set of labels on the filter alert
 	// +kubebuilder:validation:Optional
 	Labels []string `json:"labels,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioFilterAlertStatus defines the observed state of HumioFilterAlert.
 type HumioFilterAlertStatus struct {
-	// State reflects the current state of the HumioFilterAlert
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioFilterAlert
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // HumioFilterAlert is the Schema for the humiofilteralerts API.
 type HumioFilterAlert struct {

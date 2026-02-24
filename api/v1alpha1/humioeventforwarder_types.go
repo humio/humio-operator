@@ -69,7 +69,6 @@ type HumioEventForwarderSpec struct {
 	// Name of the event forwarder in LogScale.
 	// This is the human-readable name that will be displayed in the UI.
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
@@ -93,6 +92,10 @@ type HumioEventForwarderSpec struct {
 	// Required when forwarderType is "kafka".
 	// +kubebuilder:validation:Optional
 	KafkaConfig *KafkaEventForwarderConfig `json:"kafkaConfig,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // SecretKeyReference references a key within a Kubernetes Secret.
@@ -153,6 +156,12 @@ type HumioEventForwarderStatus struct {
 	// When false, the finalizer will not delete the forwarder from LogScale.
 	// +optional
 	ManagedByOperator *bool `json:"managedByOperator,omitempty"`
+
+	// LastSyncedName tracks the last successfully synced name in LogScale
+	// to detect rename operations. When spec.name differs from this value,
+	// the controller will delete the old event forwarder and create a new one.
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 
 	// Conditions represent the latest available observations of the forwarder's state.
 	// +optional

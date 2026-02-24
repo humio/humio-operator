@@ -50,6 +50,30 @@ const (
 	HumioPersistentVolumeReclaimTypeOnNodeDelete = "OnNodeDelete"
 )
 
+const (
+	// ClusterConditionTypeReady indicates whether the cluster is ready
+	ClusterConditionTypeReady = "Ready"
+	// ClusterConditionTypeSynced indicates whether the cluster configuration is synced
+	ClusterConditionTypeSynced = "Synced"
+)
+
+const (
+	// ClusterReasonReady indicates the cluster is running and ready
+	ClusterReasonReady = "Ready"
+	// ClusterReasonRunning indicates the cluster is running normally
+	ClusterReasonRunning = "Running"
+	// ClusterReasonRestarting indicates the cluster is restarting
+	ClusterReasonRestarting = "Restarting"
+	// ClusterReasonUpgrading indicates the cluster is being upgraded
+	ClusterReasonUpgrading = "Upgrading"
+	// ClusterReasonConfigError indicates a configuration error
+	ClusterReasonConfigError = "ConfigurationError"
+	// ClusterReasonPending indicates the cluster is pending
+	ClusterReasonPending = "Pending"
+	// ClusterReasonBootstrapping indicates the cluster is bootstrapping
+	ClusterReasonBootstrapping = "Bootstrapping"
+)
+
 // HumioClusterSpec defines the desired state of HumioCluster.
 type HumioClusterSpec struct {
 	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
@@ -495,8 +519,14 @@ type HumioNodePoolStatus struct {
 
 // HumioClusterStatus defines the observed state of HumioCluster.
 type HumioClusterStatus struct {
-	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Empty before cluster is bootstrapped, then "Running", "Upgrading", "Restarting" or "Pending"
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
 	// Message contains additional information about the state of the cluster
 	Message string `json:"message,omitempty"`
 	// Version is the version of humio running
@@ -593,6 +623,7 @@ type HumioTelemetryStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the cluster"
 // +kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.nodeCount",description="The number of nodes in the cluster"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humio"

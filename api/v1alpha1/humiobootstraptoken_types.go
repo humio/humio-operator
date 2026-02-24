@@ -30,6 +30,24 @@ const (
 	HumioBootstrapTokenStateReady = "Ready"
 )
 
+const (
+	// BootstrapTokenConditionTypeReady indicates whether the bootstrap token is ready
+	BootstrapTokenConditionTypeReady = "Ready"
+	// BootstrapTokenConditionTypeSynced indicates whether the bootstrap token is synced with LogScale
+	BootstrapTokenConditionTypeSynced = "Synced"
+)
+
+const (
+	// BootstrapTokenReasonReady indicates the token is ready
+	BootstrapTokenReasonReady = "Ready"
+	// BootstrapTokenReasonCreated indicates the token was created
+	BootstrapTokenReasonCreated = "Created"
+	// BootstrapTokenReasonNotReady indicates the token is not ready
+	BootstrapTokenReasonNotReady = "NotReady"
+	// BootstrapTokenReasonConfigError indicates a configuration error
+	BootstrapTokenReasonConfigError = "ConfigurationError"
+)
+
 // HumioBootstrapTokenSpec defines the desired state of HumioBootstrapToken.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioBootstrapTokenSpec struct {
@@ -79,7 +97,8 @@ type HumioHashedTokenSecretSpec struct {
 
 // HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
 type HumioBootstrapTokenStatus struct {
-	// State can be "NotReady" or "Ready"
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioBootstrapToken
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
 	// TokenSecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
 	// in the spec or automatically created
@@ -89,6 +108,10 @@ type HumioBootstrapTokenStatus struct {
 	HashedTokenSecretKeyRef HumioHashedTokenSecretStatus `json:"hashedTokenSecretStatus,omitempty"`
 	// BootstrapImage is the image that was used to issue the token
 	BootstrapImage string `json:"bootstrapImage,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // HumioTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
@@ -110,7 +133,9 @@ type HumioHashedTokenSecretStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humiobootstraptokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the bootstrap token"
+// +kubebuilder:printcolumn:name="HumioID",type="string",JSONPath=".status.humioId",description="Humio generated ID"
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Bootstrap Token"
 
 // HumioBootstrapToken is the Schema for the humiobootstraptokens API.

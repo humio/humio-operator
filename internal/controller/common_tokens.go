@@ -11,6 +11,8 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,26 +116,67 @@ func ensureTokenSecretExists(ctx context.Context, controller TokenController, to
 	return nil
 }
 
-// setState updates CR Status fields
-func setState(ctx context.Context, controller TokenController, tokenResource TokenResource, state string, id string) error {
-	controller.Logger().Info(fmt.Sprintf("updating %s Status: state=%s, id=%s", tokenResource.GetSpec().Name, state, id))
-	if tokenResource.GetStatus().State == state && tokenResource.GetStatus().HumioID == id {
-		controller.Logger().Info("no changes for Status, skipping")
+// setCondition sets a condition on the token resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func setCondition(ctx context.Context, controller TokenController, tokenResource TokenResource, conditionType string, status metav1.ConditionStatus, reason, message string, id string) error {
+	// Short-circuit: Check if status already matches (like original setState)
+	desiredState := tokenStateFromCondition(status, reason)
+	existingCondition := meta.FindStatusCondition(tokenResource.GetStatus().Conditions, conditionType)
+
+	if existingCondition != nil &&
+		existingCondition.Status == status &&
+		existingCondition.Reason == reason &&
+		tokenResource.GetStatus().State == desiredState &&
+		tokenResource.GetStatus().HumioID == id {
+		controller.Logger().Info("status already matches desired state, skipping update",
+			"name", tokenResource.GetSpec().Name,
+			"state", desiredState,
+			"id", id)
 		return nil
 	}
-	tokenResource.GetStatus().State = state
+
+	// Update status on the passed-in object (like original setState)
+	// No Get(), no retry - just trust the object from reconcile loop
+	meta.SetStatusCondition(&tokenResource.GetStatus().Conditions, metav1.Condition{
+		Type:               conditionType,
+		Status:             status,
+		ObservedGeneration: tokenResource.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+		Reason:             reason,
+		Message:            message,
+	})
+
+	// BACKWARD COMPATIBILITY: Update State field based on condition
+	tokenResource.GetStatus().State = desiredState
 	tokenResource.GetStatus().HumioID = id
-	err := controller.Status().Update(ctx, tokenResource)
-	if err == nil {
-		controller.Logger().Info(fmt.Sprintf("successfully updated state for Humio Token %s", tokenResource.GetSpec().Name))
+
+	controller.Logger().Info(fmt.Sprintf("updating %s Status: state=%s, id=%s, condition=%s/%s/%s",
+		tokenResource.GetSpec().Name, desiredState, id, conditionType, status, reason))
+
+	return controller.Status().Update(ctx, tokenResource)
+}
+
+func tokenStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return v1alpha1.HumioTokenExists
 	}
-	return err
+	switch reason {
+	case v1alpha1.TokenReasonNotFound:
+		return v1alpha1.HumioTokenNotFound
+	case v1alpha1.TokenReasonConfigError:
+		return v1alpha1.HumioTokenConfigError
+	default:
+		return v1alpha1.HumioTokenUnknown
+	}
 }
 
 // update state, log error and record k8s event
+//
+//nolint:unparam // error always nil but kept for consistent error handling pattern
 func handleCriticalError(ctx context.Context, controller TokenController, tokenResource TokenResource, err error) (reconcile.Result, error) {
 	_ = logErrorAndReturn(controller.Logger(), err, "unrecoverable error encountered")
-	_ = setState(ctx, controller, tokenResource, v1alpha1.HumioTokenConfigError, tokenResource.GetStatus().HumioID)
+	_ = setCondition(ctx, controller, tokenResource, v1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, v1alpha1.TokenReasonConfigError, fmt.Sprintf("Unrecoverable error: %v", err), tokenResource.GetStatus().HumioID)
 	controller.GetRecorder().Event(tokenResource, corev1.EventTypeWarning, "unrecoverable error", err.Error())
 
 	// Use configurable requeue time, fallback to default if not set

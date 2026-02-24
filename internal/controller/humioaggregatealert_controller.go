@@ -32,6 +32,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -80,25 +83,36 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	cluster, err := helpers.NewCluster(ctx, r, haa.Spec.ManagedClusterName, haa.Spec.ExternalClusterName, haa.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateConfigError, haa)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set scheduled search state")
+		setConditionErr := r.setCondition(ctx, haa, humiov1alpha1.AggregateAlertConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.AggregateAlertReasonConfigError, fmt.Sprintf("unable to obtain humio client config: %s", err))
+		if setConditionErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setConditionErr, "unable to set aggregate alert condition")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, haa)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle aggregate alert rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
+
 	defer func(ctx context.Context, haa *humiov1alpha1.HumioAggregateAlert) {
 		curAggregateAlert, err := r.HumioClient.GetAggregateAlert(ctx, humioHttpClient, haa)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateNotFound, haa)
+			_ = r.setCondition(ctx, haa, humiov1alpha1.AggregateAlertConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.AggregateAlertReasonNotFound, "Aggregate alert not found")
 			return
 		}
 		if err != nil || curAggregateAlert == nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateConfigError, haa)
+			_ = r.setCondition(ctx, haa, humiov1alpha1.AggregateAlertConditionTypeReady, metav1.ConditionUnknown, humiov1alpha1.AggregateAlertReasonConfigError, fmt.Sprintf("unable to get aggregate alert: %s", err))
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateExists, haa)
+		_ = r.setCondition(ctx, haa, humiov1alpha1.AggregateAlertConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.AggregateAlertReasonReady, "Aggregate alert is ready")
 	}(ctx, haa)
 
 	return r.reconcileHumioAggregateAlert(ctx, humioHttpClient, haa)
@@ -126,9 +140,27 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting aggregate alert")
+
+			// Check if data deletion is allowed
+			if !haa.Spec.AllowDataDeletion {
+				err := fmt.Errorf("aggregate alert may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete aggregate alert blocked")
+			}
+
+			// Audit log before deletion
+			r.Log.Info("Proceeding with aggregate alert deletion",
+				"allowDataDeletion", haa.Spec.AllowDataDeletion,
+				"alertName", haa.Spec.Name,
+				"viewName", haa.Spec.ViewName,
+				"namespace", haa.Namespace,
+				"deletionTimestamp", haa.GetDeletionTimestamp(),
+			)
+
 			if err := r.HumioClient.DeleteAggregateAlert(ctx, client, haa); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete aggregate alert returned error")
 			}
+
+			r.Log.Info("Successfully deleted aggregate alert", "alertName", haa.Spec.Name)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -150,9 +182,9 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 
 	if haa.Spec.ThrottleTimeSeconds > 0 && haa.Spec.ThrottleTimeSeconds < 60 {
 		r.Log.Error(fmt.Errorf("ThrottleTimeSeconds must be greater than or equal to 60"), "ThrottleTimeSeconds must be greater than or equal to 60")
-		err := r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateConfigError, haa)
+		err := r.setCondition(ctx, haa, humiov1alpha1.AggregateAlertConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.AggregateAlertReasonConfigError, "ThrottleTimeSeconds must be greater than or equal to 60")
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set alert state")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set aggregate alert condition")
 		}
 		return reconcile.Result{}, err
 	}
@@ -206,13 +238,55 @@ func (r *HumioAggregateAlertReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Complete(r)
 }
 
-func (r *HumioAggregateAlertReconciler) setState(ctx context.Context, state string, haa *humiov1alpha1.HumioAggregateAlert) error {
-	if haa.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioAggregateAlert resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioAggregateAlertReconciler) setCondition(ctx context.Context,
+	haa *humiov1alpha1.HumioAggregateAlert,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioAggregateAlert{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(haa), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = aggregateAlertStateFromCondition(status, reason)
+
+		// Track the synced name when aggregate alert is ready
+		if conditionType == humiov1alpha1.AggregateAlertConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+// aggregateAlertStateFromCondition converts a condition status and reason to a legacy state string for backward compatibility
+func aggregateAlertStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioAggregateAlertStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting alert state to %s", state))
-	haa.Status.State = state
-	return r.Status().Update(ctx, haa)
+	switch reason {
+	case humiov1alpha1.AggregateAlertReasonNotFound:
+		return humiov1alpha1.HumioAggregateAlertStateNotFound
+	case humiov1alpha1.AggregateAlertReasonConfigError:
+		return humiov1alpha1.HumioAggregateAlertStateConfigError
+	default:
+		return humiov1alpha1.HumioAggregateAlertStateUnknown
+	}
 }
 
 func (r *HumioAggregateAlertReconciler) logErrorAndReturn(err error, msg string) error {
@@ -267,4 +341,40 @@ func aggregateAlertAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1
 	}
 
 	return len(keyValues) == 0, keyValues
+}
+
+// detectAndHandleRename checks if the aggregate alert name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioAggregateAlertReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "aggregate alert",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioAggregateAlert).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioAggregateAlert).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioAggregateAlert).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioAggregateAlert).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteAggregateAlert(ctx, apiClient, obj.(*humiov1alpha1.HumioAggregateAlert))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioAggregateAlert),
+				humiov1alpha1.AggregateAlertConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.AggregateAlertReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, haa, config, r.Log)
 }

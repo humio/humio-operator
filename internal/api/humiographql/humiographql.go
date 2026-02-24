@@ -18291,6 +18291,194 @@ func (v *RemoveUserResponse) GetRemoveUser() RemoveUserRemoveUserRemoveUserMutat
 	return v.RemoveUser
 }
 
+// RenameSearchDomainRenameSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// RenameSearchDomainRenameSearchDomain is implemented by the following types:
+// RenameSearchDomainRenameSearchDomainRepository
+// RenameSearchDomainRenameSearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type RenameSearchDomainRenameSearchDomain interface {
+	implementsGraphQLInterfaceRenameSearchDomainRenameSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetName returns the interface-field "name" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetName() string
+}
+
+func (v *RenameSearchDomainRenameSearchDomainRepository) implementsGraphQLInterfaceRenameSearchDomainRenameSearchDomain() {
+}
+func (v *RenameSearchDomainRenameSearchDomainView) implementsGraphQLInterfaceRenameSearchDomainRenameSearchDomain() {
+}
+
+func __unmarshalRenameSearchDomainRenameSearchDomain(b []byte, v *RenameSearchDomainRenameSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(RenameSearchDomainRenameSearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(RenameSearchDomainRenameSearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for RenameSearchDomainRenameSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalRenameSearchDomainRenameSearchDomain(v *RenameSearchDomainRenameSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *RenameSearchDomainRenameSearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RenameSearchDomainRenameSearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *RenameSearchDomainRenameSearchDomainView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RenameSearchDomainRenameSearchDomainView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for RenameSearchDomainRenameSearchDomain: "%T"`, v)
+	}
+}
+
+// RenameSearchDomainRenameSearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type RenameSearchDomainRenameSearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+}
+
+// GetTypename returns RenameSearchDomainRenameSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *RenameSearchDomainRenameSearchDomainRepository) GetTypename() *string { return v.Typename }
+
+// GetName returns RenameSearchDomainRenameSearchDomainRepository.Name, and is useful for accessing the field via an interface.
+func (v *RenameSearchDomainRenameSearchDomainRepository) GetName() string { return v.Name }
+
+// RenameSearchDomainRenameSearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type RenameSearchDomainRenameSearchDomainView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+}
+
+// GetTypename returns RenameSearchDomainRenameSearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *RenameSearchDomainRenameSearchDomainView) GetTypename() *string { return v.Typename }
+
+// GetName returns RenameSearchDomainRenameSearchDomainView.Name, and is useful for accessing the field via an interface.
+func (v *RenameSearchDomainRenameSearchDomainView) GetName() string { return v.Name }
+
+// RenameSearchDomainResponse is returned by RenameSearchDomain on success.
+type RenameSearchDomainResponse struct {
+	// Rename a Repository or View.
+	// Stability: Long-term
+	RenameSearchDomain RenameSearchDomainRenameSearchDomain `json:"-"`
+}
+
+// GetRenameSearchDomain returns RenameSearchDomainResponse.RenameSearchDomain, and is useful for accessing the field via an interface.
+func (v *RenameSearchDomainResponse) GetRenameSearchDomain() RenameSearchDomainRenameSearchDomain {
+	return v.RenameSearchDomain
+}
+
+func (v *RenameSearchDomainResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RenameSearchDomainResponse
+		RenameSearchDomain json.RawMessage `json:"renameSearchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RenameSearchDomainResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.RenameSearchDomain
+		src := firstPass.RenameSearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalRenameSearchDomainRenameSearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal RenameSearchDomainResponse.RenameSearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalRenameSearchDomainResponse struct {
+	RenameSearchDomain json.RawMessage `json:"renameSearchDomain"`
+}
+
+func (v *RenameSearchDomainResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RenameSearchDomainResponse) __premarshalJSON() (*__premarshalRenameSearchDomainResponse, error) {
+	var retval __premarshalRenameSearchDomainResponse
+
+	{
+
+		dst := &retval.RenameSearchDomain
+		src := v.RenameSearchDomain
+		var err error
+		*dst, err = __marshalRenameSearchDomainRenameSearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal RenameSearchDomainResponse.RenameSearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
 // RepositoryDetails includes the GraphQL fields of Repository requested by the fragment RepositoryDetails.
 // The GraphQL type's documentation follows.
 //
@@ -25617,6 +25805,18 @@ type __RemoveUserInput struct {
 // GetUsername returns __RemoveUserInput.Username, and is useful for accessing the field via an interface.
 func (v *__RemoveUserInput) GetUsername() string { return v.Username }
 
+// __RenameSearchDomainInput is used internally by genqlient
+type __RenameSearchDomainInput struct {
+	Name    string `json:"name"`
+	NewName string `json:"newName"`
+}
+
+// GetName returns __RenameSearchDomainInput.Name, and is useful for accessing the field via an interface.
+func (v *__RenameSearchDomainInput) GetName() string { return v.Name }
+
+// GetNewName returns __RenameSearchDomainInput.NewName, and is useful for accessing the field via an interface.
+func (v *__RenameSearchDomainInput) GetNewName() string { return v.NewName }
+
 // __RotateTokenByIDInput is used internally by genqlient
 type __RotateTokenByIDInput struct {
 	TokenID string `json:"TokenID"`
@@ -31343,6 +31543,43 @@ func RemoveUser(
 	}
 
 	data_ = &RemoveUserResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RenameSearchDomain.
+const RenameSearchDomain_Operation = `
+mutation RenameSearchDomain ($name: String!, $newName: String!) {
+	renameSearchDomain(name: $name, renameTo: $newName) {
+		__typename
+		name
+	}
+}
+`
+
+func RenameSearchDomain(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	newName string,
+) (data_ *RenameSearchDomainResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RenameSearchDomain",
+		Query:  RenameSearchDomain_Operation,
+		Variables: &__RenameSearchDomainInput{
+			Name:    name,
+			NewName: newName,
+		},
+	}
+
+	data_ = &RenameSearchDomainResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

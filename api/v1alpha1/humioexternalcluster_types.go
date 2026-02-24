@@ -27,6 +27,24 @@ const (
 	HumioExternalClusterStateReady = "Ready"
 )
 
+const (
+	// ExternalClusterConditionTypeReady indicates whether the ExternalCluster is ready
+	ExternalClusterConditionTypeReady = "Ready"
+	// ExternalClusterConditionTypeSynced indicates whether the ExternalCluster is synchronized with Humio
+	ExternalClusterConditionTypeSynced = "Synced"
+)
+
+const (
+	// ExternalClusterReasonReady indicates the ExternalCluster is ready
+	ExternalClusterReasonReady = "Ready"
+	// ExternalClusterReasonCreated indicates the ExternalCluster was created
+	ExternalClusterReasonCreated = "Created"
+	// ExternalClusterReasonUnknown indicates the ExternalCluster state is unknown
+	ExternalClusterReasonUnknown = "Unknown"
+	// ExternalClusterReasonConfigError indicates a configuration error
+	ExternalClusterReasonConfigError = "ConfigurationError"
+)
+
 // HumioExternalClusterSpec defines the desired state of HumioExternalCluster.
 type HumioExternalClusterSpec struct {
 	// Url is used to connect to the Humio cluster we want to use.
@@ -51,15 +69,20 @@ type HumioExternalClusterSpec struct {
 
 // HumioExternalClusterStatus defines the observed state of HumioExternalCluster.
 type HumioExternalClusterStatus struct {
-	// State reflects the current state of the HumioExternalCluster
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioExternalCluster
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
 	// Version shows the Humio cluster version of the HumioExternalCluster
 	Version string `json:"version,omitempty"`
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioexternalclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the external Humio cluster"
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio External Cluster"
 

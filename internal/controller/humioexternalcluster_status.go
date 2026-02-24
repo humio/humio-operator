@@ -18,16 +18,52 @@ package controller
 
 import (
 	"context"
-	"fmt"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
-func (r *HumioExternalClusterReconciler) setState(ctx context.Context, state string, hec *humiov1alpha1.HumioExternalCluster) error {
-	if hec.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioExternalCluster resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioExternalClusterReconciler) setCondition(ctx context.Context,
+	hec *humiov1alpha1.HumioExternalCluster,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioExternalCluster{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hec), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = r.stateFromCondition(status, reason)
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+// stateFromCondition converts condition status and reason to legacy State field value
+//
+//nolint:unparam // reason parameter kept for consistency with other controllers
+func (r *HumioExternalClusterReconciler) stateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioExternalClusterStateReady
 	}
-	r.Log.Info(fmt.Sprintf("setting external cluster state to %s", state))
-	hec.Status.State = state
-	return r.Status().Update(ctx, hec)
+	return humiov1alpha1.HumioExternalClusterStateUnknown
 }

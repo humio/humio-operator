@@ -72,6 +72,11 @@ spec:
           spec:
             description: HumioEventForwarderSpec defines the desired state of HumioEventForwarder.
             properties:
+              allowDataDeletion:
+                description: |-
+                  AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+                  If false or unset, the operator will not delete the LogScale resource on CR deletion.
+                type: boolean
               description:
                 description: Description of the event forwarder.
                 type: string
@@ -159,9 +164,6 @@ spec:
                   This is the human-readable name that will be displayed in the UI.
                 minLength: 1
                 type: string
-                x-kubernetes-validations:
-                - message: Value is immutable
-                  rule: self == oldSelf
             required:
             - description
             - enabled
@@ -242,6 +244,12 @@ spec:
                 description: |-
                   EventForwarderID is the LogScale-generated ID for this forwarder.
                   This ID is used internally by LogScale to reference the forwarder.
+                type: string
+              lastSyncedName:
+                description: |-
+                  LastSyncedName tracks the last successfully synced name in LogScale
+                  to detect rename operations. When spec.name differs from this value,
+                  the controller will delete the old event forwarder and create a new one.
                 type: string
               managedByOperator:
                 description: |-

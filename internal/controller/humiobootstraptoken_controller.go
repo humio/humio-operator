@@ -25,7 +25,9 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/go-logr/logr"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -124,32 +126,18 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	if err := r.ensureBootstrapTokenSecret(ctx, hbt, hc); err != nil {
-		// Check if it's a configuration error (user's responsibility to fix)
-		if _, isConfigError := err.(HumioBootstrapTokenConfigurationError); isConfigError {
-			// Don't override the ConfigError status and don't retry immediately
-			r.Log.Error(err, "Configuration error detected, user intervention required")
-			return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
-		}
-		// For other errors, set to NotReady and retry
-		_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateNotReady)
+		_ = r.setCondition(ctx, hbt, humiov1alpha1.BootstrapTokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.BootstrapTokenReasonNotReady, fmt.Sprintf("Failed to ensure bootstrap token secret: %v", err))
 		return reconcile.Result{}, err
 	}
 
 	// Generate hashed token regardless of cluster existence
 	// The hashed token generation is self-contained and doesn't require the cluster to exist
 	if err := r.ensureBootstrapTokenHashedToken(ctx, hbt, hc); err != nil {
-		// Check if it's a configuration error (user's responsibility to fix)
-		if _, isConfigError := err.(HumioBootstrapTokenConfigurationError); isConfigError {
-			// Don't override the ConfigError status and don't retry immediately
-			r.Log.Error(err, "Configuration error detected, user intervention required")
-			return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
-		}
-		// For other errors, set to NotReady and retry
-		_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateNotReady)
+		_ = r.setCondition(ctx, hbt, humiov1alpha1.BootstrapTokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.BootstrapTokenReasonNotReady, fmt.Sprintf("Failed to ensure bootstrap token: %v", err))
 		return reconcile.Result{}, err
 	}
 
-	if err := r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateReady); err != nil {
+	if err := r.setCondition(ctx, hbt, humiov1alpha1.BootstrapTokenConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.BootstrapTokenReasonReady, "Bootstrap token is ready"); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -157,30 +145,62 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
-func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, state string) error {
-	hbt.Status.State = state
-	if state == humiov1alpha1.HumioBootstrapTokenStateReady {
-		humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, nil)
-		secretName := humioBootstrapTokenConfig.bootstrapTokenSecretName()
+// setCondition sets a condition on the HumioBootstrapToken resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioBootstrapTokenReconciler) setCondition(ctx context.Context,
+	hbt *humiov1alpha1.HumioBootstrapToken,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
 
-		hbt.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key: BootstrapTokenSecretSecretName,
-			},
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioBootstrapToken{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hbt), latest); err != nil {
+			return err
 		}
-		hbt.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = bootstrapTokenStateFromCondition(status)
+
+		// Preserve other status fields
+		if status == metav1.ConditionTrue && latest.Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
+			latest.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: fmt.Sprintf("%s-%s", latest.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+					},
+					Key: BootstrapTokenSecretSecretName,
 				},
-				Key: BootstrapTokenSecretHashedTokenName,
-			},
+			}
+			latest.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: fmt.Sprintf("%s-%s", latest.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+					},
+					Key: BootstrapTokenSecretHashedTokenName,
+				},
+			}
 		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+func bootstrapTokenStateFromCondition(status metav1.ConditionStatus) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioBootstrapTokenStateReady
 	}
-	return r.Status().Update(ctx, hbt)
+	return humiov1alpha1.HumioBootstrapTokenStateNotReady
 }
 
 func (r *HumioBootstrapTokenReconciler) updateStatusImage(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, image string) error {
@@ -312,7 +332,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					// User-provided secret is missing - this is a configuration error
-					_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateConfigError)
+					_ = r.setCondition(ctx, hbt, humiov1alpha1.BootstrapTokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.BootstrapTokenReasonNotReady, fmt.Sprintf("user-provided TokenSecret %s not found", hbt.Spec.TokenSecret.SecretKeyRef.Name))
 					return NewHumioBootstrapTokenConfigurationError(fmt.Sprintf("user-provided TokenSecret %s not found. Please create the secret or remove the tokenSecret.secretKeyRef from the HumioBootstrapToken spec", hbt.Spec.TokenSecret.SecretKeyRef.Name))
 				}
 				return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
@@ -321,7 +341,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 				secretData[BootstrapTokenSecretSecretName] = secretValue
 			} else {
 				// User-provided secret is missing the expected key - this is a configuration error
-				_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateConfigError)
+				_ = r.setCondition(ctx, hbt, humiov1alpha1.BootstrapTokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.BootstrapTokenReasonNotReady, fmt.Sprintf("user-provided TokenSecret %s does not contain key \"%s\"", hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Spec.TokenSecret.SecretKeyRef.Key))
 				return NewHumioBootstrapTokenConfigurationError(fmt.Sprintf("user-provided TokenSecret %s does not contain key \"%s\". Please add the key or update the tokenSecret.secretKeyRef.key in the HumioBootstrapToken spec", hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Spec.TokenSecret.SecretKeyRef.Key))
 			}
 		}
@@ -330,7 +350,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					// User-provided secret is missing - this is a configuration error
-					_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateConfigError)
+					_ = r.setCondition(ctx, hbt, humiov1alpha1.BootstrapTokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.BootstrapTokenReasonNotReady, fmt.Sprintf("user-provided HashedTokenSecret %s not found", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name))
 					return NewHumioBootstrapTokenConfigurationError(fmt.Sprintf("user-provided HashedTokenSecret %s not found. Please create the secret or remove the hashedTokenSecret.secretKeyRef from the HumioBootstrapToken spec", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name))
 				}
 				return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name))
@@ -339,7 +359,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 				secretData[BootstrapTokenSecretHashedTokenName] = hashedTokenValue
 			} else {
 				// User-provided secret is missing the expected key - this is a configuration error
-				_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateConfigError)
+				_ = r.setCondition(ctx, hbt, humiov1alpha1.BootstrapTokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.BootstrapTokenReasonNotReady, fmt.Sprintf("user-provided HashedTokenSecret %s does not contain key \"%s\"", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
 				return NewHumioBootstrapTokenConfigurationError(fmt.Sprintf("user-provided HashedTokenSecret %s does not contain key \"%s\". Please add the key or update the hashedTokenSecret.secretKeyRef.key in the HumioBootstrapToken spec", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
 			}
 		}

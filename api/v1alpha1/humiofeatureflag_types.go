@@ -29,6 +29,26 @@ const (
 	HumioFeatureFlagStateConfigError = "ConfigError"
 )
 
+const (
+	// FeatureFlagConditionTypeReady indicates whether the FeatureFlag is ready
+	FeatureFlagConditionTypeReady = "Ready"
+	// FeatureFlagConditionTypeSynced indicates whether the FeatureFlag is synchronized with Humio
+	FeatureFlagConditionTypeSynced = "Synced"
+)
+
+const (
+	// FeatureFlagReasonReady indicates the FeatureFlag is ready
+	FeatureFlagReasonReady = "Ready"
+	// FeatureFlagReasonCreated indicates the FeatureFlag was created
+	FeatureFlagReasonCreated = "Created"
+	// FeatureFlagReasonNotFound indicates the FeatureFlag was not found
+	FeatureFlagReasonNotFound = "NotFound"
+	// FeatureFlagReasonConfigError indicates a configuration error
+	FeatureFlagReasonConfigError = "ConfigurationError"
+	// FeatureFlagReasonUnknown indicates the FeatureFlag state is unknown
+	FeatureFlagReasonUnknown = "Unknown"
+)
+
 // HumioFeatureFlagSpec defines the desired state of HumioFeatureFlag.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioFeatureFlagSpec struct {
@@ -44,20 +64,27 @@ type HumioFeatureFlagSpec struct {
 	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the feature flag inside Humio
+	// This field is immutable after creation because feature flags reference predefined LogScale features.
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Name is immutable"
 	Name string `json:"name"`
 }
 
 // HumioFeatureFlagStatus defines the observed state of HumioFeatureFlag.
 type HumioFeatureFlagStatus struct {
-	// State reflects the current state of the HumioFeatureFlag
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioFeatureFlag
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // HumioFeatureFlag is the Schema for the humioFeatureFlags API.
 type HumioFeatureFlag struct {

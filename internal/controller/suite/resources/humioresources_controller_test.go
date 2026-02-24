@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/suite"
 )
 
@@ -85,6 +87,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ParserName:         &initialParserName,
 					RepositoryName:     testRepo.Spec.Name,
 					TokenSecretName:    "target-secret-1",
+					AllowDataDeletion:  true,
 				},
 			}
 
@@ -92,10 +95,25 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
 
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedIngestToken)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedIngestToken.Status.Conditions,
+					humiov1alpha1.IngestTokenConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.IngestTokenReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, key, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+			Expect(fetchedIngestToken.Status.State).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
 
 			ingestTokenSecret := &corev1.Secret{}
 			Eventually(func() error {
@@ -190,6 +208,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Name:               key.Name,
 					ParserName:         helpers.StringPtr("accesslog"),
 					RepositoryName:     testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 				},
 			}
 
@@ -264,6 +283,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					RepositoryName:     testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 				},
 			}
 
@@ -380,6 +400,289 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
+
+		Context("Rename Tests", func() {
+			It("should block ingest token rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "ingesttoken-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioIngestToken{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioIngestTokenSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-ingesttoken",
+						RepositoryName:     testRepo.Spec.Name,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating ingest token")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioIngestToken{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-ingesttoken"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate ingest token with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "ingesttoken-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioIngestToken{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioIngestTokenSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-ingesttoken-allowed",
+						RepositoryName:     testRepo.Spec.Name,
+						AllowDataDeletion:  true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating ingest token")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioIngestToken{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-ingesttoken-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Verifying ingest token was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("HumioIngestToken - AllowDataDeletion", Label("envtest", "dummy", "real"), func() {
+		It("should block deletion when allowDataDeletion is false", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioingesttoken-no-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateIngestToken := &humiov1alpha1.HumioIngestToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioIngestTokenSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "token-no-deletion",
+					RepositoryName:     testRepo.Spec.Name,
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Creating token with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+
+			fetchedToken := &humiov1alpha1.HumioIngestToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedToken)
+				return fetchedToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+
+			// Verify finalizer present
+			Expect(fetchedToken.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Attempting deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedToken)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedToken)
+				return err == nil && fetchedToken.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedToken)
+				return err == nil && fetchedToken.GetDeletionTimestamp() != nil
+			}, "10s", suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetchedToken.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Cleanup: Remove the stuck resource by removing its finalizer
+			// Note: In production, users would need to manually remove the finalizer or set allowDataDeletion=true before deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Cleaning up stuck resource")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetchedToken)
+				fetchedToken.SetFinalizers([]string{})
+				return k8sClient.Update(ctx, fetchedToken)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedToken)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should allow deletion when allowDataDeletion is true", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioingesttoken-with-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateIngestToken := &humiov1alpha1.HumioIngestToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioIngestTokenSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "token-with-deletion",
+					RepositoryName:     testRepo.Spec.Name,
+					AllowDataDeletion:  true, // Allow deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Creating token with allowDataDeletion=true")
+			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+
+			fetchedToken := &humiov1alpha1.HumioIngestToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedToken)
+				return fetchedToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+
+			// Delete and verify success
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Deleting token (should succeed)")
+			Expect(k8sClient.Delete(ctx, fetchedToken)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Verifying token is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedToken)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
+	Context("HumioIngestToken - Force Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioingesttoken-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateIngestToken := &humiov1alpha1.HumioIngestToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioIngestTokenSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "token-force-finalize",
+					RepositoryName:     testRepo.Spec.Name,
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken Force-Finalize: Creating token with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+
+			fetchedToken := &humiov1alpha1.HumioIngestToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedToken)
+				return fetchedToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+
+			// Verify finalizer present
+			Expect(fetchedToken.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedToken)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedToken)
+				return err == nil && fetchedToken.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetchedToken.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetchedToken)
+				if fetchedToken.Annotations == nil {
+					fetchedToken.Annotations = make(map[string]string)
+				}
+				fetchedToken.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fetchedToken)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedToken)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+		})
 	})
 
 	Context("Humio Repository and View", Label("envtest", "dummy", "real"), func() {
@@ -399,7 +702,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioRepositorySpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-repository",
-					Description:        "important description",
+					Description:        helpers.StringPtr("important description"),
 					Retention: humiov1alpha1.HumioRetention{
 						TimeInDays:      helpers.Int32Ptr(30),
 						IngestSizeInGB:  helpers.Int32Ptr(5),
@@ -417,6 +720,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 				_ = k8sClient.Get(ctx, key, fetchedRepository)
 				return fetchedRepository.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedRepository)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedRepository.Status.Conditions,
+					humiov1alpha1.RepositoryConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.RepositoryReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Verifying backward compatible State field is maintained")
+			Expect(fetchedRepository.Status.State).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
 			var initialRepository *humiographql.RepositoryDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -438,7 +757,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			expectedInitialRepository := repositoryExpectation{
 				Name:                   toCreateRepository.Spec.Name,
-				Description:            &toCreateRepository.Spec.Description,
+				Description:            toCreateRepository.Spec.Description,
 				RetentionDays:          &retentionInDays,
 				IngestRetentionSizeGB:  &ingestRetentionSizeGB,
 				StorageRetentionSizeGB: &storageRetentionSizeGB,
@@ -467,7 +786,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				if err := k8sClient.Get(ctx, key, fetchedRepository); err != nil {
 					return err
 				}
-				fetchedRepository.Spec.Description = updatedDescription
+				fetchedRepository.Spec.Description = helpers.StringPtr(updatedDescription)
 				fetchedRepository.Spec.AutomaticSearch = updatedAutomaticSearch
 				return k8sClient.Update(ctx, fetchedRepository)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -535,7 +854,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioRepositorySpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-repository-view",
-					Description:        "important description",
+					Description:        helpers.StringPtr("important description"),
 					Retention: humiov1alpha1.HumioRetention{
 						TimeInDays:      helpers.Int32Ptr(30),
 						IngestSizeInGB:  helpers.Int32Ptr(5),
@@ -560,6 +879,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Name:               "example-view",
 					Description:        "important description",
 					Connections:        connections,
+					AllowDataDeletion:  true,
 				},
 			}
 
@@ -576,10 +896,25 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, viewToCreate)).Should(Succeed())
 
 			fetchedView := &humiov1alpha1.HumioView{}
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, viewKey, fetchedView)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedView.Status.Conditions,
+					humiov1alpha1.ViewConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.ViewReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, viewKey, fetchedView)
 				return fetchedView.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
+			Expect(fetchedView.Status.State).Should(Equal(humiov1alpha1.HumioViewStateExists))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in Humio")
 			var initialView *humiographql.GetSearchDomainSearchDomainView
@@ -674,6 +1009,192 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
+	Context("HumioView - AllowDataDeletion", Label("envtest", "dummy", "real"), func() {
+		It("should block deletion when allowDataDeletion is false", func() {
+			ctx := context.Background()
+			viewKey := types.NamespacedName{
+				Name:      "test-view-no-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			// Create repository for the view to connect to
+			repoKey := types.NamespacedName{
+				Name:      "test-view-repo-no-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+			repositoryToCreate := &humiov1alpha1.HumioRepository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      repoKey.Name,
+					Namespace: repoKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioRepositorySpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "repo-for-view-no-deletion",
+					AllowDataDeletion:  true,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Creating the repository")
+			Expect(k8sClient.Create(ctx, repositoryToCreate)).Should(Succeed())
+
+			fetchedRepo := &humiov1alpha1.HumioRepository{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, repoKey, fetchedRepo)
+				return fetchedRepo.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+
+			// Create view with deletion blocked
+			toCreateView := &humiov1alpha1.HumioView{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      viewKey.Name,
+					Namespace: viewKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioViewSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "test-view-no-deletion",
+					AllowDataDeletion:  false, // Block deletion
+					Connections: []humiov1alpha1.HumioViewConnection{
+						{
+							RepositoryName: repositoryToCreate.Spec.Name,
+							Filter:         "*",
+						},
+					},
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Creating the view with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
+
+			fetchedView := &humiov1alpha1.HumioView{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, viewKey, fetchedView)
+				return fetchedView.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
+
+			// Verify finalizer present
+			Expect(fetchedView.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Attempting deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedView)).Should(Succeed())
+
+			// Verify resource stuck in deletion (has deletionTimestamp but still exists)
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, viewKey, fetchedView)
+				return err == nil && fetchedView.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, viewKey, fetchedView)
+				return err == nil && fetchedView.GetDeletionTimestamp() != nil
+			}, "10s", suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetchedView.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Cleanup: Remove the stuck resource by removing its finalizer
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Cleaning up stuck resource")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, viewKey, fetchedView)
+				fetchedView.SetFinalizers([]string{})
+				return k8sClient.Update(ctx, fetchedView)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, viewKey, fetchedView)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Clean up repository
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Cleaning up repository")
+			Expect(k8sClient.Delete(ctx, fetchedRepo)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, repoKey, fetchedRepo)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should allow deletion when allowDataDeletion is true", func() {
+			ctx := context.Background()
+			viewKey := types.NamespacedName{
+				Name:      "test-view-with-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			// Create repository for the view to connect to
+			repoKey := types.NamespacedName{
+				Name:      "test-view-repo-with-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+			repositoryToCreate := &humiov1alpha1.HumioRepository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      repoKey.Name,
+					Namespace: repoKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioRepositorySpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "repo-for-view-with-deletion",
+					AllowDataDeletion:  true,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Creating the repository")
+			Expect(k8sClient.Create(ctx, repositoryToCreate)).Should(Succeed())
+
+			fetchedRepo := &humiov1alpha1.HumioRepository{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, repoKey, fetchedRepo)
+				return fetchedRepo.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+
+			// Create with deletion allowed
+			toCreateView := &humiov1alpha1.HumioView{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      viewKey.Name,
+					Namespace: viewKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioViewSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "test-view-with-deletion",
+					AllowDataDeletion:  true, // Allow deletion
+					Connections: []humiov1alpha1.HumioViewConnection{
+						{
+							RepositoryName: repositoryToCreate.Spec.Name,
+							Filter:         "*",
+						},
+					},
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Creating the view with allowDataDeletion=true")
+			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
+
+			fetchedView := &humiov1alpha1.HumioView{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, viewKey, fetchedView)
+				return fetchedView.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
+
+			// Delete and verify success
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Deleting view (should succeed)")
+			Expect(k8sClient.Delete(ctx, fetchedView)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Verifying view is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, viewKey, fetchedView)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Clean up repository
+			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Cleaning up repository")
+			Expect(k8sClient.Delete(ctx, fetchedRepo)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, repoKey, fetchedRepo)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
 	Context("Humio Parser", Label("envtest", "dummy", "real"), func() {
 		It("HumioParser: Should handle parser correctly", func() {
 			ctx := context.Background()
@@ -684,6 +1205,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ParserScript:       "kvParse()",
 				TagFields:          []string{"@somefield"},
 				TestData:           []string{"this is an example of rawstring"},
+				AllowDataDeletion:  true,
 			}
 
 			key := types.NamespacedName{
@@ -703,10 +1225,25 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
 
 			fetchedParser := &humiov1alpha1.HumioParser{}
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedParser)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedParser.Status.Conditions,
+					humiov1alpha1.ParserConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.ParserReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, key, fetchedParser)
 				return fetchedParser.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+			Expect(fetchedParser.Status.State).Should(Equal(humiov1alpha1.HumioParserStateExists))
 
 			var initialParser *humiographql.ParserDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -779,6 +1316,301 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
+
+		Context("Rename Tests", func() {
+			It("should block parser rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "parser-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioParser{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioParserSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-parser",
+						RepositoryName:     testRepo.Spec.Name,
+						ParserScript:       "kvParse()",
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Creating parser")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioParser{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-parser"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate parser with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "parser-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioParser{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioParserSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-parser-allowed",
+						RepositoryName:     testRepo.Spec.Name,
+						ParserScript:       "kvParse()",
+						AllowDataDeletion:  true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Creating parser")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioParser{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-parser-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Verifying parser was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("HumioParser - AllowDataDeletion", Label("envtest", "dummy", "real"), func() {
+		It("should block deletion when allowDataDeletion is false", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioparser-no-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			spec := humiov1alpha1.HumioParserSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "parser-no-deletion",
+				RepositoryName:     testRepo.Spec.Name,
+				ParserScript:       "kvParse()",
+				AllowDataDeletion:  false, // Block deletion
+			}
+
+			toCreateParser := &humiov1alpha1.HumioParser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: spec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Creating parser with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+
+			fetchedParser := &humiov1alpha1.HumioParser{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedParser)
+				return fetchedParser.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+
+			// Verify finalizer present
+			Expect(fetchedParser.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Attempting deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedParser)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedParser)
+				return err == nil && fetchedParser.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedParser)
+				return err == nil && fetchedParser.GetDeletionTimestamp() != nil
+			}, "10s", suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetchedParser.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Cleanup: Remove the stuck resource by removing its finalizer
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Cleaning up stuck resource")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetchedParser)
+				fetchedParser.SetFinalizers([]string{})
+				return k8sClient.Update(ctx, fetchedParser)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedParser)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should allow deletion when allowDataDeletion is true", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioparser-with-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			spec := humiov1alpha1.HumioParserSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "parser-with-deletion",
+				RepositoryName:     testRepo.Spec.Name,
+				ParserScript:       "kvParse()",
+				AllowDataDeletion:  true, // Allow deletion
+			}
+
+			toCreateParser := &humiov1alpha1.HumioParser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: spec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Creating parser with allowDataDeletion=true")
+			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+
+			fetchedParser := &humiov1alpha1.HumioParser{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedParser)
+				return fetchedParser.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+
+			// Delete and verify success
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Deleting parser (should succeed)")
+			Expect(k8sClient.Delete(ctx, fetchedParser)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Verifying parser is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedParser)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
+	Context("HumioParser - Force Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioparser-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateParser := &humiov1alpha1.HumioParser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioParserSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "parser-force-finalize",
+					RepositoryName:     testRepo.Spec.Name,
+					ParserScript:       "kvParse()",
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser Force-Finalize: Creating parser with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+
+			fetchedParser := &humiov1alpha1.HumioParser{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedParser)
+				return fetchedParser.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+
+			// Verify finalizer present
+			Expect(fetchedParser.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedParser)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedParser)
+				return err == nil && fetchedParser.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(k8sClient.Get(ctx, key, fetchedParser)).Should(Succeed())
+			Expect(fetchedParser.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				fresh := &humiov1alpha1.HumioParser{}
+				if err := k8sClient.Get(ctx, key, fresh); err != nil {
+					return err
+				}
+				if fresh.Annotations == nil {
+					fresh.Annotations = make(map[string]string)
+				}
+				fresh.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fresh)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedParser)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+		})
 	})
 
 	Context("Humio External Cluster", Label("envtest", "dummy", "real"), func() {
@@ -820,6 +1652,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 				_ = k8sClient.Get(ctx, key, fetchedExternalCluster)
 				return fetchedExternalCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioExternalClusterStateReady))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedExternalCluster)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedExternalCluster.Status.Conditions,
+					humiov1alpha1.ExternalClusterConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.ExternalClusterReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Verifying backward compatible State field is maintained")
+			Expect(fetchedExternalCluster.Status.State).Should(Equal(humiov1alpha1.HumioExternalClusterStateReady))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedExternalCluster)).To(Succeed())
@@ -1056,6 +1904,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
 					Recipients: []string{emailActionExample},
 				},
@@ -1082,6 +1931,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedAction.Status.Conditions,
+					humiov1alpha1.ActionConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.ActionReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying backward compatible State field is maintained")
+			Expect(fetchedAction.Status.State).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -1151,6 +2016,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-humio-repo-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
 					IngestToken: expectedSecretValue,
 				},
@@ -1239,6 +2105,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-ops-genie-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 					GenieKey: expectedSecretValue,
 					ApiUrl:   fmt.Sprintf("https://%s", testService1.Name),
@@ -1333,6 +2200,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-pagerduty-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
 					Severity:   "critical",
 					RoutingKey: expectedSecretValue,
@@ -1425,6 +2293,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-slack-post-message-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
 					ApiToken: "some-token",
 					Channels: []string{"#some-channel"},
@@ -1530,6 +2399,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-slack-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				SlackProperties: &humiov1alpha1.HumioActionSlackProperties{
 					Url: fmt.Sprintf("https://%s/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX", testService1.Name),
 					Fields: map[string]string{
@@ -1632,6 +2502,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-victor-ops-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				VictorOpsProperties: &humiov1alpha1.HumioActionVictorOpsProperties{
 					MessageType: "critical",
 					NotifyUrl:   fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name),
@@ -1725,6 +2596,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-webhook-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
 					Headers:      map[string]string{"some": "header"},
 					BodyTemplate: "body template",
@@ -1884,6 +2756,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
 						IngestTokenSource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
@@ -1954,6 +2827,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 						ApiUrl: fmt.Sprintf("https://%s", testService1.Name),
 						GenieKeySource: humiov1alpha1.VarSource{
@@ -2026,6 +2900,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 						GenieKey: expectedSecretValue,
 						ApiUrl:   fmt.Sprintf("https://%s", testService1.Name),
@@ -2078,6 +2953,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					VictorOpsProperties: &humiov1alpha1.HumioActionVictorOpsProperties{
 						MessageType: "critical",
 						NotifyUrlSource: humiov1alpha1.VarSource{
@@ -2150,6 +3026,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					VictorOpsProperties: &humiov1alpha1.HumioActionVictorOpsProperties{
 						MessageType: "critical",
 						NotifyUrl:   expectedSecretValue,
@@ -2202,6 +3079,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
 						ApiTokenSource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
@@ -2276,6 +3154,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
 						ApiToken: "direct-token",
 						Channels: []string{"#some-channel"},
@@ -2331,6 +3210,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					SlackProperties: &humiov1alpha1.HumioActionSlackProperties{
 						UrlSource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
@@ -2405,6 +3285,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					SlackProperties: &humiov1alpha1.HumioActionSlackProperties{
 						Url: expectedSecretValue,
 						Fields: map[string]string{
@@ -2459,6 +3340,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
 						RoutingKeySource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
@@ -2531,6 +3413,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
 						RoutingKey: expectedSecretValue,
 						Severity:   "critical",
@@ -2584,6 +3467,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
 						BodyTemplate: "body template",
 						Method:       http.MethodPost,
@@ -2637,6 +3521,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
 						BodyTemplate: "body template",
 						Method:       http.MethodPost,
@@ -2712,6 +3597,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
 						BodyTemplate: "body template",
 						Method:       http.MethodPost,
@@ -2786,6 +3672,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
 						BodyTemplate: "body template",
 						Method:       http.MethodPost,
@@ -2887,6 +3774,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
+					AllowDataDeletion:  true,
 					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
 						BodyTemplate: "body template",
 						Method:       http.MethodPost,
@@ -2961,16 +3849,267 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
+
+		Context("Rename Tests", func() {
+			It("should block action rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "action-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioAction{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioActionSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-action",
+						ViewName:           testRepo.Spec.Name,
+						EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+							Recipients: []string{"test@example.com"},
+						},
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating action")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioAction{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-action"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate action with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "action-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioAction{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioActionSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-action-allowed",
+						ViewName:           testRepo.Spec.Name,
+						AllowDataDeletion:  true,
+						EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+							Recipients: []string{"test@example.com"},
+						},
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating action")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioAction{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-action-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying action was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+				humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+				Eventually(func() string {
+					fresh := &humiov1alpha1.HumioAction{}
+					if err := k8sClient.Get(ctx, key, fresh); err != nil {
+						return ""
+					}
+					action, err := humioClient.GetAction(ctx, humioHttpClient, fresh)
+					if err != nil {
+						return ""
+					}
+					return action.GetName()
+				}, testTimeout, suite.TestInterval).Should(Equal("renamed-action-allowed"))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("HumioAction - AllowDataDeletion", Label("envtest", "dummy", "real"), func() {
+		It("should block deletion when allowDataDeletion is false", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioaction-no-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			actionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "action-no-deletion",
+				ViewName:           testRepo.Spec.Name,
+				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+					Recipients: []string{"example@example.com"},
+				},
+				AllowDataDeletion: false, // Block deletion
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: actionSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Creating action with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			// Attempt deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Attempting deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).Should(Succeed())
+
+			// Wait for deletionTimestamp to be set
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return err == nil && fetchedAction.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Verifying deletion is blocked")
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return err == nil && fetchedAction.GetDeletionTimestamp() != nil
+			}, "10s", suite.TestInterval).Should(BeTrue())
+
+			// Cleanup: Remove the stuck resource by removing its finalizer
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Cleaning up stuck resource")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetchedAction)
+				fetchedAction.SetFinalizers([]string{})
+				return k8sClient.Update(ctx, fetchedAction)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should allow deletion when allowDataDeletion is true", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioaction-with-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			actionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "action-with-deletion",
+				ViewName:           testRepo.Spec.Name,
+				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+					Recipients: []string{"example@example.com"},
+				},
+				AllowDataDeletion: true, // Allow deletion
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: actionSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Creating action with allowDataDeletion=true")
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			// Delete and verify success
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Deleting action (should succeed)")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Verifying action is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
 	})
 
 	Context("Humio Alert", Label("envtest", "dummy", "real"), func() {
 		It("should handle alert action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Should handle alert correctly")
+
+			// Wait for test repository to be ready before creating dependent resources
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Waiting for test repository to be ready")
+			repoKey := types.NamespacedName{Name: testRepo.Name, Namespace: testRepo.Namespace}
+			Eventually(func() string {
+				var fetchedRepo humiov1alpha1.HumioRepository
+				_ = k8sClient.Get(ctx, repoKey, &fetchedRepo)
+				return fetchedRepo.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+
 			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-email-action",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
 					Recipients: []string{emailActionExample},
 				},
@@ -3012,6 +4151,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Description:        "humio alert",
 				Actions:            []string{toCreateDependentAction.Spec.Name},
 				Labels:             []string{"some-label"},
+				AllowDataDeletion:  true,
 			}
 
 			// Alert with no Labels field
@@ -3025,6 +4165,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Silenced:           alertSpec.Silenced,
 				Description:        alertSpec.Description,
 				Actions:            alertSpec.Actions,
+				AllowDataDeletion:  true,
 			}
 
 			key := types.NamespacedName{
@@ -3068,6 +4209,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 				_ = k8sClient.Get(ctx, keyNoLabels, fetchedAlertNoLabels)
 				return fetchedAlertNoLabels.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedAlert.Status.Conditions,
+					humiov1alpha1.AlertConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.AlertReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying backward compatible State field is maintained")
+			Expect(fetchedAlert.Status.State).Should(Equal(humiov1alpha1.HumioAlertStateExists))
 
 			var alert, alertNoLabels *humiographql.AlertDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -3210,16 +4367,260 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the invalid alert")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAlert)).Should(Not(Succeed()))
 		})
+
+		Context("Rename Tests", func() {
+			It("should block alert rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "alert-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioAlert{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioAlertSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-alert",
+						ViewName:           testRepo.Spec.Name,
+						Query: humiov1alpha1.HumioQuery{
+							QueryString: "loglevel=ERROR",
+							Start:       "5m",
+						},
+						ThrottleTimeMillis: 60000,
+						Actions:            []string{},
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating alert")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioAlert{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-alert"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate alert with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "alert-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioAlert{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioAlertSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-alert-allowed",
+						ViewName:           testRepo.Spec.Name,
+						Query: humiov1alpha1.HumioQuery{
+							QueryString: "loglevel=ERROR",
+							Start:       "5m",
+						},
+						ThrottleTimeMillis: 60000,
+						Actions:            []string{},
+						AllowDataDeletion:  true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating alert")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioAlert{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-alert-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying alert was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("HumioAlert - AllowDataDeletion", Label("envtest", "dummy", "real"), func() {
+		It("should block deletion when allowDataDeletion is false", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioalert-no-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAlert := &humiov1alpha1.HumioAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioAlertSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "alert-no-deletion",
+					ViewName:           testRepo.Spec.Name,
+					Query: humiov1alpha1.HumioQuery{
+						QueryString: `#repo = test | count()`,
+						Start:       "1h",
+					},
+					ThrottleTimeMillis: 60000, // Minimum 1 minute
+					Actions:            []string{},
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Creating alert with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+
+			fetchedAlert := &humiov1alpha1.HumioAlert{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				return fetchedAlert.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+
+			// Attempt deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Attempting deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedAlert)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return err == nil && fetchedAlert.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return err == nil && fetchedAlert.GetDeletionTimestamp() != nil
+			}, "10s", suite.TestInterval).Should(BeTrue())
+
+			// Cleanup: Remove the stuck resource by removing its finalizer
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Cleaning up stuck resource")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				fetchedAlert.SetFinalizers([]string{})
+				return k8sClient.Update(ctx, fetchedAlert)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should allow deletion when allowDataDeletion is true", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioalert-with-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAlert := &humiov1alpha1.HumioAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioAlertSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "alert-with-deletion",
+					ViewName:           testRepo.Spec.Name,
+					Query: humiov1alpha1.HumioQuery{
+						QueryString: `#repo = test | count()`,
+						Start:       "1h",
+					},
+					ThrottleTimeMillis: 60000, // Minimum 1 minute
+					Actions:            []string{},
+					AllowDataDeletion:  true, // Allow deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Creating alert with allowDataDeletion=true")
+			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+
+			fetchedAlert := &humiov1alpha1.HumioAlert{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				return fetchedAlert.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+
+			// Delete and verify success
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Deleting alert (should succeed)")
+			Expect(k8sClient.Delete(ctx, fetchedAlert)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Verifying alert is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
 	})
 
 	Context("Humio Filter Alert", Label("envtest", "dummy", "real"), func() {
 		It("should handle filter alert action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Should handle filter alert correctly")
+
+			// Wait for test repository to be ready before creating dependent resources
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Waiting for test repository to be ready")
+			repoKey := types.NamespacedName{Name: testRepo.Name, Namespace: testRepo.Namespace}
+			Eventually(func() string {
+				var fetchedRepo humiov1alpha1.HumioRepository
+				_ = k8sClient.Get(ctx, repoKey, &fetchedRepo)
+				return fetchedRepo.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+
 			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-email-action4",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
 					Recipients: []string{emailActionExample},
 				},
@@ -3258,6 +4659,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Labels:              []string{"some-label"},
 				ThrottleTimeSeconds: 300,
 				ThrottleField:       helpers.StringPtr("somefield"),
+				AllowDataDeletion:   true,
 			}
 
 			key := types.NamespacedName{
@@ -3277,10 +4679,25 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateFilterAlert)).Should(Succeed())
 
 			fetchedFilterAlert := &humiov1alpha1.HumioFilterAlert{}
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedFilterAlert)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedFilterAlert.Status.Conditions,
+					humiov1alpha1.FilterAlertConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.FilterAlertReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, key, fetchedFilterAlert)
 				return fetchedFilterAlert.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
+			Expect(fetchedFilterAlert.Status.State).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
 
 			var filterAlert *humiographql.FilterAlertDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -3438,6 +4855,233 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Creating the invalid filter alert")
 			Expect(k8sClient.Create(ctx, toCreateInvalidFilterAlert)).Should(Not(Succeed()))
 		})
+
+		Context("Rename Tests", func() {
+			It("should block filter alert rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "filteralert-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioFilterAlert{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioFilterAlertSpec{
+						ManagedClusterName:  clusterKey.Name,
+						Name:                "original-filteralert",
+						ViewName:            testRepo.Spec.Name,
+						QueryString:         "#repo = humio | error = true",
+						Enabled:             true,
+						Actions:             []string{},
+						ThrottleTimeSeconds: 300,
+						ThrottleField:       helpers.StringPtr("somefield"),
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Creating filter alert")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioFilterAlert{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-filteralert"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate filter alert with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "filteralert-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioFilterAlert{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioFilterAlertSpec{
+						ManagedClusterName:  clusterKey.Name,
+						Name:                "original-filteralert-allowed",
+						ViewName:            testRepo.Spec.Name,
+						QueryString:         "#repo = humio | error = true",
+						Enabled:             true,
+						Actions:             []string{},
+						ThrottleTimeSeconds: 300,
+						ThrottleField:       helpers.StringPtr("somefield"),
+						AllowDataDeletion:   true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Creating filter alert")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioFilterAlert{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-filteralert-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying filter alert was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("HumioFilterAlert - AllowDataDeletion", Label("envtest", "dummy", "real"), func() {
+		It("should block deletion when allowDataDeletion is false", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humiofilteralert-no-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAlert := &humiov1alpha1.HumioFilterAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFilterAlertSpec{
+					ManagedClusterName:  clusterKey.Name,
+					Name:                "filteralert-no-deletion",
+					ViewName:            testRepo.Spec.Name,
+					QueryString:         "#repo = test",
+					ThrottleTimeSeconds: 300,
+					ThrottleField:       helpers.StringPtr("somefield"),
+					Actions:             []string{},
+					AllowDataDeletion:   false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Creating filter alert with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+
+			fetchedAlert := &humiov1alpha1.HumioFilterAlert{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				return fetchedAlert.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
+
+			// Attempt deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Attempting deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedAlert)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return err == nil && fetchedAlert.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return err == nil && fetchedAlert.GetDeletionTimestamp() != nil
+			}, "10s", suite.TestInterval).Should(BeTrue())
+
+			// Cleanup: Remove the stuck resource by removing its finalizer
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Cleaning up stuck resource")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				fetchedAlert.SetFinalizers([]string{})
+				return k8sClient.Update(ctx, fetchedAlert)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should allow deletion when allowDataDeletion is true", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humiofilteralert-with-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAlert := &humiov1alpha1.HumioFilterAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFilterAlertSpec{
+					ManagedClusterName:  clusterKey.Name,
+					Name:                "filteralert-with-deletion",
+					ViewName:            testRepo.Spec.Name,
+					QueryString:         "#repo = test",
+					ThrottleTimeSeconds: 300,
+					ThrottleField:       helpers.StringPtr("somefield"),
+					Actions:             []string{},
+					AllowDataDeletion:   true, // Allow deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Creating filter alert with allowDataDeletion=true")
+			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+
+			fetchedAlert := &humiov1alpha1.HumioFilterAlert{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				return fetchedAlert.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
+
+			// Delete and verify success
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Deleting filter alert (should succeed)")
+			Expect(k8sClient.Delete(ctx, fetchedAlert)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Verifying filter alert is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
 	})
 
 	Context("Humio Feature Flag", Label("envtest", "dummy", "real"), func() {
@@ -3467,6 +5111,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 				_ = k8sClient.Get(ctx, key, fetchedFeatureFlag)
 				return fetchedFeatureFlag.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFeatureFlagStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedFeatureFlag)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedFeatureFlag.Status.Conditions,
+					humiov1alpha1.FeatureFlagConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.FeatureFlagReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Verifying backward compatible State field is maintained")
+			Expect(fetchedFeatureFlag.Status.State).Should(Equal(humiov1alpha1.HumioFeatureFlagStateExists))
 
 			var isFeatureFlagEnabled bool
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -3537,10 +5197,21 @@ var _ = Describe("Humio Resources Controllers", func() {
 		It("should handle aggregate alert action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Should handle aggregate alert correctly")
+
+			// Wait for test repository to be ready before creating dependent resources
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Waiting for test repository to be ready")
+			repoKey := types.NamespacedName{Name: testRepo.Name, Namespace: testRepo.Namespace}
+			Eventually(func() string {
+				var fetchedRepo humiov1alpha1.HumioRepository
+				_ = k8sClient.Get(ctx, repoKey, &fetchedRepo)
+				return fetchedRepo.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+
 			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-email-action3",
 				ViewName:           testRepo.Spec.Name,
+				AllowDataDeletion:  true,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
 					Recipients: []string{emailActionExample},
 				},
@@ -3582,6 +5253,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Description:           "humio aggregate alert",
 				Actions:               []string{toCreateDependentAction.Spec.Name},
 				Labels:                []string{"some-label"},
+				AllowDataDeletion:     true,
 			}
 
 			key := types.NamespacedName{
@@ -3601,10 +5273,25 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateAggregateAlert)).Should(Succeed())
 
 			fetchedAggregateAlert := &humiov1alpha1.HumioAggregateAlert{}
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAggregateAlert)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedAggregateAlert.Status.Conditions,
+					humiov1alpha1.AggregateAlertConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.AggregateAlertReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, key, fetchedAggregateAlert)
 				return fetchedAggregateAlert.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
+			Expect(fetchedAggregateAlert.Status.State).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
 
 			var aggregateAlert *humiographql.AggregateAlertDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -3767,6 +5454,243 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the invalid aggregate alert")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAggregateAlert)).Should(Not(Succeed()))
 		})
+
+		Context("Rename Tests", func() {
+			It("should block aggregate alert rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "aggregatealert-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioAggregateAlert{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioAggregateAlertSpec{
+						ManagedClusterName:    clusterKey.Name,
+						Name:                  "original-aggregatealert",
+						ViewName:              testRepo.Spec.Name,
+						QueryString:           "#repo = humio | error = true | count()",
+						QueryTimestampType:    "EventTimestamp",
+						SearchIntervalSeconds: 60,
+						ThrottleTimeSeconds:   120,
+						TriggerMode:           "ImmediateMode",
+						Enabled:               true,
+						Actions:               []string{},
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating aggregate alert")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioAggregateAlert{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-aggregatealert"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate aggregate alert with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "aggregatealert-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioAggregateAlert{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioAggregateAlertSpec{
+						ManagedClusterName:    clusterKey.Name,
+						Name:                  "original-aggregatealert-allowed",
+						ViewName:              testRepo.Spec.Name,
+						QueryString:           "#repo = humio | error = true | count()",
+						QueryTimestampType:    "EventTimestamp",
+						SearchIntervalSeconds: 60,
+						ThrottleTimeSeconds:   120,
+						TriggerMode:           "ImmediateMode",
+						Enabled:               true,
+						Actions:               []string{},
+						AllowDataDeletion:     true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating aggregate alert")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioAggregateAlert{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-aggregatealert-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying aggregate alert was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("HumioAggregateAlert - AllowDataDeletion", Label("envtest", "dummy", "real"), func() {
+		It("should block deletion when allowDataDeletion is false", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioaggregatealert-no-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAlert := &humiov1alpha1.HumioAggregateAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioAggregateAlertSpec{
+					ManagedClusterName:    clusterKey.Name,
+					Name:                  "aggregatealert-no-deletion",
+					ViewName:              testRepo.Spec.Name,
+					QueryString:           "#repo = test | count()",
+					QueryTimestampType:    "EventTimestamp",
+					SearchIntervalSeconds: 60,
+					ThrottleTimeSeconds:   300,
+					TriggerMode:           "ImmediateMode",
+					Enabled:               true,
+					Actions:               []string{},
+					AllowDataDeletion:     false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Creating aggregate alert with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+
+			fetchedAlert := &humiov1alpha1.HumioAggregateAlert{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				return fetchedAlert.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
+
+			// Attempt deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Attempting deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedAlert)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return err == nil && fetchedAlert.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return err == nil && fetchedAlert.GetDeletionTimestamp() != nil
+			}, "10s", suite.TestInterval).Should(BeTrue())
+
+			// Cleanup: Remove the stuck resource by removing its finalizer
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Cleaning up stuck resource")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				fetchedAlert.SetFinalizers([]string{})
+				return k8sClient.Update(ctx, fetchedAlert)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should allow deletion when allowDataDeletion is true", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioaggregatealert-with-deletion",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAlert := &humiov1alpha1.HumioAggregateAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioAggregateAlertSpec{
+					ManagedClusterName:    clusterKey.Name,
+					Name:                  "aggregatealert-with-deletion",
+					ViewName:              testRepo.Spec.Name,
+					QueryString:           "#repo = test | count()",
+					QueryTimestampType:    "EventTimestamp",
+					SearchIntervalSeconds: 60,
+					ThrottleTimeSeconds:   300,
+					TriggerMode:           "ImmediateMode",
+					Enabled:               true,
+					Actions:               []string{},
+					AllowDataDeletion:     true, // Allow deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Creating aggregate alert with allowDataDeletion=true")
+			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+
+			fetchedAlert := &humiov1alpha1.HumioAggregateAlert{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
+				return fetchedAlert.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
+
+			// Delete and verify success
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Deleting aggregate alert (should succeed)")
+			Expect(k8sClient.Delete(ctx, fetchedAlert)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Verifying aggregate alert is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
 	})
 
 	Context("HumioGroup", Label("envtest", "dummy", "real"), func() {
@@ -3799,14 +5723,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateGroup)).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for group should be marked with Exists")
+			var updatedHumioGroup humiov1alpha1.HumioGroup
+			suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err = k8sClient.Get(ctx, key, &updatedHumioGroup)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(updatedHumioGroup.Status.Conditions,
+					humiov1alpha1.GroupConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.GroupReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
-				updatedHumioGroup := humiov1alpha1.HumioGroup{}
 				err = k8sClient.Get(ctx, key, &updatedHumioGroup)
 				if err != nil {
 					return err.Error()
 				}
 				return updatedHumioGroup.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioGroupStateExists))
+			Expect(updatedHumioGroup.Status.State).Should(Equal(humiov1alpha1.HumioGroupStateExists))
 
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the group does exist in LogScale after custom resource indicates that it does")
 			var fetchedGroupDetails *humiographql.GroupDetails
@@ -3872,6 +5811,113 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return err.Error()
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(humioapi.GroupNotFound(toCreateGroup.Spec.Name).Error()))
 		})
+
+		Context("Rename Tests", func() {
+			It("should block group rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "group-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioGroup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioGroupSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-group",
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Creating group")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioGroup{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioGroupStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-group"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioGroupStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate group with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "group-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioGroup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioGroupSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-group-allowed",
+						AllowDataDeletion:  true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Creating group")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioGroup{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioGroupStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-group-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Verifying group was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioGroupStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
 	})
 
 	Context("Humio User", Label("envtest", "dummy", "real"), func() {
@@ -3881,6 +5927,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				UserName:           "example-user",
 				IsRoot:             nil,
+				AllowDataDeletion:  true,
 			}
 
 			key := types.NamespacedName{
@@ -3900,10 +5947,25 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateUser)).Should(Succeed())
 
 			fetchedUser := &humiov1alpha1.HumioUser{}
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedUser)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedUser.Status.Conditions,
+					humiov1alpha1.UserConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.UserReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, key, fetchedUser)
 				return fetchedUser.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateExists))
+			Expect(fetchedUser.Status.State).Should(Equal(humiov1alpha1.HumioUserStateExists))
 
 			var initialUser *humiographql.UserDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -3985,6 +6047,113 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(ctx, key, fetchedUser)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		Context("Rename Tests", func() {
+			It("should block user rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "user-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioUser{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioUserSpec{
+						ManagedClusterName: clusterKey.Name,
+						UserName:           "original-user",
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Creating user")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioUser{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.UserName = "renamed-user"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate user with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "user-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioUser{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioUserSpec{
+						ManagedClusterName: clusterKey.Name,
+						UserName:           "original-user-allowed",
+						AllowDataDeletion:  true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Creating user")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioUser{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.UserName = "renamed-user-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Verifying user was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
 		})
 	})
 
@@ -4081,6 +6250,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Permissions: []string{
 						string(humiographql.SystemPermissionReadhealthcheck),
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -4095,14 +6265,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateSystemPermissionRole)).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for system permission role should be marked with Exists")
+			var updatedHumioSystemPermissionRole humiov1alpha1.HumioSystemPermissionRole
+			suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err = k8sClient.Get(ctx, key, &updatedHumioSystemPermissionRole)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(updatedHumioSystemPermissionRole.Status.Conditions,
+					humiov1alpha1.SystemPermissionRoleConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.SystemPermissionRoleReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
-				updatedHumioSystemPermissionRole := humiov1alpha1.HumioSystemPermissionRole{}
 				err = k8sClient.Get(ctx, key, &updatedHumioSystemPermissionRole)
 				if err != nil {
 					return err.Error()
 				}
 				return updatedHumioSystemPermissionRole.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateExists))
+			Expect(updatedHumioSystemPermissionRole.Status.State).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateExists))
 
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the system permission role does exist in LogScale after custom resource indicates that it does")
 			var fetchedRoleDetails *humiographql.RoleDetails
@@ -4192,6 +6377,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-unknown-system-permission",
 					Permissions:        []string{"SomeUnknownPermission"},
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -4262,6 +6448,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Permissions: []string{
 						string(humiographql.SystemPermissionReadhealthcheck),
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 					RoleAssignmentGroupNames: []string{
 						toCreateGroup.Spec.Name,
 					},
@@ -4356,6 +6543,129 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Delete(ctx, toCreateSystemPermissionRole)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, toCreateGroup)).Should(Succeed())
 		})
+
+		Context("Rename Tests", func() {
+			It("should block system permission role rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "syspermrole-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioSystemPermissionRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioSystemPermissionRoleSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-syspermrole",
+						Permissions: []string{
+							string(humiographql.SystemPermissionReadhealthcheck),
+						},
+						AllowDataDeletion: false, // Block deletion for rename test
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Creating system permission role")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioSystemPermissionRole{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-syspermrole"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Enabling deletion for cleanup")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.AllowDataDeletion = true // Enable deletion for cleanup
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate system permission role with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "syspermrole-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioSystemPermissionRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioSystemPermissionRoleSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-syspermrole-allowed",
+						Permissions: []string{
+							string(humiographql.SystemPermissionReadhealthcheck),
+						},
+						AllowDataDeletion: true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Creating system permission role")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioSystemPermissionRole{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-syspermrole-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Verifying role was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
 	})
 
 	Context("HumioOrganizationPermissionRole", Label("envtest", "dummy", "real"), func() {
@@ -4376,6 +6686,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Permissions: []string{
 						string(humiographql.OrganizationPermissionCreaterepository),
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -4390,14 +6701,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateOrganizationPermissionRole)).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for organization permission role should be marked with Exists")
+			var updatedHumioOrganizationPermissionRole humiov1alpha1.HumioOrganizationPermissionRole
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err = k8sClient.Get(ctx, key, &updatedHumioOrganizationPermissionRole)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(updatedHumioOrganizationPermissionRole.Status.Conditions,
+					humiov1alpha1.OrganizationPermissionRoleConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.OrganizationPermissionRoleReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
-				updatedHumioOrganizationPermissionRole := humiov1alpha1.HumioOrganizationPermissionRole{}
 				err = k8sClient.Get(ctx, key, &updatedHumioOrganizationPermissionRole)
 				if err != nil {
 					return err.Error()
 				}
 				return updatedHumioOrganizationPermissionRole.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioOrganizationPermissionRoleStateExists))
+			Expect(updatedHumioOrganizationPermissionRole.Status.State).Should(Equal(humiov1alpha1.HumioOrganizationPermissionRoleStateExists))
 
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the organization permission role does exist in LogScale after custom resource indicates that it does")
 			var fetchedRoleDetails *humiographql.RoleDetails
@@ -4487,6 +6813,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-unknown-organization-permission",
 					Permissions:        []string{"SomeUnknownPermission"},
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -4558,6 +6885,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Permissions: []string{
 						string(humiographql.OrganizationPermissionViewusage),
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 					RoleAssignmentGroupNames: []string{
 						toCreateGroup.Spec.Name,
 					},
@@ -4652,6 +6980,120 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Delete(ctx, toCreateOrganizationPermissionRole)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, toCreateGroup)).Should(Succeed())
 		})
+
+		Context("Rename Tests", func() {
+			It("should block organization permission role rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "orgpermrole-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioOrganizationPermissionRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioOrganizationPermissionRoleSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-orgpermrole",
+						Permissions: []string{
+							string(humiographql.OrganizationPermissionCreaterepository),
+						},
+						AllowDataDeletion: false, // Block deletion for rename test
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Creating organization permission role")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioOrganizationPermissionRole{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioOrganizationPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-orgpermrole"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioOrganizationPermissionRoleStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate organization permission role with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "orgpermrole-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioOrganizationPermissionRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioOrganizationPermissionRoleSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-orgpermrole-allowed",
+						Permissions: []string{
+							string(humiographql.OrganizationPermissionCreaterepository),
+						},
+						AllowDataDeletion: true, // Allow test cleanup
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Creating organization permission role")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioOrganizationPermissionRole{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioOrganizationPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-orgpermrole-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Verifying role was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioOrganizationPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
 	})
 
 	Context("HumioViewPermissionRole", Label("envtest", "dummy", "real"), func() {
@@ -4672,6 +7114,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Permissions: []string{
 						string(humiographql.PermissionReadaccess),
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -4686,14 +7129,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateViewPermissionRole)).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for view permission role should be marked with Exists")
+			var updatedHumioViewPermissionRole humiov1alpha1.HumioViewPermissionRole
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err = k8sClient.Get(ctx, key, &updatedHumioViewPermissionRole)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(updatedHumioViewPermissionRole.Status.Conditions,
+					humiov1alpha1.ViewPermissionRoleConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.ViewPermissionRoleReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Verifying backward compatible State field is maintained")
 			Eventually(func() string {
-				updatedHumioViewPermissionRole := humiov1alpha1.HumioViewPermissionRole{}
 				err = k8sClient.Get(ctx, key, &updatedHumioViewPermissionRole)
 				if err != nil {
 					return err.Error()
 				}
 				return updatedHumioViewPermissionRole.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateExists))
+			Expect(updatedHumioViewPermissionRole.Status.State).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateExists))
 
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the view permission role does exist in LogScale after custom resource indicates that it does")
 			var fetchedRoleDetails *humiographql.RoleDetails
@@ -4783,6 +7241,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-unknown-view-permission",
 					Permissions:        []string{"SomeUnknownPermission"},
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -4815,6 +7274,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-invalid-view-permission-role",
 					Permissions:        nil,
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -4870,6 +7330,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 							GroupName:      toCreateGroup.Spec.Name,
 						},
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
@@ -4977,6 +7438,120 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Delete(ctx, toCreateGroup)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, toCreateRepository)).Should(Succeed())
 		})
+
+		Context("Rename Tests", func() {
+			It("should block view permission role rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "viewpermrole-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioViewPermissionRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioViewPermissionRoleSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-viewpermrole",
+						Permissions: []string{
+							string(humiographql.PermissionReadaccess),
+						},
+						AllowDataDeletion: true, // Allow test cleanup
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Creating view permission role")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioViewPermissionRole{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-viewpermrole"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate view permission role with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "viewpermrole-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioViewPermissionRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioViewPermissionRoleSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-viewpermrole-allowed",
+						Permissions: []string{
+							string(humiographql.PermissionReadaccess),
+						},
+						AllowDataDeletion: true, // Allow test cleanup
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Creating view permission role")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioViewPermissionRole{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-viewpermrole-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Verifying role was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
 	})
 
 	Context("Humio IPFilter", Label("envtest", "dummy", "real"), func() {
@@ -4994,6 +7569,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               name,
 				IPFilter:           ipRules,
+				AllowDataDeletion:  true,
 			}
 			key := types.NamespacedName{
 				Name:      name,
@@ -5023,6 +7599,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 				_ = k8sClient.Get(ctx, key, fetchedIPFilter)
 				return fetchedIPFilter.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedIPFilter)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(fetchedIPFilter.Status.Conditions,
+					humiov1alpha1.IPFilterConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.IPFilterReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Verifying backward compatible State field is maintained")
+			Expect(fetchedIPFilter.Status.State).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
 
 			var initialIPFilter *humiographql.IPFilterDetails
 			Eventually(func() error {
@@ -5077,6 +7669,538 @@ var _ = Describe("Humio Resources Controllers", func() {
 				_, err := humioClient.GetIPFilter(ctx, humioHttpClient, fetchedIPFilter)
 				return err
 			}, testTimeout, suite.TestInterval).Should(MatchError(humioapi.IPFilterNotFound(fetchedIPFilter.Spec.Name)))
+		})
+
+		Context("Rename Tests", func() {
+			It("should block IP filter rename without annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "ipfilter-rename-blocked",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioIPFilter{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioIPFilterSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-ipfilter",
+						IPFilter: []humiov1alpha1.FirewallRule{
+							{Action: "allow", Address: "192.168.0.0/16"},
+						},
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating IP filter")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioIPFilter{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Attempting rename without annotation")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					fetched.Spec.Name = "renamed-ipfilter"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Verifying ConfigError state")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateConfigError))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+
+			It("should delete-recreate IP filter with annotation", func() {
+				ctx := context.Background()
+				key := types.NamespacedName{
+					Name:      "ipfilter-rename-allowed",
+					Namespace: clusterKey.Namespace,
+				}
+
+				toCreate := &humiov1alpha1.HumioIPFilter{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+					Spec: humiov1alpha1.HumioIPFilterSpec{
+						ManagedClusterName: clusterKey.Name,
+						Name:               "original-ipfilter-allowed",
+						IPFilter: []humiov1alpha1.FirewallRule{
+							{Action: "allow", Address: "192.168.0.0/16"},
+						},
+						AllowDataDeletion: true,
+					},
+				}
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating IP filter")
+				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+				fetched := &humiov1alpha1.HumioIPFilter{}
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Adding allow-rename annotation and renaming")
+				Eventually(func() error {
+					if err := k8sClient.Get(ctx, key, fetched); err != nil {
+						return err
+					}
+					if fetched.Annotations == nil {
+						fetched.Annotations = make(map[string]string)
+					}
+					fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+					fetched.Spec.Name = "renamed-ipfilter-allowed"
+					return k8sClient.Update(ctx, fetched)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Verifying IP filter was recreated")
+				Eventually(func() string {
+					_ = k8sClient.Get(ctx, key, fetched)
+					return fetched.Status.State
+				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
+
+				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Cleaning up")
+				Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, key, fetched)
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("HumioIPFilter - Force Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioipfilter-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioIPFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioIPFilterSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "ipfilter-force-finalize",
+					IPFilter: []humiov1alpha1.FirewallRule{
+						{Action: "allow", Address: "10.0.0.0/8"},
+						{Action: "allow", Address: "127.0.0.1"},
+					},
+					AllowDataDeletion: false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter Force-Finalize: Creating IP filter with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioIPFilter{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
+
+			// Verify finalizer present
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return err == nil && fetched.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetched)
+				if fetched.Annotations == nil {
+					fetched.Annotations = make(map[string]string)
+				}
+				fetched.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+		})
+	})
+
+	Context("HumioOrganizationPermissionRole - Force Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioorgpermrole-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioOrganizationPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioOrganizationPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "orgpermrole-force-finalize",
+					Permissions:        []string{"CreateRepository"},
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole Force-Finalize: Creating role with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioOrganizationPermissionRole{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioOrganizationPermissionRoleStateExists))
+
+			// Verify finalizer present
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return err == nil && fetched.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetched)
+				if fetched.Annotations == nil {
+					fetched.Annotations = make(map[string]string)
+				}
+				fetched.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+		})
+	})
+
+	Context("HumioPackage - Force Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humiopackage-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioPackage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPackageSpec{
+					ManagedClusterName: clusterKey.Name,
+					PackageName:        "test/package",
+					PackageVersion:     "1.0.0",
+					PackageChecksum:    "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+					RegistryRef: humiov1alpha1.RegistryReference{
+						Name: "test-registry",
+					},
+					PackageInstallTargets: []humiov1alpha1.PackageInstallTarget{
+						{
+							ViewNames: []string{testRepo.Spec.Name},
+						},
+					},
+					Gitlab: &humiov1alpha1.GitlabPackageInfo{
+						Package:   "test-package",
+						AssetName: "test.tar.gz",
+					},
+					AllowDataDeletion: false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage Force-Finalize: Creating package with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioPackage{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Or(
+				Equal(humiov1alpha1.HumioPackageStateExists),
+				Equal(humiov1alpha1.HumioPackageStateNotFound),    // Package may not exist in LogScale, but test still valid
+				Equal(humiov1alpha1.HumioPackageStateConfigError), // Package may fail to install, but test still valid
+			))
+
+			// Verify finalizer present
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false if package exists)
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage Force-Finalize: Triggering deletion (may block)")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+
+			// Verify resource stuck in deletion or waiting for cleanup
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage Force-Finalize: Verifying resource in deletion")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return err == nil && fetched.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetched)
+				if fetched.Annotations == nil {
+					fetched.Annotations = make(map[string]string)
+				}
+				fetched.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+		})
+	})
+
+	Context("HumioSystemPermissionRole - Force Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humiosyspermrole-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioSystemPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioSystemPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "syspermrole-force-finalize",
+					Permissions:        []string{"ReadHealthCheck"},
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole Force-Finalize: Creating role with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioSystemPermissionRole{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateExists))
+
+			// Verify finalizer present
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return err == nil && fetched.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetched)
+				if fetched.Annotations == nil {
+					fetched.Annotations = make(map[string]string)
+				}
+				fetched.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+		})
+	})
+
+	Context("HumioUser - Force Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humiouser-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioUser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioUserSpec{
+					ManagedClusterName: clusterKey.Name,
+					UserName:           "user-force-finalize",
+					IsRoot:             helpers.BoolPtr(false),
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser Force-Finalize: Creating user with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioUser{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateExists))
+
+			// Verify finalizer present
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return err == nil && fetched.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetched)
+				if fetched.Annotations == nil {
+					fetched.Annotations = make(map[string]string)
+				}
+				fetched.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+		})
+	})
+
+	Context("HumioViewPermissionRole - Force Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humioviewpermrole-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioViewPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioViewPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "viewpermrole-force-finalize",
+					Permissions:        []string{"ReadAccess"},
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole Force-Finalize: Creating role with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioViewPermissionRole{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateExists))
+
+			// Verify finalizer present
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return err == nil && fetched.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				_ = k8sClient.Get(ctx, key, fetched)
+				if fetched.Annotations == nil {
+					fetched.Annotations = make(map[string]string)
+				}
+				fetched.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
 		})
 	})
 })

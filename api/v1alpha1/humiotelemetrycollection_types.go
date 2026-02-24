@@ -31,6 +31,28 @@ const (
 	HumioTelemetryCollectionStateCollecting = "Collecting"
 )
 
+const (
+	// TelemetryCollectionConditionTypeReady indicates whether the TelemetryCollection is ready
+	TelemetryCollectionConditionTypeReady = "Ready"
+	// TelemetryCollectionConditionTypeSynced indicates whether the TelemetryCollection is synchronized
+	TelemetryCollectionConditionTypeSynced = "Synced"
+)
+
+const (
+	// TelemetryCollectionReasonReady indicates the TelemetryCollection is ready
+	TelemetryCollectionReasonReady = "Ready"
+	// TelemetryCollectionReasonEnabled indicates the TelemetryCollection was enabled
+	TelemetryCollectionReasonEnabled = "Enabled"
+	// TelemetryCollectionReasonDisabled indicates the TelemetryCollection was disabled
+	TelemetryCollectionReasonDisabled = "Disabled"
+	// TelemetryCollectionReasonCollecting indicates the TelemetryCollection is actively collecting
+	TelemetryCollectionReasonCollecting = "Collecting"
+	// TelemetryCollectionReasonConfigError indicates a configuration error
+	TelemetryCollectionReasonConfigError = "ConfigurationError"
+	// TelemetryCollectionReasonUnknown indicates the TelemetryCollection state is unknown
+	TelemetryCollectionReasonUnknown = "Unknown"
+)
+
 // CollectionConfig defines what data to collect and collection frequency
 type CollectionConfig struct {
 	// Interval defines how frequently to collect this data (e.g., "15m", "1h", "1d")
@@ -100,8 +122,13 @@ type HumioTelemetryCollectionSpec struct {
 
 // HumioTelemetryCollectionStatus defines the observed state of HumioTelemetryCollection.
 type HumioTelemetryCollectionStatus struct {
-	// State represents the current state of the collection
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Represents the current state of the collection
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 
 	// LastCollectionTime indicates when data was last collected
 	LastCollectionTime *metav1.Time `json:"lastCollectionTime,omitempty"`
@@ -143,6 +170,7 @@ type ExportPushResult struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humiotelemetrycollections,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.managedClusterName",description="Managed cluster name"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="Collection state"
 // +kubebuilder:printcolumn:name="Last Collection",type="date",JSONPath=".status.lastCollectionTime",description="Last collection time"

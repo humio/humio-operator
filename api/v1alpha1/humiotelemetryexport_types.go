@@ -31,6 +31,28 @@ const (
 	HumioTelemetryExportStateExporting = "Exporting"
 )
 
+const (
+	// TelemetryExportConditionTypeReady indicates whether the TelemetryExport is ready
+	TelemetryExportConditionTypeReady = "Ready"
+	// TelemetryExportConditionTypeSynced indicates whether the TelemetryExport is synchronized
+	TelemetryExportConditionTypeSynced = "Synced"
+)
+
+const (
+	// TelemetryExportReasonReady indicates the TelemetryExport is ready
+	TelemetryExportReasonReady = "Ready"
+	// TelemetryExportReasonEnabled indicates the TelemetryExport was enabled
+	TelemetryExportReasonEnabled = "Enabled"
+	// TelemetryExportReasonDisabled indicates the TelemetryExport was disabled
+	TelemetryExportReasonDisabled = "Disabled"
+	// TelemetryExportReasonExporting indicates the TelemetryExport is actively exporting
+	TelemetryExportReasonExporting = "Exporting"
+	// TelemetryExportReasonConfigError indicates a configuration error
+	TelemetryExportReasonConfigError = "ConfigurationError"
+	// TelemetryExportReasonUnknown indicates the TelemetryExport state is unknown
+	TelemetryExportReasonUnknown = "Unknown"
+)
+
 // HumioTelemetryRemoteReportConfig defines configuration for exporting telemetry data
 type HumioTelemetryRemoteReportConfig struct {
 	// URL is the endpoint URL for the telemetry cluster HEC endpoint
@@ -104,8 +126,13 @@ type HumioTelemetryCollectionReference struct {
 
 // HumioTelemetryExportStatus defines the observed state of HumioTelemetryExport.
 type HumioTelemetryExportStatus struct {
-	// State represents the current state of the export
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Represents the current state of the export
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 
 	// LastExportTime indicates when data was last exported successfully
 	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
@@ -138,6 +165,7 @@ type HumioTelemetryCollectionRegistrationStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humiotelemetryexports,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="Export state"
 // +kubebuilder:printcolumn:name="Collections",type="integer",JSONPath=".spec.registeredCollections[*]",description="Number of registered collections"
 // +kubebuilder:printcolumn:name="Last Export",type="date",JSONPath=".status.lastExportTime",description="Last export time"
