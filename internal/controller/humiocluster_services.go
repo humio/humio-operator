@@ -151,6 +151,34 @@ func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bo
 	if existingSelector != selector {
 		return false, fmt.Errorf("service selector does not match: got %s, expected: %s", existingSelector, selector)
 	}
+
+	if existingService.Spec.Type != service.Spec.Type {
+		return false, fmt.Errorf("service type does not match: got %s, expected: %s", existingService.Spec.Type, service.Spec.Type)
+	}
+
+	// Compare ports
+	if len(existingService.Spec.Ports) != len(service.Spec.Ports) {
+		return false, fmt.Errorf("service port count does not match: got %d, expected: %d", len(existingService.Spec.Ports), len(service.Spec.Ports))
+	}
+	for _, expectedPort := range service.Spec.Ports {
+		found := false
+		for _, existingPort := range existingService.Spec.Ports {
+			if existingPort.Name == expectedPort.Name {
+				found = true
+				if existingPort.Port != expectedPort.Port {
+					return false, fmt.Errorf("service port %s does not match: got %d, expected: %d", expectedPort.Name, existingPort.Port, expectedPort.Port)
+				}
+				if existingPort.TargetPort != expectedPort.TargetPort {
+					return false, fmt.Errorf("service targetPort %s does not match: got %v, expected: %v", expectedPort.Name, existingPort.TargetPort, expectedPort.TargetPort)
+				}
+				break
+			}
+		}
+		if !found {
+			return false, fmt.Errorf("service port %s not found in existing service", expectedPort.Name)
+		}
+	}
+
 	return true, nil
 }
 
@@ -159,4 +187,6 @@ func updateService(existingService *corev1.Service, service *corev1.Service) {
 	existingService.Labels = service.Labels
 	existingService.Spec.Selector = service.Spec.Selector
 	existingService.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses
+	existingService.Spec.Type = service.Spec.Type
+	existingService.Spec.Ports = service.Spec.Ports
 }

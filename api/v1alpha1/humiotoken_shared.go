@@ -29,6 +29,30 @@ const (
 	HumioTokenConfigError = "ConfigError"
 )
 
+const (
+	// TokenConditionTypeReady indicates whether the token is ready
+	TokenConditionTypeReady = "Ready"
+	// TokenConditionTypeSynced indicates whether the token is synced with LogScale
+	TokenConditionTypeSynced = "Synced"
+)
+
+const (
+	// TokenReasonReady indicates the token is ready
+	TokenReasonReady = "Ready"
+	// TokenReasonCreated indicates the token was created
+	TokenReasonCreated = "Created"
+	// TokenReasonUpdated indicates the token was updated
+	TokenReasonUpdated = "Updated"
+	// TokenReasonNotFound indicates the token was not found
+	TokenReasonNotFound = "NotFound"
+	// TokenReasonConfigError indicates a configuration error
+	TokenReasonConfigError = "ConfigurationError"
+	// TokenReasonConfigSynced indicates the configuration is synced
+	TokenReasonConfigSynced = "ConfigurationSynced"
+	// TokenReasonConfigDrifted indicates the configuration has drifted
+	TokenReasonConfigDrifted = "ConfigurationDrifted"
+)
+
 // HumioTokenSpec defines the shared spec of Humio Tokens
 type HumioTokenSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio resources should be created.
@@ -43,15 +67,14 @@ type HumioTokenSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the token inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// IPFilterName is the Humio IP Filter to be attached to the Token
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	IPFilterName string `json:"ipFilterName,omitempty"`
 	// Permissions is the list of Humio permissions attached to the token
 	// +kubebuilder:validation:MaxItems=100
@@ -61,7 +84,6 @@ type HumioTokenSpec struct {
 	// ExpiresAt is the time when the token is set to expire.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=date-time
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Optional
 	ExpiresAt *metav1.Time `json:"expiresAt,omitempty"`
 	// TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the token.
@@ -82,12 +104,21 @@ type HumioTokenSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.all(key, size(key) > 0 && size(key) <= 63)",message="tokenSecretAnnotations keys must be 1-63 characters"
 	// +kubebuilder:validation:Optional
 	TokenSecretAnnotations map[string]string `json:"tokenSecretAnnotations,omitempty"`
+	// AllowDataDeletion enables deletion of the token from LogScale when the CR is deleted.
+	// If set to false, the CR will be stuck in deletion until either set to true or the humio.com/force-finalize annotation is added.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioTokenStatus defines the observed state of HumioToken.
 type HumioTokenStatus struct {
-	// State reflects the current state of the HumioToken
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioToken
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
 	// HumioID stores the Humio generated ID for the token
 	HumioID string `json:"humioId,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }

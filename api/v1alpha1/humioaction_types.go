@@ -32,6 +32,26 @@ const (
 	HumioActionStateConfigError = "ConfigError"
 )
 
+const (
+	// ActionConditionTypeReady represents whether the action is ready for use
+	ActionConditionTypeReady = "Ready"
+	// ActionConditionTypeSynced represents whether the action is synced with LogScale
+	ActionConditionTypeSynced = "Synced"
+)
+
+const (
+	// ActionReasonReady indicates the action is ready
+	ActionReasonReady = "Ready"
+	// ActionReasonCreated indicates the action was successfully created
+	ActionReasonCreated = "Created"
+	// ActionReasonUpdated indicates the action was successfully updated
+	ActionReasonUpdated = "Updated"
+	// ActionReasonNotFound indicates the action was not found in LogScale
+	ActionReasonNotFound = "NotFound"
+	// ActionReasonConfigError indicates a configuration error
+	ActionReasonConfigError = "ConfigurationError"
+)
+
 // HumioActionWebhookProperties defines the desired state of HumioActionWebhookProperties
 type HumioActionWebhookProperties struct {
 	// BodyTemplate holds the webhook body template
@@ -196,7 +216,6 @@ type HumioActionSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the Action
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Action will be managed. This can also be a Repository
@@ -219,16 +238,30 @@ type HumioActionSpec struct {
 	VictorOpsProperties *HumioActionVictorOpsProperties `json:"victorOpsProperties,omitempty"`
 	// WebhookProperties indicates this is a Webhook Action, and contains the corresponding properties
 	WebhookProperties *HumioActionWebhookProperties `json:"webhookProperties,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioActionStatus defines the observed state of HumioAction.
 type HumioActionStatus struct {
-	// State reflects the current state of the HumioAction
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioAction
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // HumioAction is the Schema for the humioactions API.
 type HumioAction struct {

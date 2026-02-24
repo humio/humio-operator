@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/suite"
 	"github.com/humio/humio-operator/internal/registries"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,12 +19,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const gitlabResponseString = `{"version": "15.8.0", "revision": "123456"}`
+const mockVersionsResponseDefault = `[{"version":"1.1.4","minHumioVersion":"1.30.0"},{"version":"1.1.3","minHumioVersion":"1.30.0"}]`
 
 func getMockHTTPClient() *registries.MockHTTPClient {
 	return humioPackageRegistryReconciler.HTTPClient.(*registries.MockHTTPClient)
@@ -55,6 +58,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "marketplace",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Marketplace: &humiov1alpha1.RegistryConnectionMarketplace{
 					URL: "https://packages.humio.com",
 				},
@@ -81,6 +85,23 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				_ = k8sClient.Get(ctx, key, k8sHpr)
 				return k8sHpr.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, k8sHpr)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(k8sHpr.Status.Conditions,
+					humiov1alpha1.PackageRegistryConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageRegistryReasonActive
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying backward compatible State field is maintained")
+			Expect(k8sHpr.Status.State).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
 			Expect(k8sHpr.Spec).Should(Equal(hprSpec))
 
 			// delete hss
@@ -121,6 +142,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "gitlab",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Gitlab: &humiov1alpha1.RegistryConnectionGitlab{
 					URL:      "https://gitlab.example.com/api/v4",
 					TokenRef: humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -147,6 +169,23 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				_ = k8sClient.Get(ctx, key, k8sHpr)
 				return k8sHpr.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, k8sHpr)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(k8sHpr.Status.Conditions,
+					humiov1alpha1.PackageRegistryConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageRegistryReasonActive
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying backward compatible State field is maintained")
+			Expect(k8sHpr.Status.State).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
 			Expect(k8sHpr.Spec).Should(Equal(hprSpec))
 
 			// delete hpr
@@ -187,6 +226,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "github",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Github: &humiov1alpha1.RegistryConnectionGithub{
 					URL:      "https://api.github.com",
 					TokenRef: humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -215,6 +255,23 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				_ = k8sClient.Get(ctx, key, k8sHpr)
 				return k8sHpr.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, k8sHpr)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(k8sHpr.Status.Conditions,
+					humiov1alpha1.PackageRegistryConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageRegistryReasonActive
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying backward compatible State field is maintained")
+			Expect(k8sHpr.Status.State).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
 			Expect(k8sHpr.Spec).Should(Equal(hprSpec))
 
 			// delete hpr
@@ -253,6 +310,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "artifactory",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Artifactory: &humiov1alpha1.RegistryConnectionArtifactory{
 					URL:        "https://mycompany.jfrog.io/artifactory",
 					TokenRef:   humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -279,6 +337,23 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				_ = k8sClient.Get(ctx, key, k8sHpr)
 				return k8sHpr.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, k8sHpr)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(k8sHpr.Status.Conditions,
+					humiov1alpha1.PackageRegistryConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageRegistryReasonActive
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying backward compatible State field is maintained")
+			Expect(k8sHpr.Status.State).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
 			Expect(k8sHpr.Spec).Should(Equal(hprSpec))
 
 			// delete hpr
@@ -338,6 +413,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "aws",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Aws: &humiov1alpha1.RegistryConnectionAws{
 					Region:     "us-east-1",
 					Domain:     "my-domain",
@@ -372,6 +448,23 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				_ = k8sClient.Get(ctx, key, k8sHpr)
 				return k8sHpr.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, k8sHpr)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(k8sHpr.Status.Conditions,
+					humiov1alpha1.PackageRegistryConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageRegistryReasonActive
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying backward compatible State field is maintained")
+			Expect(k8sHpr.Status.State).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
 			Expect(k8sHpr.Spec).Should(Equal(hprSpec))
 
 			// Verify HTTP call was made
@@ -426,6 +519,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "gcloud",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Gcloud: &humiov1alpha1.RegistryConnectionGcloud{
 					URL:        "https://artifactregistry.googleapis.com",
 					ProjectID:  "my-project",
@@ -457,6 +551,23 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				_ = k8sClient.Get(ctx, key, k8sHpr)
 				return k8sHpr.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, k8sHpr)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(k8sHpr.Status.Conditions,
+					humiov1alpha1.PackageRegistryConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageRegistryReasonActive
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Verifying backward compatible State field is maintained")
+			Expect(k8sHpr.Status.State).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
 			Expect(k8sHpr.Spec).Should(Equal(hprSpec))
 
 			// delete hpr
@@ -483,6 +594,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "marketplace",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Marketplace: &humiov1alpha1.RegistryConnectionMarketplace{
 					URL: "https://packages.humio.com",
 				},
@@ -546,6 +658,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "gitlab",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Gitlab: &humiov1alpha1.RegistryConnectionGitlab{
 					URL:      "https://gitlab.example.com/api/v4",
 					TokenRef: humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -612,6 +725,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "github",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Github: &humiov1alpha1.RegistryConnectionGithub{
 					URL:      "https://api.github.com",
 					TokenRef: humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -677,6 +791,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "artifactory",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Artifactory: &humiov1alpha1.RegistryConnectionArtifactory{
 					URL:        "https://mycompany.jfrog.io/artifactory",
 					TokenRef:   humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -761,6 +876,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "aws",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Aws: &humiov1alpha1.RegistryConnectionAws{
 					Region:     "us-east-1",
 					Domain:     "my-domain",
@@ -846,6 +962,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "gcloud",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Gcloud: &humiov1alpha1.RegistryConnectionGcloud{
 					URL:        "https://artifactregistry.googleapis.com",
 					ProjectID:  "my-project",
@@ -912,6 +1029,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "marketplace",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Marketplace: &humiov1alpha1.RegistryConnectionMarketplace{
 					URL: "https://packages.humio.com",
 				},
@@ -962,6 +1080,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:               viewName,
 					Description:        "important description",
 					Connections:        connections,
+					AllowDataDeletion:  true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
@@ -1010,6 +1129,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 						Scope:   "crowdstrike",
 						Package: "fdr",
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 
@@ -1034,7 +1154,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			zipContent, err := os.ReadFile(zipFilePath) // #nosec G304 - zipFilePath is constructed from test constants
 			Expect(err).NotTo(HaveOccurred(), "Failed to read test zip file")
 
-			mockVersionsResponse := `[{"version":"1.1.4","minHumioVersion":"1.30.0"},{"version":"1.1.3","minHumioVersion":"1.30.0"}]`
+			mockVersionsResponse := mockVersionsResponseDefault
 			setupMockHTTPResponses(mockHTTPClient, "GetWithContext", 200, mockVersionsResponse, 30, 0, mock.Anything, "https://packages.humio.com/packages/crowdstrike/fdr/versions")
 			setupMockHTTPResponses(mockHTTPClient, "GetWithContext", 200, string(zipContent), 30, 0, mock.Anything, "https://packages.humio.com/packages/crowdstrike/fdr/1.1.4/download")
 
@@ -1046,6 +1166,22 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				}
 				return foundHp.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, packageKey, foundHp)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(foundHp.Status.Conditions,
+					humiov1alpha1.PackageConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageReasonInstalled
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying backward compatible State field is maintained")
+			Expect(foundHp.Status.State).Should(Equal(humiov1alpha1.HumioPackageStateExists))
 
 			// delete k8s package
 			Expect(k8sClient.Delete(ctx, hp)).Should(Succeed())
@@ -1122,6 +1258,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "gitlab",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Gitlab: &humiov1alpha1.RegistryConnectionGitlab{
 					URL:      "https://gitlab.example.com/api/v4",
 					TokenRef: humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -1174,6 +1311,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:               viewName,
 					Description:        "important description",
 					Connections:        connections,
+					AllowDataDeletion:  true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
@@ -1224,6 +1362,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 						Package:   "fdr",
 						AssetName: "crowdstrike-fdr-1.1.4.zip",
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 
@@ -1276,6 +1415,22 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				}
 				return foundHp.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, packageKey, foundHp)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(foundHp.Status.Conditions,
+					humiov1alpha1.PackageConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageReasonInstalled
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying backward compatible State field is maintained")
+			Expect(foundHp.Status.State).Should(Equal(humiov1alpha1.HumioPackageStateExists))
 
 			// cleanup
 			Expect(k8sClient.Delete(ctx, hp)).Should(Succeed())
@@ -1351,6 +1506,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "github",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Github: &humiov1alpha1.RegistryConnectionGithub{
 					URL:      "https://api.github.com",
 					TokenRef: humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -1403,6 +1559,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:               viewName,
 					Description:        "important description",
 					Connections:        connections,
+					AllowDataDeletion:  true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
@@ -1454,6 +1611,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 						AssetName:  "crowdstrike-fdr-1.1.4.zip",
 						Tag:        "1.1.4",
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 
@@ -1508,6 +1666,22 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				}
 				return foundHp.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, packageKey, foundHp)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(foundHp.Status.Conditions,
+					humiov1alpha1.PackageConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageReasonInstalled
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying backward compatible State field is maintained")
+			Expect(foundHp.Status.State).Should(Equal(humiov1alpha1.HumioPackageStateExists))
 
 			// cleanup
 			Expect(k8sClient.Delete(ctx, hp)).Should(Succeed())
@@ -1581,6 +1755,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "artifactory",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Artifactory: &humiov1alpha1.RegistryConnectionArtifactory{
 					URL:        "https://mycompany.jfrog.io/artifactory",
 					TokenRef:   humiov1alpha1.SecretKeyRef{Name: secretName, Key: "token"},
@@ -1633,6 +1808,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:               viewName,
 					Description:        "important description",
 					Connections:        connections,
+					AllowDataDeletion:  true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
@@ -1682,6 +1858,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Artifactory: &humiov1alpha1.ArtifactoryPackageInfo{
 						FilePath: "packages/crowdstrike/fdr/1.1.4/crowdstrike-fdr-1.1.4.zip",
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 
@@ -1725,6 +1902,22 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				}
 				return foundHp.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, packageKey, foundHp)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(foundHp.Status.Conditions,
+					humiov1alpha1.PackageConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageReasonInstalled
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying backward compatible State field is maintained")
+			Expect(foundHp.Status.State).Should(Equal(humiov1alpha1.HumioPackageStateExists))
 
 			// cleanup
 			Expect(k8sClient.Delete(ctx, hp)).Should(Succeed())
@@ -1818,6 +2011,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "aws",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Aws: &humiov1alpha1.RegistryConnectionAws{
 					Region:     "us-east-1",
 					Domain:     "my-domain",
@@ -1878,6 +2072,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:               viewName,
 					Description:        "important description",
 					Connections:        connections,
+					AllowDataDeletion:  true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
@@ -1929,6 +2124,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 						Package:   "fdr",
 						Filename:  "crowdstrike-fdr-1.1.4.zip",
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 
@@ -1985,6 +2181,22 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				}
 				return foundHp.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, packageKey, foundHp)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(foundHp.Status.Conditions,
+					humiov1alpha1.PackageConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageReasonInstalled
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying backward compatible State field is maintained")
+			Expect(foundHp.Status.State).Should(Equal(humiov1alpha1.HumioPackageStateExists))
 
 			// cleanup
 			Expect(k8sClient.Delete(ctx, hp)).Should(Succeed())
@@ -2077,6 +2289,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				DisplayName:        name,
 				Enabled:            true,
 				RegistryType:       "gcloud",
+				AllowDataDeletion:  true, // Allow test cleanup
 				Gcloud: &humiov1alpha1.RegistryConnectionGcloud{
 					URL:        "https://artifactregistry.googleapis.com",
 					ProjectID:  "my-project",
@@ -2134,6 +2347,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:               viewName,
 					Description:        "important description",
 					Connections:        connections,
+					AllowDataDeletion:  true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
@@ -2184,6 +2398,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 						Package:  "fdr",
 						Filename: "crowdstrike-fdr-1.1.4.zip",
 					},
+					AllowDataDeletion: true, // Allow test cleanup
 				},
 			}
 
@@ -2231,6 +2446,22 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				return foundHp.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageStateExists))
 
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, packageKey, foundHp)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(foundHp.Status.Conditions,
+					humiov1alpha1.PackageConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.PackageReasonInstalled
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPackage: Verifying backward compatible State field is maintained")
+			Expect(foundHp.Status.State).Should(Equal(humiov1alpha1.HumioPackageStateExists))
+
 			// cleanup
 			Expect(k8sClient.Delete(ctx, hp)).Should(Succeed())
 			Eventually(func() bool {
@@ -2264,6 +2495,128 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
+
+	})
+
+	Context("Rename Tests", func() {
+		It("should block package registry rename without annotation", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      fmt.Sprintf("packageregistry-rename-blocked-%d", GinkgoRandomSeed()),
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioPackageRegistry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPackageRegistrySpec{
+					ManagedClusterName: clusterKey.Name,
+					DisplayName:        "original-registry",
+					Enabled:            true,
+					RegistryType:       "marketplace",
+					Marketplace: &humiov1alpha1.RegistryConnectionMarketplace{
+						URL: "https://packages.humio.com",
+					},
+					AllowDataDeletion: true, // Allow test cleanup
+				},
+			}
+
+			setupMockHTTPResponses(mockHTTPClient, "GetWithContext", 200, "", 2, 2, mock.Anything, mock.Anything)
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			Eventually(func() string {
+				fetched := &humiov1alpha1.HumioPackageRegistry{}
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			Eventually(func() error {
+				fetched := &humiov1alpha1.HumioPackageRegistry{}
+				if err := k8sClient.Get(ctx, key, fetched); err != nil {
+					return err
+				}
+				fetched.Spec.DisplayName = "renamed-registry"
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				fetched := &humiov1alpha1.HumioPackageRegistry{}
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateConfigError))
+
+			fetched := &humiov1alpha1.HumioPackageRegistry{}
+			Expect(k8sClient.Get(ctx, key, fetched)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should delete-recreate package registry with annotation", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      fmt.Sprintf("packageregistry-rename-allowed-%d", GinkgoRandomSeed()),
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioPackageRegistry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPackageRegistrySpec{
+					ManagedClusterName: clusterKey.Name,
+					DisplayName:        "original-registry-allowed",
+					Enabled:            true,
+					RegistryType:       "marketplace",
+					Marketplace: &humiov1alpha1.RegistryConnectionMarketplace{
+						URL: "https://packages.humio.com",
+					},
+					AllowDataDeletion: true, // Allow test cleanup
+				},
+			}
+
+			setupMockHTTPResponses(mockHTTPClient, "GetWithContext", 200, "", 2, 2, mock.Anything, mock.Anything)
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			Eventually(func() string {
+				fetched := &humiov1alpha1.HumioPackageRegistry{}
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			Eventually(func() error {
+				fetched := &humiov1alpha1.HumioPackageRegistry{}
+				if err := k8sClient.Get(ctx, key, fetched); err != nil {
+					return err
+				}
+				if fetched.Annotations == nil {
+					fetched.Annotations = make(map[string]string)
+				}
+				fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+				fetched.Spec.DisplayName = "renamed-registry-allowed"
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				fetched := &humiov1alpha1.HumioPackageRegistry{}
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPackageRegistryStateExists))
+
+			fetched := &humiov1alpha1.HumioPackageRegistry{}
+			Expect(k8sClient.Get(ctx, key, fetched)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
 	})
 })
 

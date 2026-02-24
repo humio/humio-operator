@@ -31,6 +31,30 @@ const (
 	HumioAggregateAlertStateConfigError = "ConfigError"
 )
 
+const (
+	// AggregateAlertConditionTypeReady indicates whether the aggregate alert is ready
+	AggregateAlertConditionTypeReady = "Ready"
+	// AggregateAlertConditionTypeSynced indicates whether the aggregate alert is synced with LogScale
+	AggregateAlertConditionTypeSynced = "Synced"
+)
+
+const (
+	// AggregateAlertReasonReady indicates the aggregate alert is ready
+	AggregateAlertReasonReady = "Ready"
+	// AggregateAlertReasonCreated indicates the aggregate alert was created
+	AggregateAlertReasonCreated = "Created"
+	// AggregateAlertReasonUpdated indicates the aggregate alert was updated
+	AggregateAlertReasonUpdated = "Updated"
+	// AggregateAlertReasonNotFound indicates the aggregate alert was not found
+	AggregateAlertReasonNotFound = "NotFound"
+	// AggregateAlertReasonConfigError indicates a configuration error
+	AggregateAlertReasonConfigError = "ConfigurationError"
+	// AggregateAlertReasonConfigSynced indicates the configuration is synced
+	AggregateAlertReasonConfigSynced = "ConfigurationSynced"
+	// AggregateAlertReasonConfigDrifted indicates the configuration has drifted
+	AggregateAlertReasonConfigDrifted = "ConfigurationDrifted"
+)
+
 // HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioAggregateAlertSpec struct {
@@ -47,7 +71,6 @@ type HumioAggregateAlertSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the aggregate alert inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the aggregate alert will be managed. This can also be a Repository
@@ -77,16 +100,31 @@ type HumioAggregateAlertSpec struct {
 	// Labels are a set of labels on the aggregate alert
 	// +kubebuilder:validation:Optional
 	Labels []string `json:"labels,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert.
 type HumioAggregateAlertStatus struct {
-	// State reflects the current state of HumioAggregateAlert
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of HumioAggregateAlert
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // HumioAggregateAlert is the Schema for the humioaggregatealerts API.
 type HumioAggregateAlert struct {

@@ -1051,6 +1051,16 @@ func licenseSecretKeyRefOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Secret
 	return hc.Spec.License.SecretKeyRef
 }
 
+func bootstrapTokenAutoCreateOrDefault(hc *humiov1alpha1.HumioCluster) bool {
+	if hc.Spec.BootstrapToken == nil {
+		return true
+	}
+	if hc.Spec.BootstrapToken.AutoCreate == nil {
+		return true
+	}
+	return *hc.Spec.BootstrapToken.AutoCreate
+}
+
 type HumioNodePoolList struct {
 	Items []*HumioNodePool
 }

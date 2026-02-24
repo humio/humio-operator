@@ -31,6 +31,30 @@ const (
 	HumioSystemPermissionRoleStateConfigError = "ConfigError"
 )
 
+const (
+	// SystemPermissionRoleConditionTypeReady indicates whether the system permission role is ready
+	SystemPermissionRoleConditionTypeReady = "Ready"
+	// SystemPermissionRoleConditionTypeSynced indicates whether the system permission role is synced with LogScale
+	SystemPermissionRoleConditionTypeSynced = "Synced"
+)
+
+const (
+	// SystemPermissionRoleReasonReady indicates the system permission role is ready
+	SystemPermissionRoleReasonReady = "Ready"
+	// SystemPermissionRoleReasonCreated indicates the system permission role was created
+	SystemPermissionRoleReasonCreated = "Created"
+	// SystemPermissionRoleReasonUpdated indicates the system permission role was updated
+	SystemPermissionRoleReasonUpdated = "Updated"
+	// SystemPermissionRoleReasonNotFound indicates the system permission role was not found
+	SystemPermissionRoleReasonNotFound = "NotFound"
+	// SystemPermissionRoleReasonConfigError indicates a configuration error
+	SystemPermissionRoleReasonConfigError = "ConfigurationError"
+	// SystemPermissionRoleReasonConfigSynced indicates the configuration is synced
+	SystemPermissionRoleReasonConfigSynced = "ConfigurationSynced"
+	// SystemPermissionRoleReasonConfigDrifted indicates the configuration has drifted
+	SystemPermissionRoleReasonConfigDrifted = "ConfigurationDrifted"
+)
+
 // HumioSystemPermissionRoleSpec defines the desired state of HumioSystemPermissionRole.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioSystemPermissionRoleSpec struct {
@@ -43,7 +67,6 @@ type HumioSystemPermissionRoleSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the role inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// Permissions is the list of system permissions that this role grants.
@@ -59,16 +82,31 @@ type HumioSystemPermissionRoleSpec struct {
 	// +kubebuilder:validation:items:MinLength=1
 	// +listType=set
 	RoleAssignmentGroupNames []string `json:"roleAssignmentGroupNames,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioSystemPermissionRoleStatus defines the observed state of HumioSystemPermissionRole.
 type HumioSystemPermissionRoleStatus struct {
-	// State reflects the current state of the HumioSystemPermissionRole
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioSystemPermissionRole
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // HumioSystemPermissionRole is the Schema for the humiosystempermissionroles API.
 type HumioSystemPermissionRole struct {

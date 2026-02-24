@@ -385,7 +385,7 @@ func (h *MockClientConfig) AddRepository(_ context.Context, _ *humioapi.Client, 
 	value := &humiographql.RepositoryDetails{
 		Id:                        kubernetes.RandomString(),
 		Name:                      hr.Spec.Name,
-		Description:               &hr.Spec.Description,
+		Description:               hr.Spec.Description,
 		TimeBasedRetention:        &retentionInDays,
 		IngestSizeBasedRetention:  &ingestSizeInGB,
 		StorageSizeBasedRetention: &storageSizeInGB,
@@ -440,7 +440,7 @@ func (h *MockClientConfig) UpdateRepository(_ context.Context, _ *humioapi.Clien
 	value := &humiographql.RepositoryDetails{
 		Id:                        currentRepository.GetId(),
 		Name:                      hr.Spec.Name,
-		Description:               &hr.Spec.Description,
+		Description:               hr.Spec.Description,
 		TimeBasedRetention:        &retentionInDays,
 		IngestSizeBasedRetention:  &ingestSizeInGB,
 		StorageSizeBasedRetention: &storageSizeInGB,
@@ -463,6 +463,82 @@ func (h *MockClientConfig) DeleteRepository(_ context.Context, _ *humioapi.Clien
 	}
 
 	delete(h.apiClient.Repository, key)
+	return nil
+}
+
+func (h *MockClientConfig) RenameRepository(_ context.Context, _ *humioapi.Client, oldName, newName string) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	// Find the repository with the old name across all clusters
+	var found bool
+	var foundKey resourceKey
+	var repoData humiographql.RepositoryDetails
+
+	for key, repo := range h.apiClient.Repository {
+		if key.resourceName == oldName {
+			found = true
+			foundKey = key
+			repoData = repo
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("repository %q not found, err=%w", oldName, humioapi.EntityNotFound{})
+	}
+
+	// Delete the old entry
+	delete(h.apiClient.Repository, foundKey)
+
+	// Update the name in the repository data
+	repoData.Name = newName
+
+	// Create new entry with new name
+	newKey := resourceKey{
+		clusterName:  foundKey.clusterName,
+		resourceName: newName,
+	}
+	h.apiClient.Repository[newKey] = repoData
+
+	return nil
+}
+
+func (h *MockClientConfig) RenameView(_ context.Context, _ *humioapi.Client, oldName, newName string) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	// Find the view with the old name across all clusters
+	var found bool
+	var foundKey resourceKey
+	var viewData humiographql.GetSearchDomainSearchDomainView
+
+	for key, view := range h.apiClient.View {
+		if key.resourceName == oldName {
+			found = true
+			foundKey = key
+			viewData = view
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("view %q not found, err=%w", oldName, humioapi.EntityNotFound{})
+	}
+
+	// Delete the old entry
+	delete(h.apiClient.View, foundKey)
+
+	// Update the name in the view data
+	viewData.Name = newName
+
+	// Create new entry with new name
+	newKey := resourceKey{
+		clusterName:  foundKey.clusterName,
+		resourceName: newName,
+	}
+	h.apiClient.View[newKey] = viewData
+
 	return nil
 }
 
@@ -1309,7 +1385,29 @@ func (h *MockClientConfig) ValidateActionsForFilterAlert(context.Context, *humio
 }
 
 func (h *MockClientConfig) GetFeatureFlags(_ context.Context, _ *humioapi.Client) ([]string, error) {
-	return []string{"ArrayFunctions"}, nil
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	// Return a predefined list of supported feature flags
+	// In a real LogScale cluster, this would be the list of all feature flags that can be enabled
+	// For testing, we include all commonly used flags plus any that have been enabled
+	supportedFlags := []string{
+		"ArrayFunctions",
+		"FleetCollectorMetrics",
+		"FleetRemoteUpdates",
+		"LogAverageUsage",
+		"EmailActions",
+		"SlackActions",
+	}
+
+	// Also include any flags that have been enabled (for backwards compatibility)
+	for key := range h.apiClient.FeatureFlag {
+		if !slices.Contains(supportedFlags, key.resourceName) {
+			supportedFlags = append(supportedFlags, key.resourceName)
+		}
+	}
+
+	return supportedFlags, nil
 }
 
 func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
@@ -1341,6 +1439,10 @@ func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.C
 		resourceName: featureFlag.Spec.Name,
 	}
 	if value, found := h.apiClient.FeatureFlag[key]; found {
+		// If flag exists and is false, treat it as disabled (return EntityNotFound)
+		if !value {
+			return false, fmt.Errorf("feature flag %q is disabled, err=%w", featureFlag.Spec.Name, humioapi.EntityNotFound{})
+		}
 		return value, nil
 	}
 	return false, fmt.Errorf("could not find feature flag with name %q, err=%w", featureFlag.Spec.Name, humioapi.EntityNotFound{})
@@ -1355,6 +1457,8 @@ func (h *MockClientConfig) DisableFeatureFlag(_ context.Context, _ *humioapi.Cli
 		resourceName: featureFlag.Spec.Name,
 	}
 
+	// Disabling a feature flag means setting it to false (not deleting)
+	// This way it still exists in the map, but is marked as disabled
 	h.apiClient.FeatureFlag[key] = false
 	return nil
 }

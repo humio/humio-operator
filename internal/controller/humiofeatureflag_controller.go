@@ -15,6 +15,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -49,12 +52,8 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	err := r.Get(ctx, req.NamespacedName, featureFlag)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
@@ -62,7 +61,11 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	cluster, err := helpers.NewCluster(ctx, r, featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName, featureFlag.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateConfigError, featureFlag)
+		setStateErr := r.setCondition(ctx, featureFlag,
+			humiov1alpha1.FeatureFlagConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.FeatureFlagReasonConfigError,
+			fmt.Sprintf("Unable to obtain humio client config: %v", err))
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set feature flag state")
 		}
@@ -71,87 +74,159 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	featureFlagNames, err := r.HumioClient.GetFeatureFlags(ctx, humioHttpClient)
-	if !slices.Contains(featureFlagNames, featureFlag.Spec.Name) {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateConfigError, featureFlag)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set feature flag state")
-		}
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "feature flag with the specified name does not exist supported feature flags: "+strings.Join(featureFlagNames, ", "))
-	}
-
-	defer func(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag) {
-		enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
-		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateNotFound, featureFlag)
-			return
-		}
-		if enabled {
-			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateExists, featureFlag)
-			return
-		}
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateUnknown, featureFlag)
-		}
-	}(ctx, featureFlag)
-
-	// Delete
+	// Check for deletion FIRST, before any validation or processing
 	r.Log.Info("Checking if feature flag is marked to be deleted")
 	if featureFlag.GetDeletionTimestamp() != nil {
 		r.Log.Info("Feature flag marked to be deleted")
-		if helpers.ContainsElement(featureFlag.GetFinalizers(), HumioFinalizer) {
-			enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
-			objErr := r.Get(ctx, req.NamespacedName, featureFlag)
-			if errors.As(objErr, &humioapi.EntityNotFound{}) || !enabled || errors.As(err, &humioapi.EntityNotFound{}) {
-				featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), HumioFinalizer))
-				err := r.Update(ctx, featureFlag)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
-			}
+		return r.handleFeatureFlagDeletion(ctx, featureFlag, humioHttpClient, req)
+	}
 
-			// Run finalization logic for humioFinalizer. If the
-			// finalization logic fails, don't remove the finalizer so
-			// that we can retry during the next reconciliation.
-			r.Log.Info("Deleting feature flag")
-			if err := r.HumioClient.DisableFeatureFlag(ctx, humioHttpClient, featureFlag); err != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(err, "disable feature flag returned error")
-			}
-			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
-		}
+	// Validate that the feature flag name exists in LogScale
+	if err := r.validateFeatureFlagName(ctx, featureFlag, humioHttpClient); err != nil {
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
+	}
+
+	// Register defer for status updates
+	defer r.updateFeatureFlagStatus(ctx, featureFlag, humioHttpClient)
+
+	// Ensure the feature flag is enabled
+	if err := r.ensureFeatureFlagEnabled(ctx, featureFlag, humioHttpClient); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Add finalizer if not present
+	if err := r.ensureFinalizer(ctx, featureFlag); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+}
+
+// handleFeatureFlagDeletion handles the deletion logic for feature flags
+func (r *HumioFeatureFlagReconciler) handleFeatureFlagDeletion(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag, humioHttpClient *humioapi.Client, req ctrl.Request) (ctrl.Result, error) {
+	if !helpers.ContainsElement(featureFlag.GetFinalizers(), HumioFinalizer) {
 		return reconcile.Result{}, nil
 	}
 
+	// Check if resource is in ConfigError state - if so, skip LogScale cleanup
+	condition := meta.FindStatusCondition(featureFlag.Status.Conditions, humiov1alpha1.FeatureFlagConditionTypeReady)
+	inConfigError := condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == humiov1alpha1.FeatureFlagReasonConfigError
+
+	if inConfigError {
+		r.Log.Info("Feature flag is in ConfigError state, skipping LogScale cleanup and removing finalizer")
+		featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, featureFlag)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("Finalizer removed successfully")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
+	objErr := r.Get(ctx, req.NamespacedName, featureFlag)
+	if errors.As(objErr, &humioapi.EntityNotFound{}) || !enabled || errors.As(err, &humioapi.EntityNotFound{}) {
+		featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, featureFlag)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("Finalizer removed successfully")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Run finalization logic - disable the feature flag
+	r.Log.Info("Deleting feature flag")
+	if err := r.HumioClient.DisableFeatureFlag(ctx, humioHttpClient, featureFlag); err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "disable feature flag returned error")
+	}
+	// If no error was detected, we need to requeue so that we can remove the finalizer
+	return reconcile.Result{Requeue: true}, nil
+}
+
+// validateFeatureFlagName validates that the specified feature flag name exists in LogScale
+func (r *HumioFeatureFlagReconciler) validateFeatureFlagName(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag, humioHttpClient *humioapi.Client) error {
+	featureFlagNames, err := r.HumioClient.GetFeatureFlags(ctx, humioHttpClient)
+	if !slices.Contains(featureFlagNames, featureFlag.Spec.Name) {
+		setStateErr := r.setCondition(ctx, featureFlag,
+			humiov1alpha1.FeatureFlagConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.FeatureFlagReasonConfigError,
+			fmt.Sprintf("Feature flag '%s' does not exist. Supported feature flags: %s", featureFlag.Spec.Name, strings.Join(featureFlagNames, ", ")))
+		if setStateErr != nil {
+			return r.logErrorAndReturn(setStateErr, "unable to set feature flag state")
+		}
+		return r.logErrorAndReturn(err, "feature flag with the specified name does not exist supported feature flags: "+strings.Join(featureFlagNames, ", "))
+	}
+	return nil
+}
+
+// updateFeatureFlagStatus updates the status conditions based on current state in LogScale
+func (r *HumioFeatureFlagReconciler) updateFeatureFlagStatus(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag, humioHttpClient *humioapi.Client) {
+	// Skip status updates if the resource is being deleted
+	if featureFlag.GetDeletionTimestamp() != nil {
+		return
+	}
+
+	enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		_ = r.setCondition(ctx, featureFlag,
+			humiov1alpha1.FeatureFlagConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.FeatureFlagReasonNotFound,
+			"Feature flag not found")
+		return
+	}
+	if enabled {
+		_ = r.setCondition(ctx, featureFlag,
+			humiov1alpha1.FeatureFlagConditionTypeReady,
+			metav1.ConditionTrue,
+			humiov1alpha1.FeatureFlagReasonReady,
+			"Feature flag is enabled")
+		return
+	}
 	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "the specified feature flag does not exist")
+		_ = r.setCondition(ctx, featureFlag,
+			humiov1alpha1.FeatureFlagConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.FeatureFlagReasonUnknown,
+			fmt.Sprintf("Unable to determine feature flag state: %v", err))
+	}
+}
+
+// ensureFeatureFlagEnabled ensures the feature flag is enabled in LogScale
+func (r *HumioFeatureFlagReconciler) ensureFeatureFlagEnabled(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag, humioHttpClient *humioapi.Client) error {
+	enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
+	// Treat EntityNotFound as "disabled" - the flag exists in LogScale's supported list but isn't enabled yet
+	if err != nil && !errors.As(err, &humioapi.EntityNotFound{}) {
+		return r.logErrorAndReturn(err, "failed to check feature flag status")
 	}
 
 	r.Log.Info("Checking if feature flag needs to be updated")
-	if !enabled {
+	// Enable the flag if it's not enabled (including EntityNotFound case)
+	if !enabled || errors.As(err, &humioapi.EntityNotFound{}) {
 		err = r.HumioClient.EnableFeatureFlag(ctx, humioHttpClient, featureFlag)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not enable feature flag")
+			return r.logErrorAndReturn(err, "could not enable feature flag")
 		}
 		r.Log.Info(fmt.Sprintf("Successfully enabled feature flag %s", featureFlag.Spec.Name))
 	}
+	return nil
+}
 
-	// Add finalizer
+// ensureFinalizer adds the finalizer if it's not present
+func (r *HumioFeatureFlagReconciler) ensureFinalizer(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
 	r.Log.Info("Checking if feature flag requires finalizer")
 	if !helpers.ContainsElement(featureFlag.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to feature flag")
 		featureFlag.SetFinalizers(append(featureFlag.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, featureFlag)
 		if err != nil {
-			return reconcile.Result{}, err
+			return err
 		}
 	}
-
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -162,13 +237,52 @@ func (r *HumioFeatureFlagReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioFeatureFlagReconciler) setState(ctx context.Context, state string, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
-	if featureFlag.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioFeatureFlag resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioFeatureFlagReconciler) setCondition(ctx context.Context,
+	featureFlag *humiov1alpha1.HumioFeatureFlag,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioFeatureFlag{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(featureFlag), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = r.stateFromCondition(status, reason)
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+// stateFromCondition converts condition status and reason to legacy State field value
+//
+//nolint:unparam // reason parameter kept for consistency with other controllers
+func (r *HumioFeatureFlagReconciler) stateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioFeatureFlagStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting feature flag state to %s", state))
-	featureFlag.Status.State = state
-	return r.Status().Update(ctx, featureFlag)
+	switch reason {
+	case humiov1alpha1.FeatureFlagReasonNotFound:
+		return humiov1alpha1.HumioFeatureFlagStateNotFound
+	case humiov1alpha1.FeatureFlagReasonConfigError:
+		return humiov1alpha1.HumioFeatureFlagStateConfigError
+	default:
+		return humiov1alpha1.HumioFeatureFlagStateUnknown
+	}
 }
 
 func (r *HumioFeatureFlagReconciler) logErrorAndReturn(err error, msg string) error {

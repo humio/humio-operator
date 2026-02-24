@@ -40,6 +40,30 @@ const (
 	HumioPackageStateConfigError = "ConfigError"
 )
 
+const (
+	// PackageConditionTypeReady indicates whether the Package is ready
+	PackageConditionTypeReady = "Ready"
+	// PackageConditionTypeSynced indicates whether the Package is synchronized with Humio
+	PackageConditionTypeSynced = "Synced"
+)
+
+const (
+	// PackageReasonReady indicates the Package is ready
+	PackageReasonReady = "Ready"
+	// PackageReasonInstalled indicates the Package was installed
+	PackageReasonInstalled = "Installed"
+	// PackageReasonFailed indicates the Package installation failed
+	PackageReasonFailed = "Failed"
+	// PackageReasonPartialFailed indicates the Package was partially installed
+	PackageReasonPartialFailed = "PartialFailed"
+	// PackageReasonNotFound indicates the Package was not found
+	PackageReasonNotFound = "NotFound"
+	// PackageReasonConfigError indicates a configuration error
+	PackageReasonConfigError = "ConfigurationError"
+	// PackageReasonUnknown indicates the Package state is unknown
+	PackageReasonUnknown = "Unknown"
+)
+
 // HumioPackageSpec defines the desired state of HumioPackage
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 // +kubebuilder:validation:XValidation:rule="[has(self.marketplace) && self.marketplace != null, has(self.gitlab) && self.gitlab != null, has(self.github) && self.github != null, has(self.aws) && self.aws != null, has(self.artifactory) && self.artifactory != null, has(self.gcloud) && self.gcloud != null].filter(x, x).size() == 1",message="Must specify exactly one of marketplace, gitlab, github, aws, artifactory, or gcloud configuration"
@@ -56,9 +80,11 @@ type HumioPackageSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// PackageName is the name of the LogScale package to install (e.g., "crowdstrike/fdr").
 	// This corresponds to the package name field in the package's manifest.yaml file.
+	// This field is immutable after creation because it identifies which specific package to install.
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="PackageName is immutable"
 	PackageName string `json:"packageName"`
 	// PackageVersion is the specific version of the package to install (e.g., "1.2.3").
 	// This must match exactly with the version field in the package's manifest.yaml file.
@@ -111,6 +137,10 @@ type HumioPackageSpec struct {
 	// Required when using a Google Cloud registry. Must specify exactly one registry type configuration.
 	// +optional
 	Gcloud *GcloudPackageInfo `json:"gcloud,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // MarketplacePackageInfo contains configuration for LogScale Marketplace packages.
@@ -293,17 +323,22 @@ func (spec *HumioPackageSpec) ResolveInstallTargets(ctx context.Context, client 
 
 // HumioPackageStatus defines the observed state of HumioPackage.
 type HumioPackageStatus struct {
-	// State reflects the current state of the HumioPackage
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioPackage
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
 	// Message displays the last detected state message set via the reconciler
 	Message string `json:"message,omitempty"`
 	// HumioPackageName displays the Humio package name installed extracted from manifest.yaml
 	HumioPackageName string `json:"humioPackageName,omitempty"`
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humiopackages,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the package"
 // +kubebuilder:printcolumn:name="HumioPackageName",type="string",JSONPath=".status.humioPackageName",description="The package name as installed in Humio"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message",description="The last state message detected by the reconciler"

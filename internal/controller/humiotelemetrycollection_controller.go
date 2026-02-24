@@ -29,6 +29,7 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -732,7 +733,45 @@ func (r *HumioTelemetryCollectionReconciler) updateStatusWithDetails(ctx context
 			return err
 		}
 
+		// BACKWARD COMPATIBILITY: Update State field
 		current.Status.State = state
+
+		// Update Conditions
+		var conditionStatus metav1.ConditionStatus
+		var reason string
+		var message string
+
+		switch state {
+		case humiov1alpha1.HumioTelemetryCollectionStateCollecting:
+			conditionStatus = metav1.ConditionTrue
+			reason = humiov1alpha1.TelemetryCollectionReasonCollecting
+			message = "Telemetry collection in progress"
+		case humiov1alpha1.HumioTelemetryCollectionStateEnabled:
+			conditionStatus = metav1.ConditionTrue
+			reason = humiov1alpha1.TelemetryCollectionReasonEnabled
+			message = "Telemetry collection enabled and operational"
+		case humiov1alpha1.HumioTelemetryCollectionStateDisabled:
+			conditionStatus = metav1.ConditionFalse
+			reason = humiov1alpha1.TelemetryCollectionReasonDisabled
+			message = "Telemetry collection disabled"
+		case humiov1alpha1.HumioTelemetryCollectionStateConfigError:
+			conditionStatus = metav1.ConditionFalse
+			reason = humiov1alpha1.TelemetryCollectionReasonConfigError
+			message = "Configuration error"
+		default:
+			conditionStatus = metav1.ConditionUnknown
+			reason = humiov1alpha1.TelemetryCollectionReasonUnknown
+			message = "Unknown state"
+		}
+
+		meta.SetStatusCondition(&current.Status.Conditions, metav1.Condition{
+			Type:               humiov1alpha1.TelemetryCollectionConditionTypeReady,
+			Status:             conditionStatus,
+			ObservedGeneration: current.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
 
 		if collectionStatus != nil {
 			if current.Status.CollectionStatus == nil {

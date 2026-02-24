@@ -271,6 +271,50 @@ var _ = Describe("HumioCluster Defaults", func() {
 			))
 		})
 	})
+
+	Context("Bootstrap Token Auto Create Defaults", func() {
+		It("Should return true when BootstrapToken is nil", func() {
+			hc := &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					// BootstrapToken is nil
+				},
+			}
+			Expect(bootstrapTokenAutoCreateOrDefault(hc)).To(BeTrue())
+		})
+
+		It("Should return true when AutoCreate is nil", func() {
+			hc := &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					BootstrapToken: &humiov1alpha1.HumioBootstrapTokenConfig{
+						// AutoCreate is nil
+					},
+				},
+			}
+			Expect(bootstrapTokenAutoCreateOrDefault(hc)).To(BeTrue())
+		})
+
+		It("Should return true when AutoCreate is explicitly set to true", func() {
+			hc := &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					BootstrapToken: &humiov1alpha1.HumioBootstrapTokenConfig{
+						AutoCreate: helpers.BoolPtr(true),
+					},
+				},
+			}
+			Expect(bootstrapTokenAutoCreateOrDefault(hc)).To(BeTrue())
+		})
+
+		It("Should return false when AutoCreate is explicitly set to false", func() {
+			hc := &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					BootstrapToken: &humiov1alpha1.HumioBootstrapTokenConfig{
+						AutoCreate: helpers.BoolPtr(false),
+					},
+				},
+			}
+			Expect(bootstrapTokenAutoCreateOrDefault(hc)).To(BeFalse())
+		})
+	})
 })
 
 func Test_constructContainerArgs(t *testing.T) {

@@ -34,7 +34,10 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -84,13 +87,28 @@ func (r *HumioMultiClusterSearchViewReconciler) Reconcile(ctx context.Context, r
 
 	cluster, err := helpers.NewCluster(ctx, r, hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName, hv.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioMultiClusterSearchViewStateConfigError, hv)
+		setStateErr := r.setCondition(ctx, hv,
+			humiov1alpha1.MultiClusterSearchViewConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.MultiClusterSearchViewReasonConfigError,
+			fmt.Sprintf("Unable to obtain humio client config: %v", err))
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hv)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle multi-cluster search view rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
 
 	// Delete
 	r.Log.Info("Checking if view is marked to be deleted")
@@ -136,14 +154,26 @@ func (r *HumioMultiClusterSearchViewReconciler) Reconcile(ctx context.Context, r
 	defer func(ctx context.Context, hv *humiov1alpha1.HumioMultiClusterSearchView) {
 		_, err := r.HumioClient.GetMultiClusterSearchView(ctx, humioHttpClient, hv)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioMultiClusterSearchViewStateNotFound, hv)
+			_ = r.setCondition(ctx, hv,
+				humiov1alpha1.MultiClusterSearchViewConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.MultiClusterSearchViewReasonNotFound,
+				"Multi-cluster search view not found")
 			return
 		}
 		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioMultiClusterSearchViewStateUnknown, hv)
+			_ = r.setCondition(ctx, hv,
+				humiov1alpha1.MultiClusterSearchViewConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.MultiClusterSearchViewReasonUnknown,
+				fmt.Sprintf("Unable to determine multi-cluster search view state: %v", err))
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioMultiClusterSearchViewStateExists, hv)
+		_ = r.setCondition(ctx, hv,
+			humiov1alpha1.MultiClusterSearchViewConditionTypeReady,
+			metav1.ConditionTrue,
+			humiov1alpha1.MultiClusterSearchViewReasonReady,
+			"Multi-cluster search view is ready")
 	}(ctx, hv)
 
 	connectionDetailsIncludingAPIToken, err := r.getConnectionDetailsIncludingAPIToken(ctx, hv)
@@ -159,7 +189,11 @@ func (r *HumioMultiClusterSearchViewReconciler) Reconcile(ctx context.Context, r
 			addErr := r.HumioClient.AddMultiClusterSearchView(ctx, humioHttpClient, hv, connectionDetailsIncludingAPIToken)
 			if addErr != nil {
 				if strings.Contains(addErr.Error(), "The feature MultiClusterSearch is not enabled") {
-					setStateErr := r.setState(ctx, humiov1alpha1.HumioMultiClusterSearchViewStateConfigError, hv)
+					setStateErr := r.setCondition(ctx, hv,
+						humiov1alpha1.MultiClusterSearchViewConditionTypeReady,
+						metav1.ConditionFalse,
+						humiov1alpha1.MultiClusterSearchViewReasonConfigError,
+						"MultiClusterSearch feature is not enabled")
 					if setStateErr != nil {
 						return reconcile.Result{}, err
 					}
@@ -196,13 +230,57 @@ func (r *HumioMultiClusterSearchViewReconciler) SetupWithManager(mgr ctrl.Manage
 		Complete(r)
 }
 
-func (r *HumioMultiClusterSearchViewReconciler) setState(ctx context.Context, state string, hr *humiov1alpha1.HumioMultiClusterSearchView) error {
-	if hr.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioMultiClusterSearchView resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioMultiClusterSearchViewReconciler) setCondition(ctx context.Context,
+	hv *humiov1alpha1.HumioMultiClusterSearchView,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioMultiClusterSearchView{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hv), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = r.stateFromCondition(status, reason)
+
+		// Track the synced name when multi-cluster search view exists successfully
+		if status == metav1.ConditionTrue && reason == humiov1alpha1.MultiClusterSearchViewReasonReady {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+// stateFromCondition converts condition status and reason to legacy State field value
+//
+//nolint:unparam // reason parameter kept for consistency with other controllers
+func (r *HumioMultiClusterSearchViewReconciler) stateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioMultiClusterSearchViewStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting view state to %s", state))
-	hr.Status.State = state
-	return r.Status().Update(ctx, hr)
+	switch reason {
+	case humiov1alpha1.MultiClusterSearchViewReasonNotFound:
+		return humiov1alpha1.HumioMultiClusterSearchViewStateNotFound
+	case humiov1alpha1.MultiClusterSearchViewReasonConfigError:
+		return humiov1alpha1.HumioMultiClusterSearchViewStateConfigError
+	default:
+		return humiov1alpha1.HumioMultiClusterSearchViewStateUnknown
+	}
 }
 
 func (r *HumioMultiClusterSearchViewReconciler) logErrorAndReturn(err error, msg string) error {
@@ -351,4 +429,40 @@ func customResourceWithClusterIdentityTags(hv *humiov1alpha1.HumioMultiClusterSe
 		}
 	}
 	return copyOfCustomResourceWithClusterIdentityTags
+}
+
+// detectAndHandleRename checks if the multi-cluster search view name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioMultiClusterSearchViewReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hmcsv *humiov1alpha1.HumioMultiClusterSearchView) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "multi-cluster search view",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioMultiClusterSearchView).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioMultiClusterSearchView).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioMultiClusterSearchView).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioMultiClusterSearchView).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteMultiClusterSearchView(ctx, apiClient, obj.(*humiov1alpha1.HumioMultiClusterSearchView))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioMultiClusterSearchView),
+				humiov1alpha1.MultiClusterSearchViewConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.MultiClusterSearchViewReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hmcsv, config, r.Log)
 }

@@ -50,12 +50,38 @@ const (
 	HumioPersistentVolumeReclaimTypeOnNodeDelete = "OnNodeDelete"
 )
 
+const (
+	// ClusterConditionTypeReady indicates whether the cluster is ready
+	ClusterConditionTypeReady = "Ready"
+	// ClusterConditionTypeSynced indicates whether the cluster configuration is synced
+	ClusterConditionTypeSynced = "Synced"
+)
+
+const (
+	// ClusterReasonReady indicates the cluster is running and ready
+	ClusterReasonReady = "Ready"
+	// ClusterReasonRunning indicates the cluster is running normally
+	ClusterReasonRunning = "Running"
+	// ClusterReasonRestarting indicates the cluster is restarting
+	ClusterReasonRestarting = "Restarting"
+	// ClusterReasonUpgrading indicates the cluster is being upgraded
+	ClusterReasonUpgrading = "Upgrading"
+	// ClusterReasonConfigError indicates a configuration error
+	ClusterReasonConfigError = "ConfigurationError"
+	// ClusterReasonPending indicates the cluster is pending
+	ClusterReasonPending = "Pending"
+	// ClusterReasonBootstrapping indicates the cluster is bootstrapping
+	ClusterReasonBootstrapping = "Bootstrapping"
+)
+
 // HumioClusterSpec defines the desired state of HumioCluster.
 type HumioClusterSpec struct {
 	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
 	// If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
 	// Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.
 	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
+	// BootstrapToken controls bootstrap token creation behavior
+	BootstrapToken *HumioBootstrapTokenConfig `json:"bootstrapToken,omitempty"`
 	// OperatorFeatureFlags contains feature flags applied to the Humio operator.
 	OperatorFeatureFlags HumioOperatorFeatureFlags `json:"featureFlags,omitempty"`
 	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
@@ -110,6 +136,14 @@ type HumioClusterSpec struct {
 	// TelemetryConfig contains the configuration for telemetry collection when enabled
 	// Telemetry is enabled if this field is not nil
 	TelemetryConfig *HumioTelemetryConfig `json:"telemetryConfig,omitempty"`
+}
+
+// HumioBootstrapTokenConfig controls bootstrap token creation behavior for a HumioCluster
+type HumioBootstrapTokenConfig struct {
+	// AutoCreate controls whether the operator should automatically create HumioBootstrapToken CRs.
+	// When false, the operator expects users to create their own HumioBootstrapToken CR.
+	// When nil, defaults to true (maintains backward compatibility).
+	AutoCreate *bool `json:"autoCreate,omitempty"`
 }
 
 // HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.
@@ -485,8 +519,14 @@ type HumioNodePoolStatus struct {
 
 // HumioClusterStatus defines the observed state of HumioCluster.
 type HumioClusterStatus struct {
-	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Empty before cluster is bootstrapped, then "Running", "Upgrading", "Restarting" or "Pending"
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
 	// Message contains additional information about the state of the cluster
 	Message string `json:"message,omitempty"`
 	// Version is the version of humio running
@@ -583,6 +623,7 @@ type HumioTelemetryStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the cluster"
 // +kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.nodeCount",description="The number of nodes in the cluster"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humio"

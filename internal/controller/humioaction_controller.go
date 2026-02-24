@@ -32,6 +32,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -80,25 +83,52 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
+		setStateErr := r.setCondition(ctx, ha,
+			humiov1alpha1.ActionConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.ActionReasonConfigError,
+			fmt.Sprintf("Unable to obtain humio client config: %v", err))
 		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action state")
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action condition")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, ha)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle action rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
+
 	defer func(ctx context.Context, ha *humiov1alpha1.HumioAction) {
 		_, err := r.HumioClient.GetAction(ctx, humioHttpClient, ha)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioActionStateNotFound, ha)
+			_ = r.setCondition(ctx, ha,
+				humiov1alpha1.ActionConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.ActionReasonNotFound,
+				"Action not found in LogScale")
 			return
 		}
 		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioActionStateUnknown, ha)
+			_ = r.setCondition(ctx, ha,
+				humiov1alpha1.ActionConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.ActionReasonConfigError,
+				fmt.Sprintf("Error getting action: %v", err))
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioActionStateExists, ha)
+		_ = r.setCondition(ctx, ha,
+			humiov1alpha1.ActionConditionTypeReady,
+			metav1.ConditionTrue,
+			humiov1alpha1.ActionReasonReady,
+			"Action exists in LogScale")
 	}(ctx, ha)
 
 	return r.reconcileHumioAction(ctx, humioHttpClient, ha)
@@ -125,9 +155,27 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting Action")
+
+			// Check if data deletion is allowed
+			if !ha.Spec.AllowDataDeletion {
+				err := fmt.Errorf("action may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete Action blocked")
+			}
+
+			// Audit log before deletion
+			r.Log.Info("Proceeding with action deletion",
+				"allowDataDeletion", ha.Spec.AllowDataDeletion,
+				"actionName", ha.Spec.Name,
+				"viewName", ha.Spec.ViewName,
+				"namespace", ha.Namespace,
+				"deletionTimestamp", ha.GetDeletionTimestamp(),
+			)
+
 			if err := r.HumioClient.DeleteAction(ctx, client, ha); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete Action returned error")
 			}
+
+			r.Log.Info("Successfully deleted action", "actionName", ha.Spec.Name)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -153,9 +201,13 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 
 	if _, validateErr := humio.ActionFromActionCR(ha); validateErr != nil {
 		r.Log.Error(validateErr, "unable to validate action")
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
+		setStateErr := r.setCondition(ctx, ha,
+			humiov1alpha1.ActionConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.ActionReasonConfigError,
+			fmt.Sprintf("Validation error: %v", validateErr))
 		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action state")
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action condition")
 		}
 		return reconcile.Result{}, validateErr
 	}
@@ -306,13 +358,55 @@ func (r *HumioActionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioActionReconciler) setState(ctx context.Context, state string, hr *humiov1alpha1.HumioAction) error {
-	if hr.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioAction resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioActionReconciler) setCondition(ctx context.Context,
+	ha *humiov1alpha1.HumioAction,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioAction{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(ha), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = stateFromCondition(status, reason)
+
+		// Track the synced name when action is ready
+		if conditionType == humiov1alpha1.ActionConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+// stateFromCondition converts condition status and reason to legacy State field for backward compatibility
+func stateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioActionStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting action state to %s", state))
-	hr.Status.State = state
-	return r.Status().Update(ctx, hr)
+	switch reason {
+	case humiov1alpha1.ActionReasonNotFound:
+		return humiov1alpha1.HumioActionStateNotFound
+	case humiov1alpha1.ActionReasonConfigError:
+		return humiov1alpha1.HumioActionStateConfigError
+	default:
+		return humiov1alpha1.HumioActionStateUnknown
+	}
 }
 
 func (r *HumioActionReconciler) logErrorAndReturn(err error, msg string) error {
@@ -541,4 +635,40 @@ func addTypePrefix(diffMap map[string]string, actionType string) map[string]stri
 		result[fmt.Sprintf("%s.%s", actionType, k)] = v
 	}
 	return result
+}
+
+// detectAndHandleRename checks if the action name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioActionReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, ha *humiov1alpha1.HumioAction) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "action",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioAction).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioAction).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioAction).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioAction).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteAction(ctx, apiClient, obj.(*humiov1alpha1.HumioAction))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioAction),
+				humiov1alpha1.ActionConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.ActionReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, ha, config, r.Log)
 }

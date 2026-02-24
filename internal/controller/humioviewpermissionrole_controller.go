@@ -31,6 +31,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -82,46 +85,29 @@ func (r *HumioViewPermissionRoleReconciler) Reconcile(ctx context.Context, req c
 
 	cluster, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioViewPermissionRoleStateConfigError, hp)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
+		setConditionErr := r.setCondition(ctx, hp, humiov1alpha1.ViewPermissionRoleConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.ViewPermissionRoleReasonConfigError, "Unable to obtain humio client config")
+		if setConditionErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setConditionErr, "unable to set view permission role condition")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	r.Log.Info("Checking if viewPermissionRole is marked to be deleted")
-	// Check if the HumioViewPermissionRole instance is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
-	isHumioViewPermissionRoleMarkedToBeDeleted := hp.GetDeletionTimestamp() != nil
-	if isHumioViewPermissionRoleMarkedToBeDeleted {
-		r.Log.Info("ViewPermissionRole marked to be deleted")
-		if helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
-			_, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
-			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
-				err := r.Update(ctx, hp)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
-			}
-
-			// Run finalization logic for HumioFinalizer. If the
-			// finalization logic fails, don't remove the finalizer so
-			// that we can retry during the next reconciliation.
-			r.Log.Info("ViewPermissionRole contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
-			}
-			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
-		}
-		return reconcile.Result{}, nil
+	// Check for rename BEFORE processing the resource
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hp)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle view permission role rename")
+	}
+	if renamed {
+		return result, nil
 	}
 
-	// Add finalizer for this CR
+	// Handle deletion
+	if hp.GetDeletionTimestamp() != nil {
+		return r.handleViewPermissionRoleDeletion(ctx, humioHttpClient, hp)
+	}
+
+	// Add finalizer
 	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to viewPermissionRole")
 		if err := r.addFinalizer(ctx, hp); err != nil {
@@ -129,48 +115,108 @@ func (r *HumioViewPermissionRoleReconciler) Reconcile(ctx context.Context, req c
 		}
 	}
 
-	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioViewPermissionRole) {
-		_, err := humioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
-		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioViewPermissionRoleStateNotFound, hp)
-			return
-		}
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioViewPermissionRoleStateUnknown, hp)
-			return
-		}
-		_ = r.setState(ctx, humiov1alpha1.HumioViewPermissionRoleStateExists, hp)
-	}(ctx, r.HumioClient, hp)
+	// Defer status update
+	defer r.updateViewPermissionRoleFinalStatus(ctx, humioHttpClient, hp)
 
-	// Get current viewPermissionRole
+	// Ensure view permission role exists and is updated
+	if err := r.ensureViewPermissionRole(ctx, humioHttpClient, hp); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+}
+
+// handleViewPermissionRoleDeletion handles the deletion logic for view permission roles
+func (r *HumioViewPermissionRoleReconciler) handleViewPermissionRoleDeletion(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioViewPermissionRole) (ctrl.Result, error) {
+	r.Log.Info("ViewPermissionRole marked to be deleted")
+	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
+		return reconcile.Result{}, nil
+	}
+
+	// Check for force finalize annotation
+	if ShouldForceFinalize(hp) {
+		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+			"resource", hp.Name,
+			"namespace", hp.Namespace)
+		hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hp)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	_, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		// Role doesn't exist in LogScale - check if we should remove finalizer
+		if !hp.Spec.AllowDataDeletion {
+			return reconcile.Result{}, r.logErrorAndReturn(
+				fmt.Errorf("view permission role may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+				"data deletion not enabled")
+		}
+		hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hp)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("Finalizer removed successfully")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	r.Log.Info("ViewPermissionRole contains finalizer so run finalizer method")
+	if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
+		// Error during finalization
+		// If the cluster is unavailable or the resource is already deleted, users can manually
+		// add the 'humio.com/force-finalize: "true"' annotation to remove the finalizer
+		r.Log.Error(err, "Failed to finalize view permission role during deletion. "+
+			"If the resource is already deleted or the cluster is unavailable, "+
+			"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
+	}
+	return reconcile.Result{Requeue: true}, nil
+}
+
+// ensureViewPermissionRole ensures the view permission role exists and is updated
+func (r *HumioViewPermissionRoleReconciler) ensureViewPermissionRole(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioViewPermissionRole) error {
 	r.Log.Info("get current viewPermissionRole")
 	curViewPermissionRole, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("viewPermissionRole doesn't exist. Now adding viewPermissionRole")
-			// create viewPermissionRole
 			addErr := r.HumioClient.AddViewPermissionRole(ctx, humioHttpClient, hp)
 			if addErr != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create viewPermissionRole")
+				return r.logErrorAndReturn(addErr, "could not create viewPermissionRole")
 			}
 			r.Log.Info("created viewPermissionRole")
-			return reconcile.Result{Requeue: true}, nil
+			return nil
 		}
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if viewPermissionRole exists")
+		return r.logErrorAndReturn(err, "could not check if viewPermissionRole exists")
 	}
 
 	if asExpected, diffKeysAndValues := viewPermissionRoleAlreadyAsExpected(hp, curViewPermissionRole); !asExpected {
-		r.Log.Info("information differs, triggering update",
-			"diff", diffKeysAndValues,
-		)
+		r.Log.Info("information differs, triggering update", "diff", diffKeysAndValues)
 		err = r.HumioClient.UpdateViewPermissionRole(ctx, humioHttpClient, hp)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update viewPermissionRole")
+			return r.logErrorAndReturn(err, "could not update viewPermissionRole")
 		}
 	}
+	return nil
+}
 
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+// updateViewPermissionRoleFinalStatus updates the final status of the view permission role
+func (r *HumioViewPermissionRoleReconciler) updateViewPermissionRoleFinalStatus(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioViewPermissionRole) {
+	_, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		_ = r.setCondition(ctx, hp, humiov1alpha1.ViewPermissionRoleConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.ViewPermissionRoleReasonNotFound, "View permission role not found")
+		return
+	}
+	if err != nil {
+		_ = r.setCondition(ctx, hp, humiov1alpha1.ViewPermissionRoleConditionTypeReady, metav1.ConditionUnknown, humiov1alpha1.ViewPermissionRoleReasonConfigError, fmt.Sprintf("Failed to get view permission role: %v", err))
+		return
+	}
+	_ = r.setCondition(ctx, hp, humiov1alpha1.ViewPermissionRoleConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.ViewPermissionRoleReasonReady, "View permission role is ready")
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -189,6 +235,20 @@ func (r *HumioViewPermissionRoleReconciler) finalize(ctx context.Context, client
 		}
 		return err
 	}
+
+	// Check if data deletion is allowed
+	if !hp.Spec.AllowDataDeletion {
+		return fmt.Errorf("view permission role may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+	}
+
+	// Audit log before deletion
+	r.Log.Info("Proceeding with view permission role deletion",
+		"allowDataDeletion", hp.Spec.AllowDataDeletion,
+		"roleName", hp.Spec.Name,
+		"namespace", hp.Namespace,
+		"deletionTimestamp", hp.GetDeletionTimestamp(),
+	)
+
 	return r.HumioClient.DeleteViewPermissionRole(ctx, client, hp)
 }
 
@@ -204,13 +264,54 @@ func (r *HumioViewPermissionRoleReconciler) addFinalizer(ctx context.Context, hp
 	return nil
 }
 
-func (r *HumioViewPermissionRoleReconciler) setState(ctx context.Context, state string, hp *humiov1alpha1.HumioViewPermissionRole) error {
-	if hp.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioViewPermissionRole resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioViewPermissionRoleReconciler) setCondition(ctx context.Context,
+	hp *humiov1alpha1.HumioViewPermissionRole,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioViewPermissionRole{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hp), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = viewPermissionRoleStateFromCondition(status, reason)
+
+		// Track the synced name when view permission role is ready
+		if conditionType == humiov1alpha1.ViewPermissionRoleConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+func viewPermissionRoleStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioViewPermissionRoleStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting viewPermissionRole state to %s", state))
-	hp.Status.State = state
-	return r.Status().Update(ctx, hp)
+	switch reason {
+	case humiov1alpha1.ViewPermissionRoleReasonNotFound:
+		return humiov1alpha1.HumioViewPermissionRoleStateNotFound
+	case humiov1alpha1.ViewPermissionRoleReasonConfigError:
+		return humiov1alpha1.HumioViewPermissionRoleStateConfigError
+	default:
+		return humiov1alpha1.HumioViewPermissionRoleStateUnknown
+	}
 }
 
 func (r *HumioViewPermissionRoleReconciler) logErrorAndReturn(err error, msg string) error {
@@ -269,4 +370,40 @@ func viewPermissionRoleAlreadyAsExpected(fromKubernetesCustomResource *humiov1al
 	}
 
 	return len(keyValues) == 0, keyValues
+}
+
+// detectAndHandleRename checks if the view permission role name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioViewPermissionRoleReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hvpr *humiov1alpha1.HumioViewPermissionRole) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "view permission role",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioViewPermissionRole).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioViewPermissionRole).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioViewPermissionRole).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioViewPermissionRole).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteViewPermissionRole(ctx, apiClient, obj.(*humiov1alpha1.HumioViewPermissionRole))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioViewPermissionRole),
+				humiov1alpha1.ViewPermissionRoleConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.ViewPermissionRoleReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hvpr, config, r.Log)
 }

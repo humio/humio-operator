@@ -27,6 +27,7 @@ import (
 	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/suite"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -179,6 +180,19 @@ var _ = Describe("HumioTelemetryExport Controller", func() {
 				}
 				return found.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioTelemetryExportStateConfigError))
+
+			// Verify Ready condition reflects the error
+			Eventually(func() bool {
+				found := &humiov1alpha1.HumioTelemetryExport{}
+				if k8sClient.Get(ctx, key, found) != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(found.Status.Conditions,
+					humiov1alpha1.TelemetryExportConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionFalse &&
+					readyCondition.Reason == humiov1alpha1.TelemetryExportReasonConfigError
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should validate URL format", func() {
@@ -649,6 +663,17 @@ var _ = Describe("HumioTelemetryExport Controller", func() {
 				}
 				return found.Status.State
 			}, testTimeout, suite.TestInterval).Should(Not(BeEmpty()))
+
+			// Verify Ready condition is set
+			Eventually(func() bool {
+				found := &humiov1alpha1.HumioTelemetryExport{}
+				if k8sClient.Get(ctx, key, found) != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(found.Status.Conditions,
+					humiov1alpha1.TelemetryExportConditionTypeReady)
+				return readyCondition != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})
 
