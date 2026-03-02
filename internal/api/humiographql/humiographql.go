@@ -6723,6 +6723,38 @@ type GetClusterResponse struct {
 // GetCluster returns GetClusterResponse.Cluster, and is useful for accessing the field via an interface.
 func (v *GetClusterResponse) GetCluster() GetClusterCluster { return v.Cluster }
 
+// GetCurrentUserCurrentUser includes the requested fields of the GraphQL type User.
+// The GraphQL type's documentation follows.
+//
+// A user profile.
+type GetCurrentUserCurrentUser struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	Username string `json:"username"`
+	// Stability: Long-term
+	IsRoot bool `json:"isRoot"`
+}
+
+// GetId returns GetCurrentUserCurrentUser.Id, and is useful for accessing the field via an interface.
+func (v *GetCurrentUserCurrentUser) GetId() string { return v.Id }
+
+// GetUsername returns GetCurrentUserCurrentUser.Username, and is useful for accessing the field via an interface.
+func (v *GetCurrentUserCurrentUser) GetUsername() string { return v.Username }
+
+// GetIsRoot returns GetCurrentUserCurrentUser.IsRoot, and is useful for accessing the field via an interface.
+func (v *GetCurrentUserCurrentUser) GetIsRoot() bool { return v.IsRoot }
+
+// GetCurrentUserResponse is returned by GetCurrentUser on success.
+type GetCurrentUserResponse struct {
+	// This returns the current authenticated user.
+	// Stability: Long-term
+	CurrentUser GetCurrentUserCurrentUser `json:"currentUser"`
+}
+
+// GetCurrentUser returns GetCurrentUserResponse.CurrentUser, and is useful for accessing the field via an interface.
+func (v *GetCurrentUserResponse) GetCurrentUser() GetCurrentUserCurrentUser { return v.CurrentUser }
+
 // GetEventForwardersEventForwardersEventForwarder includes the requested fields of the GraphQL interface EventForwarder.
 //
 // GetEventForwardersEventForwardersEventForwarder is implemented by the following types:
@@ -29617,6 +29649,38 @@ func GetCluster(
 	}
 
 	data_ = &GetClusterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetCurrentUser.
+const GetCurrentUser_Operation = `
+query GetCurrentUser {
+	currentUser {
+		id
+		username
+		isRoot
+	}
+}
+`
+
+func GetCurrentUser(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *GetCurrentUserResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetCurrentUser",
+		Query:  GetCurrentUser_Operation,
+	}
+
+	data_ = &GetCurrentUserResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

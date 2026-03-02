@@ -1466,7 +1466,13 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not authenticate with bootstrap token")
 	}
-	clientWithBootstrapToken := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+
+	clientWithBootstrapToken, authErr := r.HumioClient.AuthenticateWithBootstrapToken(ctx, cluster.Config(), req)
+	if authErr != nil {
+		_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			withMessage("bootstrap token authentication failed with both Bearer and Basic auth"))
+		return reconcile.Result{}, r.logErrorAndReturn(authErr, "bootstrap token authentication failed")
+	}
 
 	if err = r.ensurePersonalAPITokenForAdminUser(ctx, clientWithBootstrapToken, req, hc); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to create permission tokens")

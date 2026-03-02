@@ -182,6 +182,10 @@ func (h *MockClientConfig) TestAPIToken(_ context.Context, _ *humioapi.Config, _
 	return nil
 }
 
+func (h *MockClientConfig) AuthenticateWithBootstrapToken(_ context.Context, config *humioapi.Config, req reconcile.Request) (*humioapi.Client, error) {
+	return h.GetHumioHttpClient(config, req), nil
+}
+
 func (h *MockClientConfig) AddIngestToken(_ context.Context, _ *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()

@@ -90,6 +90,7 @@ type ClusterClient interface {
 	GetHumioHttpClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections(string)
 	TestAPIToken(context.Context, *humioapi.Config, reconcile.Request) error
+	AuthenticateWithBootstrapToken(context.Context, *humioapi.Config, reconcile.Request) (*humioapi.Client, error)
 	Status(context.Context, *humioapi.Client) (*humioapi.StatusResponse, error)
 	GetEvictionStatus(context.Context, *humioapi.Client) (*humiographql.GetEvictionStatusResponse, error)
 	SetIsBeingEvicted(context.Context, *humioapi.Client, int, bool) error
@@ -387,7 +388,8 @@ func (h *ClientConfig) GetHumioHttpClient(config *humioapi.Config, req ctrl.Requ
 		equal := existingConfig.Token == config.Token &&
 			existingConfig.Insecure == config.Insecure &&
 			existingConfig.CACertificatePEM == config.CACertificatePEM &&
-			existingConfig.Address.String() == config.Address.String()
+			existingConfig.Address.String() == config.Address.String() &&
+			existingConfig.UseBasicAuth == config.UseBasicAuth
 
 		// If the cluster address or SSL configuration has changed, we must create a new transport
 		if !equal {
@@ -491,6 +493,27 @@ func (h *ClientConfig) TestAPIToken(ctx context.Context, config *humioapi.Config
 	humioHttpClient := h.GetHumioHttpClient(config, req)
 	_, err := humiographql.GetUsername(ctx, humioHttpClient)
 	return err
+}
+
+func (h *ClientConfig) AuthenticateWithBootstrapToken(ctx context.Context, config *humioapi.Config, req reconcile.Request) (*humioapi.Client, error) {
+	config.UseBasicAuth = false
+	client := h.GetHumioHttpClient(config, req)
+	resp, err := humiographql.GetCurrentUser(ctx, client)
+	if err == nil && resp != nil && resp.CurrentUser.Username != "" {
+		h.logger.Info(fmt.Sprintf("bootstrap token Bearer auth succeeded as user %s (isRoot=%v)", resp.CurrentUser.Username, resp.CurrentUser.IsRoot))
+		return client, nil
+	}
+
+	h.logger.Info("bootstrap token Bearer auth failed, retrying with Basic auth")
+	config.UseBasicAuth = true
+	client = h.GetHumioHttpClient(config, req)
+	resp, err = humiographql.GetCurrentUser(ctx, client)
+	if err == nil && resp != nil && resp.CurrentUser.Username != "" {
+		h.logger.Info(fmt.Sprintf("bootstrap token Basic auth succeeded as user %s (isRoot=%v)", resp.CurrentUser.Username, resp.CurrentUser.IsRoot))
+		return client, nil
+	}
+
+	return nil, fmt.Errorf("bootstrap token authentication failed with both Bearer and Basic auth: %v", err)
 }
 
 func (h *ClientConfig) AddIngestToken(ctx context.Context, client *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
