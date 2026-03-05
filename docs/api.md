@@ -19,7 +19,9 @@ Resource Types:
 
 - [HumioCluster](#humiocluster)
 
-- [HumioEventForwarding](#humioeventforwarding)
+- [HumioEventForwarder](#humioeventforwarder)
+
+- [HumioEventForwardingRule](#humioeventforwardingrule)
 
 - [HumioExternalCluster](#humioexternalcluster)
 
@@ -57,7 +59,9 @@ Resource Types:
 
 - [HumioSystemToken](#humiosystemtoken)
 
-- [HumioTelemetry](#humiotelemetry)
+- [HumioTelemetryCollection](#humiotelemetrycollection)
+
+- [HumioTelemetryExport](#humiotelemetryexport)
 
 - [HumioUser](#humiouser)
 
@@ -147,8 +151,6 @@ HumioActionSpec defines the desired state of HumioAction.
         <td>string</td>
         <td>
           Name is the name of the Action<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -158,6 +160,14 @@ HumioActionSpec defines the desired state of HumioAction.
           ViewName is the name of the Humio View under which the Action will be managed. This can also be a Repository<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b><a href="#humioactionspecemailproperties">emailProperties</a></b></td>
         <td>object</td>
@@ -1321,10 +1331,102 @@ HumioActionStatus defines the observed state of HumioAction.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioactionstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioAction<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioAction<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioAction.status.conditions[index]
+<sup><sup>[↩ Parent](#humioactionstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1414,8 +1516,6 @@ HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.
         <td>string</td>
         <td>
           Name is the name of the aggregate alert inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1432,6 +1532,14 @@ HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.
           ViewName is the name of the Humio View under which the aggregate alert will be managed. This can also be a Repository<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>description</b></td>
         <td>string</td>
@@ -1528,10 +1636,102 @@ HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioaggregatealertstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of HumioAggregateAlert<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of HumioAggregateAlert<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioAggregateAlert.status.conditions[index]
+<sup><sup>[↩ Parent](#humioaggregatealertstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1621,8 +1821,6 @@ HumioAlertSpec defines the desired state of HumioAlert.
         <td>string</td>
         <td>
           Name is the name of the alert inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1639,6 +1837,14 @@ HumioAlertSpec defines the desired state of HumioAlert.
           ViewName is the name of the Humio View under which the Alert will be managed. This can also be a Repository<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>description</b></td>
         <td>string</td>
@@ -1762,10 +1968,102 @@ HumioAlertStatus defines the observed state of HumioAlert.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioalertstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioAlert<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioAlert<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioAlert.status.conditions[index]
+<sup><sup>[↩ Parent](#humioalertstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3912,6 +4210,13 @@ HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humiobootstraptokenstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humiobootstraptokenstatushashedtokensecretstatus">hashedTokenSecretStatus</a></b></td>
         <td>object</td>
         <td>
@@ -3923,7 +4228,7 @@ in the spec or automatically created<br/>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State can be "NotReady" or "Ready"<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioBootstrapToken<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3932,6 +4237,83 @@ in the spec or automatically created<br/>
         <td>
           TokenSecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
 in the spec or automatically created<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioBootstrapToken.status.conditions[index]
+<sup><sup>[↩ Parent](#humiobootstraptokenstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -4190,6 +4572,13 @@ Deprecated: No longer used. The value will be ignored.<br/>
           AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
 If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
 Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspecbootstraptoken">bootstrapToken</a></b></td>
+        <td>object</td>
+        <td>
+          BootstrapToken controls bootstrap token creation behavior<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -6368,6 +6757,35 @@ Valid operators are In, NotIn, Exists and DoesNotExist.<br/>
 the values array must be non-empty. If the operator is Exists or DoesNotExist,
 the values array must be empty. This array is replaced during a strategic
 merge patch.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.bootstrapToken
+<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
+
+
+
+BootstrapToken controls bootstrap token creation behavior
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>autoCreate</b></td>
+        <td>boolean</td>
+        <td>
+          AutoCreate controls whether the operator should automatically create HumioBootstrapToken CRs.
+When false, the operator expects users to create their own HumioBootstrapToken CR.
+When nil, defaults to true (maintains backward compatibility).<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -35855,7 +36273,7 @@ Telemetry is enabled if this field is not nil
 
 
 
-TelemetryCollectionConfig defines what data to collect and collection frequency
+HumioTelemetryCollectionConfig defines what data to collect and collection frequency
 
 <table>
     <thead>
@@ -35906,12 +36324,19 @@ RemoteReport defines the configuration for sending telemetry data to a remote cl
         <td>
           Token contains the authentication token for the telemetry cluster<br/>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b>url</b></td>
         <td>string</td>
         <td>
           URL is the endpoint URL for the telemetry cluster HEC endpoint<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspectelemetryconfigremotereporttls">tls</a></b></td>
+        <td>object</td>
+        <td>
+          TLS contains TLS configuration for the connection<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -35986,6 +36411,35 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
         <td>boolean</td>
         <td>
           Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.telemetryConfig.remoteReport.tls
+<sup><sup>[↩ Parent](#humioclusterspectelemetryconfigremotereport)</sup></sup>
+
+
+
+TLS contains TLS configuration for the connection
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>insecureSkipVerify</b></td>
+        <td>boolean</td>
+        <td>
+          InsecureSkipVerify controls whether the client verifies the server's certificate chain and hostname<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -36438,6 +36892,13 @@ HumioClusterStatus defines the observed state of HumioCluster.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioclusterstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>evictedNodeIds</b></td>
         <td>[]integer</td>
         <td>
@@ -36490,7 +36951,7 @@ HumioClusterStatus defines the observed state of HumioCluster.
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Empty before cluster is bootstrapped, then "Running", "Upgrading", "Restarting" or "Pending"<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36505,6 +36966,83 @@ HumioClusterStatus defines the observed state of HumioCluster.
         <td>string</td>
         <td>
           Version is the version of humio running<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.status.conditions[index]
+<sup><sup>[↩ Parent](#humioclusterstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -36673,10 +37211,40 @@ TelemetryStatus shows the status of telemetry collection for this cluster
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humioclusterstatustelemetrystatuscollectionerrorsindex">collectionErrors</a></b></td>
+        <td><b>activeCollections</b></td>
+        <td>integer</td>
+        <td>
+          ActiveCollections is the number of collection resources in an active/enabled state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>activeExports</b></td>
+        <td>integer</td>
+        <td>
+          ActiveExports is the number of export resources in an active/enabled state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>collectionResourceName</b></td>
+        <td>string</td>
+        <td>
+          CollectionResourceName is the name of the HumioTelemetryCollection resource
+Deprecated: Use Collections list instead. This field is only populated when there is exactly one collection resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>collectionState</b></td>
+        <td>string</td>
+        <td>
+          CollectionState is the state of the collection resource
+Deprecated: Use Collections list instead. This field is only populated when there is exactly one collection resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterstatustelemetrystatuscollectionsindex">collections</a></b></td>
         <td>[]object</td>
         <td>
-          CollectionErrors contains any errors from data collection<br/>
+          Collections contains status information for all HumioTelemetryCollection resources that reference this cluster<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36684,6 +37252,29 @@ TelemetryStatus shows the status of telemetry collection for this cluster
         <td>[]object</td>
         <td>
           ExportErrors contains any errors from data export<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>exportResourceName</b></td>
+        <td>string</td>
+        <td>
+          ExportResourceName is the name of the HumioTelemetryExport resource
+Deprecated: Use Exports list instead. This field is only populated when there is exactly one export resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>exportState</b></td>
+        <td>string</td>
+        <td>
+          ExportState is the state of the export resource
+Deprecated: Use Exports list instead. This field is only populated when there is exactly one export resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterstatustelemetrystatusexportsindex">exports</a></b></td>
+        <td>[]object</td>
+        <td>
+          Exports contains status information for all HumioTelemetryExport resources that reference this cluster<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36711,16 +37302,30 @@ TelemetryStatus shows the status of telemetry collection for this cluster
           State represents the current state of telemetry collection<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b>totalCollections</b></td>
+        <td>integer</td>
+        <td>
+          TotalCollections is the total number of collection resources referencing this cluster<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>totalExports</b></td>
+        <td>integer</td>
+        <td>
+          TotalExports is the total number of export resources referencing this cluster<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
 
-### HumioCluster.status.telemetryStatus.collectionErrors[index]
+### HumioCluster.status.telemetryStatus.collections[index]
 <sup><sup>[↩ Parent](#humioclusterstatustelemetrystatus)</sup></sup>
 
 
 
-TelemetryError represents an error that occurred during telemetry operations
+HumioTelemetryResourceStatus represents the status of a single telemetry resource (collection or export)
 
 <table>
     <thead>
@@ -36732,33 +37337,40 @@ TelemetryError represents an error that occurred during telemetry operations
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>message</b></td>
+        <td><b>name</b></td>
         <td>string</td>
         <td>
-          Message is the human-readable error message<br/>
+          Name is the name of the telemetry resource<br/>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b>timestamp</b></td>
+        <td><b>state</b></td>
         <td>string</td>
         <td>
-          Timestamp indicates when this error occurred<br/>
+          State is the current state of the resource (e.g., "Enabled", "Disabled", "ConfigError")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>errorCount</b></td>
+        <td>integer</td>
+        <td>
+          ErrorCount is the number of errors encountered by this resource<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastActivity</b></td>
+        <td>string</td>
+        <td>
+          LastActivity indicates when this resource last performed its function (collection or export)<br/>
           <br/>
             <i>Format</i>: date-time<br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
-        <td><b>type</b></td>
+        <td><b>lastError</b></td>
         <td>string</td>
         <td>
-          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>dataType</b></td>
-        <td>string</td>
-        <td>
-          DataType indicates which data type this error relates to (if applicable)<br/>
+          LastError contains the most recent error message from this resource<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -36770,7 +37382,7 @@ TelemetryError represents an error that occurred during telemetry operations
 
 
 
-TelemetryError represents an error that occurred during telemetry operations
+HumioTelemetryExportError represents an error that occurred during telemetry export operations
 
 <table>
     <thead>
@@ -36801,7 +37413,7 @@ TelemetryError represents an error that occurred during telemetry operations
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
+          Type is the category of error (e.g., "export", "configuration")<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -36814,7 +37426,64 @@ TelemetryError represents an error that occurred during telemetry operations
       </tr></tbody>
 </table>
 
-## HumioEventForwarding
+
+### HumioCluster.status.telemetryStatus.exports[index]
+<sup><sup>[↩ Parent](#humioclusterstatustelemetrystatus)</sup></sup>
+
+
+
+HumioTelemetryResourceStatus represents the status of a single telemetry resource (collection or export)
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the telemetry resource<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State is the current state of the resource (e.g., "Enabled", "Disabled", "ConfigError")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>errorCount</b></td>
+        <td>integer</td>
+        <td>
+          ErrorCount is the number of errors encountered by this resource<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastActivity</b></td>
+        <td>string</td>
+        <td>
+          LastActivity indicates when this resource last performed its function (collection or export)<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastError</b></td>
+        <td>string</td>
+        <td>
+          LastError contains the most recent error message from this resource<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioEventForwarder
 <sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
 
 
@@ -36822,8 +37491,8 @@ TelemetryError represents an error that occurred during telemetry operations
 
 
 
-HumioEventForwarding is the Schema for the humioeventforwardings API.
-It configures a rule that filters and forwards events from a LogScale repository to an external system.
+HumioEventForwarder is the Schema for the humioeventforwarders API.
+It manages event forwarder destinations in LogScale where events can be forwarded.
 
 <table>
     <thead>
@@ -36843,7 +37512,7 @@ It configures a rule that filters and forwards events from a LogScale repository
       <tr>
       <td><b>kind</b></td>
       <td>string</td>
-      <td>HumioEventForwarding</td>
+      <td>HumioEventForwarder</td>
       <td>true</td>
       </tr>
       <tr>
@@ -36852,31 +37521,31 @@ It configures a rule that filters and forwards events from a LogScale repository
       <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
       <td>true</td>
       </tr><tr>
-        <td><b><a href="#humioeventforwardingspec">spec</a></b></td>
+        <td><b><a href="#humioeventforwarderspec">spec</a></b></td>
         <td>object</td>
         <td>
-          HumioEventForwardingSpec defines the desired state of HumioEventForwarding.<br/>
+          HumioEventForwarderSpec defines the desired state of HumioEventForwarder.<br/>
           <br/>
-            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>self.forwarderType != 'kafka' || has(self.kafkaConfig): kafkaConfig is required when forwarderType is kafka</li>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#humioeventforwardingstatus">status</a></b></td>
+        <td><b><a href="#humioeventforwarderstatus">status</a></b></td>
         <td>object</td>
         <td>
-          HumioEventForwardingStatus defines the observed state of HumioEventForwarding.<br/>
+          HumioEventForwarderStatus defines the observed state of HumioEventForwarder.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### HumioEventForwarding.spec
-<sup><sup>[↩ Parent](#humioeventforwarding)</sup></sup>
+### HumioEventForwarder.spec
+<sup><sup>[↩ Parent](#humioeventforwarder)</sup></sup>
 
 
 
-HumioEventForwardingSpec defines the desired state of HumioEventForwarding.
+HumioEventForwarderSpec defines the desired state of HumioEventForwarder.
 
 <table>
     <thead>
@@ -36888,41 +37557,49 @@ HumioEventForwardingSpec defines the desired state of HumioEventForwarding.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>eventForwarderID</b></td>
+        <td><b>description</b></td>
         <td>string</td>
         <td>
-          EventForwarderID is the ID of the pre-configured event forwarder to use.
-Event forwarders are configured at the organization level and define the destination for forwarded events.<br/>
+          Description of the event forwarder.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled controls whether the forwarder is active.
+When disabled, events will not be forwarded to this destination.<br/>
+          <br/>
+            <i>Default</i>: true<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>forwarderType</b></td>
+        <td>enum</td>
+        <td>
+          ForwarderType specifies the type of forwarder.
+Currently only "kafka" is supported.<br/>
+          <br/>
+            <i>Enum</i>: kafka<br/>
+            <i>Default</i>: kafka<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name is the Kubernetes-friendly name for this event forwarding rule.
-This is used for identification within the operator and does not map to a field in LogScale.
-LogScale auto-generates an ID for event forwarding rules.<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+          Name of the event forwarder in LogScale.
+This is the human-readable name that will be displayed in the UI.<br/>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b>queryString</b></td>
-        <td>string</td>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
         <td>
-          QueryString is the LogScale query language (LQL) query that filters and transforms events to forward.
-This query determines which events are forwarded and how they are transformed before forwarding.<br/>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
         </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>viewName</b></td>
-        <td>string</td>
-        <td>
-          ViewName defines what repository or view this event forwarding rule should be managed in.<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
-        </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -36932,11 +37609,13 @@ This conflicts with ManagedClusterName.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>languageVersion</b></td>
-        <td>string</td>
+        <td><b><a href="#humioeventforwarderspeckafkaconfig">kafkaConfig</a></b></td>
+        <td>object</td>
         <td>
-          LanguageVersion specifies the query language version to use (e.g., "humio1" or "humio2").
-If not specified, the default version for the LogScale cluster will be used.<br/>
+          KafkaConfig contains Kafka-specific configuration.
+Required when forwarderType is "kafka".<br/>
+          <br/>
+            <i>Validations</i>:<li>has(self.properties) || has(self.propertiesSecretRef): At least one of properties or propertiesSecretRef must be specified</li>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36952,12 +37631,13 @@ This conflicts with ExternalClusterName.<br/>
 </table>
 
 
-### HumioEventForwarding.status
-<sup><sup>[↩ Parent](#humioeventforwarding)</sup></sup>
+### HumioEventForwarder.spec.kafkaConfig
+<sup><sup>[↩ Parent](#humioeventforwarderspec)</sup></sup>
 
 
 
-HumioEventForwardingStatus defines the observed state of HumioEventForwarding.
+KafkaConfig contains Kafka-specific configuration.
+Required when forwarderType is "kafka".
 
 <table>
     <thead>
@@ -36969,18 +37649,462 @@ HumioEventForwardingStatus defines the observed state of HumioEventForwarding.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humioeventforwardingstatusconditionsindex">conditions</a></b></td>
-        <td>[]object</td>
+        <td><b>topic</b></td>
+        <td>string</td>
         <td>
-          Conditions represent the latest available observations of the event forwarding rule's state.<br/>
+          Topic is the Kafka topic to forward events to.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>properties</b></td>
+        <td>string</td>
+        <td>
+          Properties contains non-sensitive Kafka configuration in x.y.z=abc format.
+Newline-separated list of properties.
+For sensitive properties (passwords, keys), use PropertiesSecretRef instead.
+See: https://library.humio.com/falcon-logscale-self-hosted/ingesting-data-event-forwarders.html#ingesting-data-event-forwarders-kafka
+Example:
+  bootstrap.servers=kafka.example.com:9092
+  security.protocol=SASL_SSL
+  sasl.mechanism=PLAIN<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioeventforwarderspeckafkaconfigpropertiessecretref">propertiesSecretRef</a></b></td>
+        <td>object</td>
+        <td>
+          PropertiesSecretRef references a Kubernetes Secret containing sensitive Kafka properties.
+The secret data should be in the same x.y.z=abc format as Properties.
+Properties from both fields are merged, with PropertiesSecretRef taking precedence.
+This is the recommended way to provide sensitive configuration like passwords and SSL keys.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### HumioEventForwarding.status.conditions[index]
-<sup><sup>[↩ Parent](#humioeventforwardingstatus)</sup></sup>
+### HumioEventForwarder.spec.kafkaConfig.propertiesSecretRef
+<sup><sup>[↩ Parent](#humioeventforwarderspeckafkaconfig)</sup></sup>
+
+
+
+PropertiesSecretRef references a Kubernetes Secret containing sensitive Kafka properties.
+The secret data should be in the same x.y.z=abc format as Properties.
+Properties from both fields are merged, with PropertiesSecretRef taking precedence.
+This is the recommended way to provide sensitive configuration like passwords and SSL keys.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret containing the data.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace of the Secret. If empty, defaults to the same namespace as the HumioEventForwarder.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwarder.status
+<sup><sup>[↩ Parent](#humioeventforwarder)</sup></sup>
+
+
+
+HumioEventForwarderStatus defines the observed state of HumioEventForwarder.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humioeventforwarderstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the forwarder's state.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>eventForwarderID</b></td>
+        <td>string</td>
+        <td>
+          EventForwarderID is the LogScale-generated ID for this forwarder.
+This ID is used internally by LogScale to reference the forwarder.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName tracks the last successfully synced name in LogScale
+to detect rename operations. When spec.name differs from this value,
+the controller will delete the old event forwarder and create a new one.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedByOperator</b></td>
+        <td>boolean</td>
+        <td>
+          ManagedByOperator indicates whether the operator successfully owns this LogScale event forwarder.
+Set to true when the operator creates a new forwarder or successfully adopts an existing one.
+Set to false when adoption is rejected.
+When false, the finalizer will not delete the forwarder from LogScale.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwarder.status.conditions[index]
+<sup><sup>[↩ Parent](#humioeventforwarderstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioEventForwardingRule
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioEventForwardingRule is the Schema for the humioeventforwardingrules API.
+It configures a rule that filters and forwards events from a LogScale repository to an external system.
+NOTE: Event forwarding rules can only be applied to repositories, not views. This is a LogScale API limitation.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioEventForwardingRule</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioeventforwardingrulespec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioEventForwardingRuleSpec defines the desired state of HumioEventForwardingRule.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>(has(self.eventForwarderID) && self.eventForwarderID != "") != (has(self.eventForwarderRef) && self.eventForwarderRef != null): Must specify exactly one of eventForwarderID or eventForwarderRef</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioeventforwardingrulestatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioEventForwardingRuleStatus defines the observed state of HumioEventForwardingRule.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwardingRule.spec
+<sup><sup>[↩ Parent](#humioeventforwardingrule)</sup></sup>
+
+
+
+HumioEventForwardingRuleSpec defines the desired state of HumioEventForwardingRule.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the Kubernetes-friendly identifier for this rule within the operator.
+NOTE: This is NOT the LogScale rule ID. LogScale auto-generates UUIDs for event
+forwarding rules, which are stored in the core.humio.com/event-forwarding-rule-id annotation.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>queryString</b></td>
+        <td>string</td>
+        <td>
+          QueryString is the LogScale query language (LQL) query that filters and transforms events to forward.
+This query determines which events are forwarded and how they are transformed before forwarding.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>repositoryName</b></td>
+        <td>string</td>
+        <td>
+          RepositoryName defines the repository where this event forwarding rule should be managed.
+NOTE: Event forwarding rules can only be applied to repositories, not views.
+This field must reference a HumioRepository resource or an existing repository in LogScale.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>eventForwarderID</b></td>
+        <td>string</td>
+        <td>
+          EventForwarderID is the ID of a pre-configured event forwarder to use.
+Use this for externally-managed forwarders (configured outside the operator).
+Mutually exclusive with EventForwarderRef.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioeventforwardingrulespeceventforwarderref">eventForwarderRef</a></b></td>
+        <td>object</td>
+        <td>
+          EventForwarderRef references a HumioEventForwarder resource managed by the operator.
+Use this to reference a forwarder created via the HumioEventForwarder CRD.
+Mutually exclusive with EventForwarderID.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>languageVersion</b></td>
+        <td>enum</td>
+        <td>
+          LanguageVersion specifies the query language version to use.
+Valid values: legacy, xdr1, xdrdetects1, filteralert, federated1
+If not specified, the default version for the LogScale cluster will be used.<br/>
+          <br/>
+            <i>Enum</i>: legacy, xdr1, xdrdetects1, filteralert, federated1<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwardingRule.spec.eventForwarderRef
+<sup><sup>[↩ Parent](#humioeventforwardingrulespec)</sup></sup>
+
+
+
+EventForwarderRef references a HumioEventForwarder resource managed by the operator.
+Use this to reference a forwarder created via the HumioEventForwarder CRD.
+Mutually exclusive with EventForwarderID.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the HumioEventForwarder resource.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace of the HumioEventForwarder resource.
+If empty, defaults to the same namespace as the HumioEventForwardingRule.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwardingRule.status
+<sup><sup>[↩ Parent](#humioeventforwardingrule)</sup></sup>
+
+
+
+HumioEventForwardingRuleStatus defines the observed state of HumioEventForwardingRule.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humioeventforwardingrulestatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the event forwarding rule's state.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>eventForwarderName</b></td>
+        <td>string</td>
+        <td>
+          EventForwarderName is the human-readable name of the configured event forwarder.
+This is fetched from LogScale and populated by the controller for better visibility.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName tracks the last successfully synced name in LogScale
+to detect rename operations. When spec.name differs from this value,
+the controller will delete the old event forwarding rule and create a new one.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resolvedEventForwarderID</b></td>
+        <td>string</td>
+        <td>
+          ResolvedEventForwarderID is the actual forwarder ID resolved from either eventForwarderID or eventForwarderRef.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioEventForwardingRule.status.conditions[index]
+<sup><sup>[↩ Parent](#humioeventforwardingrulestatus)</sup></sup>
 
 
 
@@ -37182,10 +38306,17 @@ HumioExternalClusterStatus defines the observed state of HumioExternalCluster.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioexternalclusterstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioExternalCluster<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioExternalCluster<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -37193,6 +38324,83 @@ HumioExternalClusterStatus defines the observed state of HumioExternalCluster.
         <td>string</td>
         <td>
           Version shows the Humio cluster version of the HumioExternalCluster<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioExternalCluster.status.conditions[index]
+<sup><sup>[↩ Parent](#humioexternalclusterstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37274,9 +38482,10 @@ HumioFeatureFlagSpec defines the desired state of HumioFeatureFlag.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name is the name of the feature flag inside Humio<br/>
+          Name is the name of the feature flag inside Humio
+This field is immutable after creation because feature flags reference predefined LogScale features.<br/>
           <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+            <i>Validations</i>:<li>self == oldSelf: Name is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -37317,10 +38526,94 @@ HumioFeatureFlagStatus defines the observed state of HumioFeatureFlag.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiofeatureflagstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioFeatureFlag<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioFeatureFlag<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioFeatureFlag.status.conditions[index]
+<sup><sup>[↩ Parent](#humiofeatureflagstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37410,8 +38703,6 @@ HumioFilterAlertSpec defines the desired state of HumioFilterAlert.
         <td>string</td>
         <td>
           Name is the name of the filter alert inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -37444,6 +38735,14 @@ HumioFilterAlertSpec defines the desired state of HumioFilterAlert.
           ViewName is the name of the Humio View under which the filter alert will be managed. This can also be a Repository<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>description</b></td>
         <td>string</td>
@@ -37505,10 +38804,102 @@ HumioFilterAlertStatus defines the observed state of HumioFilterAlert.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiofilteralertstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioFilterAlert<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioFilterAlert<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioFilterAlert.status.conditions[index]
+<sup><sup>[↩ Parent](#humiofilteralertstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37591,10 +38982,16 @@ HumioGroupSpec defines the desired state of HumioGroup.
         <td>string</td>
         <td>
           Name is the display name of the HumioGroup<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -37640,10 +39037,102 @@ HumioGroupStatus defines the observed state of HumioGroup.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiogroupstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioGroup<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioGroup<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioGroup.status.conditions[index]
+<sup><sup>[↩ Parent](#humiogroupstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37726,8 +39215,6 @@ HumioIngestTokenSpec defines the desired state of HumioIngestToken.
         <td>string</td>
         <td>
           Name is the name of the ingest token inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -37737,6 +39224,14 @@ HumioIngestTokenSpec defines the desired state of HumioIngestToken.
           RepositoryName is the name of the Humio repository under which the ingest token will be created<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -37806,10 +39301,102 @@ HumioIngestTokenStatus defines the observed state of HumioIngestToken.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioingesttokenstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioIngestToken<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioIngestToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioIngestToken.status.conditions[index]
+<sup><sup>[↩ Parent](#humioingesttokenstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37899,10 +39486,16 @@ HumioIPFilterSpec defines the desired state of HumioIPFilter
         <td>string</td>
         <td>
           Name for the IPFilter within Humio (immutable after creation)<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -37976,6 +39569,13 @@ HumioIPFilterStatus defines the observed state of HumioIPFilter.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioipfilterstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>id</b></td>
         <td>string</td>
         <td>
@@ -37983,10 +39583,95 @@ HumioIPFilterStatus defines the observed state of HumioIPFilter.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioIPFilter<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioIPFilter<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioIPFilter.status.conditions[index]
+<sup><sup>[↩ Parent](#humioipfilterstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -38078,10 +39763,16 @@ HumioMultiClusterSearchViewSpec defines the desired state of HumioMultiClusterSe
         <td>string</td>
         <td>
           Name is the name of the view inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>automaticSearch</b></td>
         <td>boolean</td>
@@ -38222,6 +39913,14 @@ Only used when Type=Remote.
             <i>Validations</i>:<li>self != null && has(self.name) && self.name != "" && has(self.key) && self.key != "": SecretKeyRef must have both name and key fields set</li>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -38326,10 +40025,102 @@ HumioMultiClusterSearchViewStatus defines the observed state of HumioMultiCluste
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiomulticlustersearchviewstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioMultiClusterSearchView<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioMultiClusterSearchView<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioMultiClusterSearchView.status.conditions[index]
+<sup><sup>[↩ Parent](#humiomulticlustersearchviewstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -38412,8 +40203,6 @@ HumioOrganizationPermissionRoleSpec defines the desired state of HumioOrganizati
         <td>string</td>
         <td>
           Name is the name of the role inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -38424,6 +40213,14 @@ HumioOrganizationPermissionRoleSpec defines the desired state of HumioOrganizati
 For more details, see https://library.humio.com/logscale-graphql-reference-datatypes/graphql-enum-organizationpermission.html<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -38470,10 +40267,102 @@ HumioOrganizationPermissionRoleStatus defines the observed state of HumioOrganiz
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioorganizationpermissionrolestatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioOrganizationPermissionRole<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioOrganizationPermissionRole<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioOrganizationPermissionRole.status.conditions[index]
+<sup><sup>[↩ Parent](#humioorganizationpermissionrolestatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -38521,7 +40410,7 @@ HumioOrganizationToken is the Schema for the humioOrganizationtokens API
         <td>
           HumioOrganizationTokenSpec defines the desired state of HumioOrganizationToken<br/>
           <br/>
-            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>!has(oldSelf.ipFilterName) || self.ipFilterName == oldSelf.ipFilterName: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -38556,8 +40445,6 @@ HumioOrganizationTokenSpec defines the desired state of HumioOrganizationToken
         <td>string</td>
         <td>
           Name is the name of the token inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -38578,12 +40465,19 @@ The key in the secret storing the token is "token".<br/>
         </td>
         <td>true</td>
       </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the token from LogScale when the CR is deleted.
+If set to false, the CR will be stuck in deletion until either set to true or the humio.com/force-finalize annotation is added.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>expiresAt</b></td>
         <td>string</td>
         <td>
           ExpiresAt is the time when the token is set to expire.<br/>
           <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
             <i>Format</i>: date-time<br/>
         </td>
         <td>false</td>
@@ -38651,6 +40545,13 @@ HumioOrganizationTokenStatus defines the observed state of HumioOrganizationToke
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioorganizationtokenstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>humioId</b></td>
         <td>string</td>
         <td>
@@ -38661,7 +40562,84 @@ HumioOrganizationTokenStatus defines the observed state of HumioOrganizationToke
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioToken<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioOrganizationToken.status.conditions[index]
+<sup><sup>[↩ Parent](#humioorganizationtokenstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -38761,6 +40739,14 @@ Supported types: marketplace, gitlab, github, artifactory, aws, gcloud.<br/>
             <i>Enum</i>: marketplace, gitlab, github, artifactory, aws, gcloud<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b><a href="#humiopackageregistryspecartifactory">artifactory</a></b></td>
         <td>object</td>
@@ -39425,6 +41411,21 @@ This reflects the current operational status as determined by the controller.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiopackageregistrystatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>message</b></td>
         <td>string</td>
         <td>
@@ -39436,9 +41437,86 @@ This may contain error messages, connection status, or other diagnostic informat
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current operational state of the package registry.
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current operational state of the package registry.
 Possible values: "Unknown", "Active", "Disabled", "ConfigError".
 "Active" means the registry is successfully configured and available for use.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackageRegistry.status.conditions[index]
+<sup><sup>[↩ Parent](#humiopackageregistrystatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -39538,7 +41616,10 @@ At least one target must be specified.<br/>
         <td>string</td>
         <td>
           PackageName is the name of the LogScale package to install (e.g., "crowdstrike/fdr").
-This corresponds to the package name field in the package's manifest.yaml file.<br/>
+This corresponds to the package name field in the package's manifest.yaml file.
+This field is immutable after creation because it identifies which specific package to install.<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: PackageName is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -39557,6 +41638,14 @@ This must match exactly with the version field in the package's manifest.yaml fi
 for the package registry where this package should be downloaded from.<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b><a href="#humiopackagespecartifactory">artifactory</a></b></td>
         <td>object</td>
@@ -40000,6 +42089,13 @@ HumioPackageStatus defines the observed state of HumioPackage.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiopackagestatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>humioPackageName</b></td>
         <td>string</td>
         <td>
@@ -40017,7 +42113,84 @@ HumioPackageStatus defines the observed state of HumioPackage.
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioPackage<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioPackage<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPackage.status.conditions[index]
+<sup><sup>[↩ Parent](#humiopackagestatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -40100,8 +42273,6 @@ HumioParserSpec defines the desired state of HumioParser.
         <td>string</td>
         <td>
           Name is the name of the parser inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -40111,6 +42282,14 @@ HumioParserSpec defines the desired state of HumioParser.
           RepositoryName defines what repository this parser should be managed in<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -40171,10 +42350,102 @@ HumioParserStatus defines the observed state of HumioParser.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioparserstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioParser<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioParser<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioParser.status.conditions[index]
+<sup><sup>[↩ Parent](#humioparserstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -49631,8 +51902,6 @@ HumioRepositorySpec defines the desired state of HumioRepository.
         <td>string</td>
         <td>
           Name is the name of the repository inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -49652,10 +51921,24 @@ cause data to be deleted within the repository.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>cascadeRenames</b></td>
+        <td>boolean</td>
+        <td>
+          CascadeRenames enables automatic cascading of repository name changes to dependent resources
+(HumioParser, HumioIngestToken, HumioView, HumioEventForwardingRule). When true, renaming this
+repository will automatically update references in dependent resources. When false (default), rename
+operations proceed without updating dependent resources, which is safer for GitOps workflows where
+dependent resource specs are managed in version control.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>description</b></td>
         <td>string</td>
         <td>
-          Description contains the description that will be set on the repository<br/>
+          Description contains the description that will be set on the repository
+If nil, the field is not managed by the operator<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -49757,10 +52040,102 @@ HumioRepositoryStatus defines the observed state of HumioRepository.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiorepositorystatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioRepository<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioRepository<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioRepository.status.conditions[index]
+<sup><sup>[↩ Parent](#humiorepositorystatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -49843,8 +52218,6 @@ HumioSavedQuerySpec defines the desired state of HumioSavedQuery.
         <td>string</td>
         <td>
           Name is the name of the saved query inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -49862,10 +52235,20 @@ HumioSavedQuerySpec defines the desired state of HumioSavedQuery.
         </td>
         <td>true</td>
       </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>description</b></td>
         <td>string</td>
         <td>
-          Description is the description of the SavedQuery<br/>
+          Description is the description of the SavedQuery.
+This field is only supported in LogScale 1.200.0 and later.
+For earlier versions, a warning condition is set but reconciliation continues.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -49880,7 +52263,9 @@ This conflicts with ManagedClusterName.<br/>
         <td><b>labels</b></td>
         <td>[]string</td>
         <td>
-          Labels are a set of labels on the SavedQuery<br/>
+          Labels are a set of labels on the SavedQuery (maximum 10 labels allowed by LogScale).
+This field is only supported in LogScale 1.200.0 and later.
+For earlier versions, a warning condition is set but reconciliation continues.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -49917,6 +52302,33 @@ HumioSavedQueryStatus defines the observed state of HumioSavedQuery.
         <td>[]object</td>
         <td>
           Conditions represent the latest available observations of the saved query's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName tracks the last successfully synced name in LogScale
+to detect rename operations. When spec.name differs from this value,
+the controller will delete the old saved query and create a new one.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedViewName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedViewName tracks the view name where the saved query was last successfully synced.
+This is used to detect and handle view migrations.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedByOperator</b></td>
+        <td>boolean</td>
+        <td>
+          ManagedByOperator indicates whether the operator successfully owns this LogScale saved query.
+Set to true when the operator creates a new query or successfully adopts an existing one.
+Set to false when adoption is rejected.
+When false, the finalizer will not delete the query from LogScale.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -50092,8 +52504,6 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
         <td>string</td>
         <td>
           Name is the name of the scheduled search inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -50138,6 +52548,14 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
           ViewName is the name of the Humio View under which the scheduled search will be managed. This can also be a Repository<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>description</b></td>
         <td>string</td>
@@ -50199,10 +52617,102 @@ HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioscheduledsearchstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioScheduledSearch<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioScheduledSearch<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioScheduledSearch.status.conditions[index]
+<sup><sup>[↩ Parent](#humioscheduledsearchstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -50285,8 +52795,6 @@ HumioSystemPermissionRoleSpec defines the desired state of HumioSystemPermission
         <td>string</td>
         <td>
           Name is the name of the role inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -50297,6 +52805,14 @@ HumioSystemPermissionRoleSpec defines the desired state of HumioSystemPermission
 For more details, see https://library.humio.com/logscale-graphql-reference-datatypes/graphql-enum-systempermission.html<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -50343,10 +52859,102 @@ HumioSystemPermissionRoleStatus defines the observed state of HumioSystemPermiss
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiosystempermissionrolestatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioSystemPermissionRole<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioSystemPermissionRole<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioSystemPermissionRole.status.conditions[index]
+<sup><sup>[↩ Parent](#humiosystempermissionrolestatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -50394,7 +53002,7 @@ HumioSystemToken is the Schema for the humiosystemtokens API
         <td>
           HumioSystemTokenSpec defines the desired state of HumioSystemToken<br/>
           <br/>
-            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>!has(oldSelf.ipFilterName) || self.ipFilterName == oldSelf.ipFilterName: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -50429,8 +53037,6 @@ HumioSystemTokenSpec defines the desired state of HumioSystemToken
         <td>string</td>
         <td>
           Name is the name of the token inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -50451,12 +53057,19 @@ The key in the secret storing the token is "token".<br/>
         </td>
         <td>true</td>
       </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the token from LogScale when the CR is deleted.
+If set to false, the CR will be stuck in deletion until either set to true or the humio.com/force-finalize annotation is added.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>expiresAt</b></td>
         <td>string</td>
         <td>
           ExpiresAt is the time when the token is set to expire.<br/>
           <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
             <i>Format</i>: date-time<br/>
         </td>
         <td>false</td>
@@ -50524,6 +53137,13 @@ HumioSystemTokenStatus defines the observed state of HumioSystemToken.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiosystemtokenstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>humioId</b></td>
         <td>string</td>
         <td>
@@ -50534,13 +53154,90 @@ HumioSystemTokenStatus defines the observed state of HumioSystemToken.
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioToken<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioToken<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
-## HumioTelemetry
+
+### HumioSystemToken.status.conditions[index]
+<sup><sup>[↩ Parent](#humiosystemtokenstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioTelemetryCollection
 <sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
 
 
@@ -50548,7 +53245,7 @@ HumioSystemTokenStatus defines the observed state of HumioSystemToken.
 
 
 
-HumioTelemetry is the Schema for the humiotelemetries API
+HumioTelemetryCollection is the Schema for the humiotelemetrycollections API
 
 <table>
     <thead>
@@ -50568,7 +53265,7 @@ HumioTelemetry is the Schema for the humiotelemetries API
       <tr>
       <td><b>kind</b></td>
       <td>string</td>
-      <td>HumioTelemetry</td>
+      <td>HumioTelemetryCollection</td>
       <td>true</td>
       </tr>
       <tr>
@@ -50577,31 +53274,31 @@ HumioTelemetry is the Schema for the humiotelemetries API
       <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
       <td>true</td>
       </tr><tr>
-        <td><b><a href="#humiotelemetryspec">spec</a></b></td>
+        <td><b><a href="#humiotelemetrycollectionspec">spec</a></b></td>
         <td>object</td>
         <td>
-          HumioTelemetrySpec defines the desired state of HumioTelemetry.<br/>
+          HumioTelemetryCollectionSpec defines the desired state of HumioTelemetryCollection.<br/>
           <br/>
             <i>Validations</i>:<li>has(self.managedClusterName) && self.managedClusterName != "": Must specify managedClusterName</li>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#humiotelemetrystatus">status</a></b></td>
+        <td><b><a href="#humiotelemetrycollectionstatus">status</a></b></td>
         <td>object</td>
         <td>
-          HumioTelemetryStatus defines the observed state of HumioTelemetry.<br/>
+          HumioTelemetryCollectionStatus defines the observed state of HumioTelemetryCollection.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### HumioTelemetry.spec
-<sup><sup>[↩ Parent](#humiotelemetry)</sup></sup>
+### HumioTelemetryCollection.spec
+<sup><sup>[↩ Parent](#humiotelemetrycollection)</sup></sup>
 
 
 
-HumioTelemetrySpec defines the desired state of HumioTelemetry.
+HumioTelemetryCollectionSpec defines the desired state of HumioTelemetryCollection.
 
 <table>
     <thead>
@@ -50613,14 +53310,7 @@ HumioTelemetrySpec defines the desired state of HumioTelemetry.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>clusterIdentifier</b></td>
-        <td>string</td>
-        <td>
-          ClusterIdentifier is a unique identifier for this cluster used in telemetry data<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b><a href="#humiotelemetryspeccollectionsindex">collections</a></b></td>
+        <td><b><a href="#humiotelemetrycollectionspeccollectionsindex">collections</a></b></td>
         <td>[]object</td>
         <td>
           Collections defines what data to collect and how frequently<br/>
@@ -50634,18 +53324,19 @@ HumioTelemetrySpec defines the desired state of HumioTelemetry.
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#humiotelemetryspecremotereport">remoteReport</a></b></td>
-        <td>object</td>
+        <td><b>clusterIdentifier</b></td>
+        <td>string</td>
         <td>
-          RemoteReport defines the configuration for sending telemetry data to a remote cluster<br/>
+          ClusterIdentifier is a unique identifier for this cluster used in telemetry data
+If not specified, defaults to ManagedClusterName<br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
 
-### HumioTelemetry.spec.collections[index]
-<sup><sup>[↩ Parent](#humiotelemetryspec)</sup></sup>
+### HumioTelemetryCollection.spec.collections[index]
+<sup><sup>[↩ Parent](#humiotelemetrycollectionspec)</sup></sup>
 
 
 
@@ -50678,8 +53369,512 @@ CollectionConfig defines what data to collect and collection frequency
 </table>
 
 
-### HumioTelemetry.spec.remoteReport
-<sup><sup>[↩ Parent](#humiotelemetryspec)</sup></sup>
+### HumioTelemetryCollection.status
+<sup><sup>[↩ Parent](#humiotelemetrycollection)</sup></sup>
+
+
+
+HumioTelemetryCollectionStatus defines the observed state of HumioTelemetryCollection.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiotelemetrycollectionstatuscollectionstatuskey">collectionStatus</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          CollectionStatus contains the status of individual collection types<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetrycollectionstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetrycollectionstatusexportpushresultsindex">exportPushResults</a></b></td>
+        <td>[]object</td>
+        <td>
+          ExportPushResults tracks the results of pushing data to registered exporters<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastCollectionTime</b></td>
+        <td>string</td>
+        <td>
+          LastCollectionTime indicates when data was last collected<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>nextScheduledCollection</b></td>
+        <td>map[string]string</td>
+        <td>
+          NextScheduledCollection contains the next scheduled collection times by type<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Represents the current state of the collection<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryCollection.status.collectionStatus[key]
+<sup><sup>[↩ Parent](#humiotelemetrycollectionstatus)</sup></sup>
+
+
+
+CollectionTypeStatus represents the status of a specific collection type
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>collectionCount</b></td>
+        <td>integer</td>
+        <td>
+          CollectionCount is the total number of successful collections for this type<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>exportCount</b></td>
+        <td>integer</td>
+        <td>
+          ExportCount is the total number of successful exports for this type<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastCollection</b></td>
+        <td>string</td>
+        <td>
+          LastCollection indicates when this data type was last collected<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetrycollectionstatuscollectionstatuskeylasterror">lastError</a></b></td>
+        <td>object</td>
+        <td>
+          LastError contains the most recent error for this collection type<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastExport</b></td>
+        <td>string</td>
+        <td>
+          LastExport indicates when this data type was last exported<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryCollection.status.collectionStatus[key].lastError
+<sup><sup>[↩ Parent](#humiotelemetrycollectionstatuscollectionstatuskey)</sup></sup>
+
+
+
+LastError contains the most recent error for this collection type
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the human-readable error message<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>timestamp</b></td>
+        <td>string</td>
+        <td>
+          Timestamp indicates when this error occurred<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the category of error (e.g., "collection", "configuration")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dataType</b></td>
+        <td>string</td>
+        <td>
+          DataType indicates which data type this error relates to (if applicable)<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryCollection.status.conditions[index]
+<sup><sup>[↩ Parent](#humiotelemetrycollectionstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryCollection.status.exportPushResults[index]
+<sup><sup>[↩ Parent](#humiotelemetrycollectionstatus)</sup></sup>
+
+
+
+ExportPushResult tracks the result of pushing data to a specific exporter
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>exporterName</b></td>
+        <td>string</td>
+        <td>
+          ExporterName is the name of the HumioTelemetryExport resource<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>exporterNamespace</b></td>
+        <td>string</td>
+        <td>
+          ExporterNamespace is the namespace of the HumioTelemetryExport resource<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>lastPushSuccess</b></td>
+        <td>boolean</td>
+        <td>
+          LastPushSuccess indicates whether the last push was successful<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetrycollectionstatusexportpushresultsindexlastpusherror">lastPushError</a></b></td>
+        <td>object</td>
+        <td>
+          LastPushError contains the most recent push error<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastPushTime</b></td>
+        <td>string</td>
+        <td>
+          LastPushTime indicates when data was last pushed to this exporter<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>successfulPushes</b></td>
+        <td>integer</td>
+        <td>
+          SuccessfulPushes is the number of successful pushes to this exporter<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>totalPushes</b></td>
+        <td>integer</td>
+        <td>
+          TotalPushes is the total number of push attempts to this exporter<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryCollection.status.exportPushResults[index].lastPushError
+<sup><sup>[↩ Parent](#humiotelemetrycollectionstatusexportpushresultsindex)</sup></sup>
+
+
+
+LastPushError contains the most recent push error
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the human-readable error message<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>timestamp</b></td>
+        <td>string</td>
+        <td>
+          Timestamp indicates when this error occurred<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the category of error (e.g., "collection", "configuration")<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dataType</b></td>
+        <td>string</td>
+        <td>
+          DataType indicates which data type this error relates to (if applicable)<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioTelemetryExport
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioTelemetryExport is the Schema for the humiotelemetryexports API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioTelemetryExport</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetryexportspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioTelemetryExportSpec defines the desired state of HumioTelemetryExport.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetryexportstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioTelemetryExportStatus defines the observed state of HumioTelemetryExport.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryExport.spec
+<sup><sup>[↩ Parent](#humiotelemetryexport)</sup></sup>
+
+
+
+HumioTelemetryExportSpec defines the desired state of HumioTelemetryExport.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiotelemetryexportspecregisteredcollectionsindex">registeredCollections</a></b></td>
+        <td>[]object</td>
+        <td>
+          RegisteredCollections lists the HumioTelemetryCollection resources to accept data from<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiotelemetryexportspecremotereport">remoteReport</a></b></td>
+        <td>object</td>
+        <td>
+          RemoteReport defines the configuration for sending telemetry data to a remote cluster<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>sendCollectionErrors</b></td>
+        <td>boolean</td>
+        <td>
+          SendCollectionErrors controls whether collection errors are exported to the telemetry cluster
+When enabled (default), collection errors are sent as telemetry payloads for analysis
+When disabled, collection errors are only logged locally and recorded as Kubernetes events<br/>
+          <br/>
+            <i>Default</i>: true<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryExport.spec.registeredCollections[index]
+<sup><sup>[↩ Parent](#humiotelemetryexportspec)</sup></sup>
+
+
+
+HumioTelemetryCollectionReference references a HumioTelemetryCollection resource
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the HumioTelemetryCollection resource<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace of the HumioTelemetryCollection resource
+If empty, defaults to the same namespace as this export resource<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryExport.spec.remoteReport
+<sup><sup>[↩ Parent](#humiotelemetryexportspec)</sup></sup>
 
 
 
@@ -50695,7 +53890,7 @@ RemoteReport defines the configuration for sending telemetry data to a remote cl
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humiotelemetryspecremotereporttoken">token</a></b></td>
+        <td><b><a href="#humiotelemetryexportspecremotereporttoken">token</a></b></td>
         <td>object</td>
         <td>
           Token contains the authentication token for the telemetry cluster<br/>
@@ -50709,7 +53904,7 @@ RemoteReport defines the configuration for sending telemetry data to a remote cl
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#humiotelemetryspecremotereporttls">tls</a></b></td>
+        <td><b><a href="#humiotelemetryexportspecremotereporttls">tls</a></b></td>
         <td>object</td>
         <td>
           TLS contains TLS configuration for the connection<br/>
@@ -50719,8 +53914,8 @@ RemoteReport defines the configuration for sending telemetry data to a remote cl
 </table>
 
 
-### HumioTelemetry.spec.remoteReport.token
-<sup><sup>[↩ Parent](#humiotelemetryspecremotereport)</sup></sup>
+### HumioTelemetryExport.spec.remoteReport.token
+<sup><sup>[↩ Parent](#humiotelemetryexportspecremotereport)</sup></sup>
 
 
 
@@ -50736,7 +53931,7 @@ Token contains the authentication token for the telemetry cluster
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humiotelemetryspecremotereporttokensecretkeyref">secretKeyRef</a></b></td>
+        <td><b><a href="#humiotelemetryexportspecremotereporttokensecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
           SecretKeyRef allows specifying which secret and what key in that secret holds the value we want to use<br/>
@@ -50746,8 +53941,8 @@ Token contains the authentication token for the telemetry cluster
 </table>
 
 
-### HumioTelemetry.spec.remoteReport.token.secretKeyRef
-<sup><sup>[↩ Parent](#humiotelemetryspecremotereporttoken)</sup></sup>
+### HumioTelemetryExport.spec.remoteReport.token.secretKeyRef
+<sup><sup>[↩ Parent](#humiotelemetryexportspecremotereporttoken)</sup></sup>
 
 
 
@@ -50793,8 +53988,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### HumioTelemetry.spec.remoteReport.tls
-<sup><sup>[↩ Parent](#humiotelemetryspecremotereport)</sup></sup>
+### HumioTelemetryExport.spec.remoteReport.tls
+<sup><sup>[↩ Parent](#humiotelemetryexportspecremotereport)</sup></sup>
 
 
 
@@ -50822,12 +54017,12 @@ TLS contains TLS configuration for the connection
 </table>
 
 
-### HumioTelemetry.status
-<sup><sup>[↩ Parent](#humiotelemetry)</sup></sup>
+### HumioTelemetryExport.status
+<sup><sup>[↩ Parent](#humiotelemetryexport)</sup></sup>
 
 
 
-HumioTelemetryStatus defines the observed state of HumioTelemetry.
+HumioTelemetryExportStatus defines the observed state of HumioTelemetryExport.
 
 <table>
     <thead>
@@ -50839,33 +54034,17 @@ HumioTelemetryStatus defines the observed state of HumioTelemetry.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humiotelemetrystatuscollectionerrorsindex">collectionErrors</a></b></td>
+        <td><b><a href="#humiotelemetryexportstatusconditionsindex">conditions</a></b></td>
         <td>[]object</td>
         <td>
-          CollectionErrors contains any errors from data collection<br/>
+          Conditions represent the latest available observations of the resource's state<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiotelemetrystatuscollectionstatuskey">collectionStatus</a></b></td>
-        <td>map[string]object</td>
-        <td>
-          CollectionStatus contains the status of individual collection types<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiotelemetrystatusexporterrorsindex">exportErrors</a></b></td>
+        <td><b><a href="#humiotelemetryexportstatusexporterrorsindex">exportErrors</a></b></td>
         <td>[]object</td>
         <td>
           ExportErrors contains any errors from data export<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>lastCollectionTime</b></td>
-        <td>string</td>
-        <td>
-          LastCollectionTime indicates when data was last collected<br/>
-          <br/>
-            <i>Format</i>: date-time<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -50878,29 +54057,106 @@ HumioTelemetryStatus defines the observed state of HumioTelemetry.
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>nextScheduledCollection</b></td>
-        <td>map[string]string</td>
+        <td><b><a href="#humiotelemetryexportstatusregisteredcollectionstatuskey">registeredCollectionStatus</a></b></td>
+        <td>map[string]object</td>
         <td>
-          NextScheduledCollection contains the next scheduled collection times by type<br/>
+          RegisteredCollectionStatus tracks the status of registration with collections<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State represents the current state of the HumioTelemetry resource<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Represents the current state of the export<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### HumioTelemetry.status.collectionErrors[index]
-<sup><sup>[↩ Parent](#humiotelemetrystatus)</sup></sup>
+### HumioTelemetryExport.status.conditions[index]
+<sup><sup>[↩ Parent](#humiotelemetryexportstatus)</sup></sup>
 
 
 
-TelemetryError represents an error that occurred during telemetry operations
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioTelemetryExport.status.exportErrors[index]
+<sup><sup>[↩ Parent](#humiotelemetryexportstatus)</sup></sup>
+
+
+
+HumioTelemetryExportError represents an error that occurred during telemetry export operations
 
 <table>
     <thead>
@@ -50931,7 +54187,7 @@ TelemetryError represents an error that occurred during telemetry operations
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
+          Type is the category of error (e.g., "export", "configuration")<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -50945,12 +54201,12 @@ TelemetryError represents an error that occurred during telemetry operations
 </table>
 
 
-### HumioTelemetry.status.collectionStatus[key]
-<sup><sup>[↩ Parent](#humiotelemetrystatus)</sup></sup>
+### HumioTelemetryExport.status.registeredCollectionStatus[key]
+<sup><sup>[↩ Parent](#humiotelemetryexportstatus)</sup></sup>
 
 
 
-CollectionTypeStatus represents the status of a specific collection type
+HumioTelemetryCollectionRegistrationStatus tracks the registration status with a specific collection
 
 <table>
     <thead>
@@ -50962,54 +54218,52 @@ CollectionTypeStatus represents the status of a specific collection type
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>collectionCount</b></td>
-        <td>integer</td>
+        <td><b>found</b></td>
+        <td>boolean</td>
         <td>
-          CollectionCount is the total number of successful collections for this type<br/>
+          Found indicates whether the referenced collection resource exists<br/>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
-        <td><b>exportCount</b></td>
-        <td>integer</td>
-        <td>
-          ExportCount is the total number of successful exports for this type<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>lastCollection</b></td>
+        <td><b>lastDataReceived</b></td>
         <td>string</td>
         <td>
-          LastCollection indicates when this data type was last collected<br/>
+          LastDataReceived indicates when data was last received from this collection<br/>
           <br/>
             <i>Format</i>: date-time<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiotelemetrystatuscollectionstatuskeylasterror">lastError</a></b></td>
+        <td><b><a href="#humiotelemetryexportstatusregisteredcollectionstatuskeylastexporterror">lastExportError</a></b></td>
         <td>object</td>
         <td>
-          LastError contains the most recent error for this collection type<br/>
+          LastExportError contains the most recent export error for this collection<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>lastExport</b></td>
-        <td>string</td>
+        <td><b>successfulExports</b></td>
+        <td>integer</td>
         <td>
-          LastExport indicates when this data type was last exported<br/>
-          <br/>
-            <i>Format</i>: date-time<br/>
+          SuccessfulExports is the number of successful exports for data from this collection<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>totalExports</b></td>
+        <td>integer</td>
+        <td>
+          TotalExports is the total number of export attempts for data from this collection<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### HumioTelemetry.status.collectionStatus[key].lastError
-<sup><sup>[↩ Parent](#humiotelemetrystatuscollectionstatuskey)</sup></sup>
+### HumioTelemetryExport.status.registeredCollectionStatus[key].lastExportError
+<sup><sup>[↩ Parent](#humiotelemetryexportstatusregisteredcollectionstatuskey)</sup></sup>
 
 
 
-LastError contains the most recent error for this collection type
+LastExportError contains the most recent export error for this collection
 
 <table>
     <thead>
@@ -51040,57 +54294,7 @@ LastError contains the most recent error for this collection type
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>dataType</b></td>
-        <td>string</td>
-        <td>
-          DataType indicates which data type this error relates to (if applicable)<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioTelemetry.status.exportErrors[index]
-<sup><sup>[↩ Parent](#humiotelemetrystatus)</sup></sup>
-
-
-
-TelemetryError represents an error that occurred during telemetry operations
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>message</b></td>
-        <td>string</td>
-        <td>
-          Message is the human-readable error message<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>timestamp</b></td>
-        <td>string</td>
-        <td>
-          Timestamp indicates when this error occurred<br/>
-          <br/>
-            <i>Format</i>: date-time<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>type</b></td>
-        <td>string</td>
-        <td>
-          Type is the category of error (e.g., "collection", "export", "configuration")<br/>
+          Type is the category of error (e.g., "export", "configuration")<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -51180,10 +54384,16 @@ HumioUserSpec defines the desired state of HumioUser.
         <td>string</td>
         <td>
           UserName defines the username for the LogScale user.<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -51234,10 +54444,102 @@ HumioUserStatus defines the observed state of HumioUser.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiouserstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioParser<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioUser<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioUser.status.conditions[index]
+<sup><sup>[↩ Parent](#humiouserstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -51320,8 +54622,6 @@ HumioViewPermissionRoleSpec defines the desired state of HumioViewPermissionRole
         <td>string</td>
         <td>
           Name is the name of the role inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -51332,6 +54632,14 @@ HumioViewPermissionRoleSpec defines the desired state of HumioViewPermissionRole
 For more details, see https://library.humio.com/logscale-graphql-reference-datatypes/graphql-enum-permission.html<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -51412,10 +54720,102 @@ HumioViewPermissionRoleStatus defines the observed state of HumioViewPermissionR
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioviewpermissionrolestatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioViewPermissionRole<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioViewPermissionRole<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioViewPermissionRole.status.conditions[index]
+<sup><sup>[↩ Parent](#humioviewpermissionrolestatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -51498,15 +54898,35 @@ HumioViewSpec defines the desired state of HumioView.
         <td>string</td>
         <td>
           Name is the name of the view inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>automaticSearch</b></td>
         <td>boolean</td>
         <td>
           AutomaticSearch is used to specify the start search automatically on loading the search page option.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>cascadeRenames</b></td>
+        <td>boolean</td>
+        <td>
+          CascadeRenames enables automatic cascading of view name changes to dependent resources
+(HumioAlert, HumioAggregateAlert, HumioFilterAlert, HumioScheduledSearch, HumioAction,
+HumioSavedQuery, HumioMultiClusterSearchView, HumioEventForwardingRule). When true,
+renaming this view will automatically update references in dependent resources. When false
+(default), rename operations proceed without updating dependent resources, which is safer
+for GitOps workflows where dependent resource specs are managed in version control.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -51595,10 +55015,102 @@ HumioViewStatus defines the observed state of HumioView.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioviewstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioView<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioView<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioView.status.conditions[index]
+<sup><sup>[↩ Parent](#humioviewstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -51646,7 +55158,7 @@ HumioViewToken is the Schema for the humioviewtokens API
         <td>
           HumioViewTokenSpec defines the desired state of HumioViewToken<br/>
           <br/>
-            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>!has(oldSelf.ipFilterName) || self.ipFilterName == oldSelf.ipFilterName: Value is immutable</li><li>!has(oldSelf.viewNames) || self.viewNames == oldSelf.viewNames: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -51681,8 +55193,6 @@ HumioViewTokenSpec defines the desired state of HumioViewToken
         <td>string</td>
         <td>
           Name is the name of the token inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -51708,16 +55218,23 @@ The key in the secret storing the token is "token".<br/>
         <td>
           ViewNames is the Humio list of View names for the token.<br/>
           <br/>
-            <i>Validations</i>:<li>self.all(item, size(item) >= 1 && size(item) <= 253): viewNames: each item must be 1-253 characters long</li><li>self == oldSelf: Value is immutable</li>
+            <i>Validations</i>:<li>self.all(item, size(item) >= 1 && size(item) <= 253): viewNames: each item must be 1-253 characters long</li>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the token from LogScale when the CR is deleted.
+If set to false, the CR will be stuck in deletion until either set to true or the humio.com/force-finalize annotation is added.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>expiresAt</b></td>
         <td>string</td>
         <td>
           ExpiresAt is the time when the token is set to expire.<br/>
           <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
             <i>Format</i>: date-time<br/>
         </td>
         <td>false</td>
@@ -51785,6 +55302,13 @@ HumioViewTokenStatus defines the observed state of HumioViewToken.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioviewtokenstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>humioId</b></td>
         <td>string</td>
         <td>
@@ -51795,7 +55319,84 @@ HumioViewTokenStatus defines the observed state of HumioViewToken.
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioToken<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioViewToken.status.conditions[index]
+<sup><sup>[↩ Parent](#humioviewtokenstatus)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -51896,8 +55497,6 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
         <td>string</td>
         <td>
           Name is the name of the scheduled search inside Humio<br/>
-          <br/>
-            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -51950,6 +55549,14 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
           ViewName is the name of the Humio View under which the scheduled search will be managed. This can also be a Repository<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>allowDataDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+If false or unset, the operator will not delete the LogScale resource on CR deletion.<br/>
+        </td>
+        <td>false</td>
       </tr><tr>
         <td><b>backfillLimit</b></td>
         <td>integer</td>
@@ -52036,10 +55643,102 @@ HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioscheduledsearchstatusconditionsindex-1">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the resource's state<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSyncedName</b></td>
+        <td>string</td>
+        <td>
+          LastSyncedName is the last name successfully synced with LogScale
+Used to detect renames<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          State reflects the current state of the HumioScheduledSearch<br/>
+          State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioScheduledSearch<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioScheduledSearch.status.conditions[index]
+<sup><sup>[↩ Parent](#humioscheduledsearchstatus-1)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>

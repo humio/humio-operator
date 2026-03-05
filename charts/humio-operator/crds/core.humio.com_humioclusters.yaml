@@ -993,6 +993,16 @@ spec:
                   If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
                   Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.
                 type: boolean
+              bootstrapToken:
+                description: BootstrapToken controls bootstrap token creation behavior
+                properties:
+                  autoCreate:
+                    description: |-
+                      AutoCreate controls whether the operator should automatically create HumioBootstrapToken CRs.
+                      When false, the operator expects users to create their own HumioBootstrapToken CR.
+                      When nil, defaults to true (maintains backward compatibility).
+                    type: boolean
+                type: object
               commonEnvironmentVariables:
                 description: |-
                   CommonEnvironmentVariables is the set of variables that will be applied to all nodes regardless of the node pool types.

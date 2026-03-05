@@ -315,6 +315,15 @@ docker-build-operator:
 docker-build-operator-webhook:
 	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.webhook .
 
+.PHONY: docker-buildx-operator-webhook
+docker-buildx-operator-webhook: ## Build and push docker image for the webhook operator for cross-platform support
+	sed -e '1 s/\(^FROM\)/FROM --platform=$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=$$\{BUILDPLATFORM\}/' Dockerfile.webhook > Dockerfile.webhook.cross
+	- $(CONTAINER_TOOL) buildx create --name humio-webhook-builder
+	$(CONTAINER_TOOL) buildx use humio-webhook-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.webhook.cross .
+	- $(CONTAINER_TOOL) buildx rm humio-webhook-builder
+	rm Dockerfile.webhook.cross
+
 # Build the helper docker image
 .PHONY: docker-build-helper
 docker-build-helper:
