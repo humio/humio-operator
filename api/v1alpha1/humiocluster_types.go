@@ -291,6 +291,10 @@ type HumioNodeSpec struct {
 	// the Humio pods.
 	HumioESServicePort int32 `json:"humioESServicePort,omitempty"`
 
+	// HumioPrometheusMetricsServicePort is the port number of the Humio Service that is used to direct traffic to the
+	// Prometheus metrics interface of the Humio pods.
+	HumioPrometheusMetricsServicePort int32 `json:"humioPrometheusMetricsServicePort,omitempty"`
+
 	// HumioServiceAnnotations is the set of annotations added to the Kubernetes Service that is used to direct traffic
 	// to the Humio pods
 	HumioServiceAnnotations map[string]string `json:"humioServiceAnnotations,omitempty"`

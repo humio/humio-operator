@@ -698,7 +698,7 @@ var _ = Describe("HumioTelemetryExport Controller", func() {
 
 			// Should handle gracefully
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).Should(BeFalse())
+			Expect(result.Requeue).Should(BeFalse()) //nolint:staticcheck // keeping Requeue for test compatibility
 		})
 
 		It("should handle configuration updates", func() {

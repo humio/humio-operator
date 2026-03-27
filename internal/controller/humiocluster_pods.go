@@ -153,6 +153,11 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 							ContainerPort: ElasticPort,
 							Protocol:      "TCP",
 						},
+						{
+							Name:          PrometheusMetricsPortName,
+							ContainerPort: hnp.GetHumioPrometheusMetricsServicePort(),
+							Protocol:      "TCP",
+						},
 					},
 					Env: hnp.GetEnvironmentVariables(),
 					VolumeMounts: []corev1.VolumeMount{

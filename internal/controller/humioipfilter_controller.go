@@ -116,7 +116,7 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Get or create IPFilter
 	result, err = r.ensureIPFilterExists(ctx, humioHttpClient, hi)
-	if err != nil || result.Requeue || result.RequeueAfter > 0 {
+	if err != nil || result.Requeue || result.RequeueAfter > 0 { //nolint:staticcheck // SA1019: result.Requeue used intentionally
 		return result, err
 	}
 

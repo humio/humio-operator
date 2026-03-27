@@ -343,7 +343,7 @@ func (r *HumioClusterReconciler) updateStatus(ctx context.Context, statusWriter 
 	}
 	for _, opt := range opts {
 		res, _ := opt.GetResult()
-		if res.Requeue || res.RequeueAfter > 0 {
+		if res.Requeue || res.RequeueAfter > 0 { //nolint:staticcheck // keeping Requeue for backwards compatibility
 			return res, nil
 		}
 	}

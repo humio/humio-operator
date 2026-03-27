@@ -112,7 +112,7 @@ func (r *HumioSystemTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Get or create SystemToken
 	result, currentSystemToken, err := r.ensureSystemTokenExists(ctx, humioHttpClient, hst, cluster)
-	if err != nil || result.Requeue || result.RequeueAfter > 0 {
+	if err != nil || result.Requeue || result.RequeueAfter > 0 { //nolint:staticcheck // SA1019: result.Requeue used intentionally
 		return result, err
 	}
 

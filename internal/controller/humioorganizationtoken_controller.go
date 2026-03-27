@@ -111,7 +111,7 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 
 	// Get or create OrganizationToken
 	result, currentOrganizationToken, err := r.ensureOrganizationTokenExists(ctx, humioHttpClient, hot, cluster)
-	if err != nil || result.Requeue || result.RequeueAfter > 0 {
+	if err != nil || result.Requeue || result.RequeueAfter > 0 { //nolint:staticcheck // SA1019: result.Requeue used intentionally
 		return result, err
 	}
 

@@ -478,12 +478,12 @@ var _ = SynchronizedBeforeSuite(func() {
 			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
-	testEndpoint1 := corev1.Endpoints{
+	testEndpoint1 := corev1.Endpoints{ //nolint:staticcheck // keeping deprecated API for test compatibility
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testService1.Name,
 			Namespace: testService1.Namespace,
 		},
-		Subsets: []corev1.EndpointSubset{
+		Subsets: []corev1.EndpointSubset{ //nolint:staticcheck // keeping deprecated API for test compatibility
 			{
 				Addresses: []corev1.EndpointAddress{
 					{
@@ -506,12 +506,12 @@ var _ = SynchronizedBeforeSuite(func() {
 			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
-	testEndpoint2 := corev1.Endpoints{
+	testEndpoint2 := corev1.Endpoints{ //nolint:staticcheck // keeping deprecated API for test compatibility
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testService2.Name,
 			Namespace: testService2.Namespace,
 		},
-		Subsets: []corev1.EndpointSubset{
+		Subsets: []corev1.EndpointSubset{ //nolint:staticcheck // keeping deprecated API for test compatibility
 			{
 				Addresses: []corev1.EndpointAddress{
 					{

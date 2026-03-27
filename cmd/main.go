@@ -31,6 +31,7 @@ import (
 	uberzap "go.uber.org/zap"
 
 	"github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/cacheconfig"
 	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
@@ -177,9 +178,19 @@ func main() {
 		})
 	}
 
-	cacheOptions, err := helpers.GetCacheOptionsWithWatchNamespace()
+	// Register cert-manager scheme before cache options are built, since label selector mode includes
+	// cert-manager types in ByObject.
+	if helpers.UseCertManager() {
+		if err := cmapi.AddToScheme(scheme); err != nil {
+			ctrl.Log.Error(err, "unable to add cert-manager to scheme")
+			os.Exit(2)
+		}
+	}
+
+	cacheOptions, err := cacheconfig.GetCacheOptionsWithWatchNamespace()
 	if err != nil {
-		ctrl.Log.Info("unable to get WatchNamespace: the manager will watch and manage resources in all namespaces")
+		ctrl.Log.Error(err, "invalid watch configuration")
+		os.Exit(1)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -208,21 +219,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	watchedNamespaces := []string{}
-	for namespace := range cacheOptions.DefaultNamespaces {
-		watchedNamespaces = append(watchedNamespaces, namespace)
-	}
-	if len(watchedNamespaces) > 0 {
-		log.Info("Watching specific namespaces", "namespaces", strings.Join(watchedNamespaces, ", "))
+	if sel := os.Getenv("WATCH_LABEL_SELECTOR"); sel != "" {
+		log.Info("Watching resources matching label selector", "selector", sel)
+	} else if ns := os.Getenv("WATCH_NAMESPACE"); ns != "" {
+		log.Info("Watching specific namespaces", "namespaces", ns)
 	} else {
 		log.Info("Watching all namespaces")
-	}
-
-	if helpers.UseCertManager() {
-		if err = cmapi.AddToScheme(mgr.GetScheme()); err != nil {
-			ctrl.Log.Error(err, "unable to add cert-manager to scheme")
-			os.Exit(2)
-		}
 	}
 
 	setupControllers(mgr, log, requeuePeriod)

@@ -3304,10 +3304,7 @@ func (r *HumioClusterReconciler) createTelemetryCollectionResource(ctx context.C
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      collectionName,
 			Namespace: hc.Namespace,
-			Labels: map[string]string{
-				"humio.com/managed-by": "humio-operator",
-				"humio.com/cluster":    hc.Name,
-			},
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
 		},
 		Spec: humiov1alpha1.HumioTelemetryCollectionSpec{
 			ClusterIdentifier:  hc.Spec.TelemetryConfig.ClusterIdentifier,
@@ -3408,10 +3405,7 @@ func (r *HumioClusterReconciler) createTelemetryExportResource(ctx context.Conte
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      exportName,
 			Namespace: hc.Namespace,
-			Labels: map[string]string{
-				"humio.com/managed-by": "humio-operator",
-				"humio.com/cluster":    hc.Name,
-			},
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
 		},
 		Spec: humiov1alpha1.HumioTelemetryExportSpec{
 			RemoteReport: humiov1alpha1.HumioTelemetryRemoteReportConfig{

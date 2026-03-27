@@ -109,7 +109,7 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Get or create ViewToken
 	result, currentViewToken, err := r.ensureViewTokenExists(ctx, humioHttpClient, hvt, cluster)
-	if err != nil || result.Requeue || result.RequeueAfter > 0 {
+	if err != nil || result.Requeue || result.RequeueAfter > 0 { //nolint:staticcheck // SA1019: result.Requeue used intentionally
 		return result, err
 	}
 
