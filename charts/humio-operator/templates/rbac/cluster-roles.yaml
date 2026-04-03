@@ -203,6 +203,9 @@ rules:
   - humiopackages
   - humiopackages/finalizers
   - humiopackages/status
+  - humiodependencychecks
+  - humiodependencychecks/finalizers
+  - humiodependencychecks/status
   - humiosavedqueries
   - humiosavedqueries/finalizers
   - humiosavedqueries/status
