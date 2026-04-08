@@ -621,3 +621,206 @@ func Test_constructContainerArgs(t *testing.T) {
 		})
 	}
 }
+
+func Test_initContainers(t *testing.T) {
+	tests := []struct {
+		name     string
+		cluster  *humiov1alpha1.HumioCluster
+		checkPod func(t *testing.T, pod *corev1.Pod)
+	}{
+		{
+			name: "no extra init containers, only default init containers",
+			cluster: &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{},
+			},
+			checkPod: func(t *testing.T, pod *corev1.Pod) {
+				for _, c := range pod.Spec.InitContainers {
+					if c.Name == "custom-init" {
+						t.Error("unexpected custom-init container found")
+					}
+				}
+			},
+		},
+		{
+			name: "single extra init container is appended",
+			cluster: &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name:    "custom-init",
+							Image:   "busybox:latest",
+							Command: []string{"sh", "-c", "echo hello"},
+						},
+					},
+				},
+			},
+			checkPod: func(t *testing.T, pod *corev1.Pod) {
+				found := false
+				for _, c := range pod.Spec.InitContainers {
+					if c.Name == "custom-init" {
+						found = true
+						if c.Image != "busybox:latest" {
+							t.Errorf("expected image %q, got %q", "busybox:latest", c.Image)
+						}
+					}
+				}
+				if !found {
+					t.Error("expected custom-init container not found")
+				}
+			},
+		},
+		{
+			name: "multiple extra init containers are appended",
+			cluster: &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name:  "init-one",
+							Image: "busybox:1",
+						},
+						{
+							Name:  "init-two",
+							Image: "busybox:2",
+						},
+					},
+				},
+			},
+			checkPod: func(t *testing.T, pod *corev1.Pod) {
+				names := make(map[string]bool)
+				for _, c := range pod.Spec.InitContainers {
+					names[c.Name] = true
+				}
+				if !names["init-one"] {
+					t.Error("expected init-one container not found")
+				}
+				if !names["init-two"] {
+					t.Error("expected init-two container not found")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hnp := NewHumioNodeManagerFromHumioCluster(tt.cluster)
+			pod, err := ConstructPod(hnp, "", &podAttachments{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.checkPod != nil {
+				tt.checkPod(t, pod)
+			}
+		})
+	}
+}
+
+func Test_dnsConfiguration(t *testing.T) {
+	tests := []struct {
+		name        string
+		cluster     *humiov1alpha1.HumioCluster
+		expectError bool
+		errorSubstr string
+		checkPod    func(t *testing.T, pod *corev1.Pod)
+	}{
+		{
+			name: "dnsPolicy None, without dnsConfig",
+			cluster: &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					DNSPolicy: corev1.DNSNone,
+				},
+			},
+			expectError: true,
+			errorSubstr: "spec.dnsConfig must be set",
+		},
+		{
+			name: "dnsPolicy None, with dnsConfig",
+			cluster: &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					DNSPolicy: corev1.DNSNone,
+					DNSConfig: &corev1.PodDNSConfig{
+						Nameservers: []string{"8.8.8.8"},
+					},
+				},
+			},
+			expectError: false,
+			checkPod: func(t *testing.T, pod *corev1.Pod) {
+				if pod.Spec.DNSPolicy != corev1.DNSNone {
+					t.Errorf("expected DNSPolicy %q, got %q", corev1.DNSNone, pod.Spec.DNSPolicy)
+				}
+				if pod.Spec.DNSConfig == nil {
+					t.Fatal("expected DNSConfig to be set, got nil")
+				}
+				if len(pod.Spec.DNSConfig.Nameservers) != 1 || pod.Spec.DNSConfig.Nameservers[0] != "8.8.8.8" {
+					t.Errorf("expected nameservers [8.8.8.8], got %v", pod.Spec.DNSConfig.Nameservers)
+				}
+			},
+		},
+		{
+			name: "dnsPolicy ClusterFirst, without dnsConfig",
+			cluster: &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					DNSPolicy: corev1.DNSClusterFirst,
+				},
+			},
+			expectError: false,
+			checkPod: func(t *testing.T, pod *corev1.Pod) {
+				if pod.Spec.DNSPolicy != corev1.DNSClusterFirst {
+					t.Errorf("expected DNSPolicy %q, got %q", corev1.DNSClusterFirst, pod.Spec.DNSPolicy)
+				}
+			},
+		},
+		{
+			name: "dnsPolicy ClusterFirstWithHostNet, without dnsConfig",
+			cluster: &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					DNSPolicy: corev1.DNSClusterFirstWithHostNet,
+				},
+			},
+			expectError: false,
+			checkPod: func(t *testing.T, pod *corev1.Pod) {
+				if pod.Spec.DNSPolicy != corev1.DNSClusterFirstWithHostNet {
+					t.Errorf("expected DNSPolicy %q, got %q", corev1.DNSClusterFirstWithHostNet, pod.Spec.DNSPolicy)
+				}
+			},
+		},
+		{
+			name: "empty dnsPolicy, no override",
+			cluster: &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{},
+			},
+			expectError: false,
+			checkPod: func(t *testing.T, pod *corev1.Pod) {
+				if pod.Spec.DNSPolicy != corev1.DNSPolicy("") {
+					t.Errorf("expected empty DNSPolicy, got %q", pod.Spec.DNSPolicy)
+				}
+				if pod.Spec.DNSConfig != nil {
+					t.Errorf("expected nil DNSConfig, got %v", pod.Spec.DNSConfig)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hnp := NewHumioNodeManagerFromHumioCluster(tt.cluster)
+			pod, err := ConstructPod(hnp, "", &podAttachments{})
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
+				if !strings.Contains(err.Error(), tt.errorSubstr) {
+					t.Errorf("expected error containing %q, got %q", tt.errorSubstr, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.checkPod != nil {
+				tt.checkPod(t, pod)
+			}
+		})
+	}
+}

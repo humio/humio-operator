@@ -88,6 +88,9 @@ type HumioNodePool struct {
 	desiredBootstrapTokenHash string
 	podDisruptionBudget       *humiov1alpha1.HumioPodDisruptionBudgetSpec
 	managedFieldsTracker      corev1.Pod
+	initContainers            []corev1.Container
+	dnsPolicy                 corev1.DNSPolicy
+	dnsConfig                 *corev1.PodDNSConfig
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
@@ -173,6 +176,9 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 		desiredPodRevision:        desiredPodRevision,
 		desiredPodHash:            desiredPodHash,
 		desiredBootstrapTokenHash: desiredBootstrapTokenHash,
+		initContainers:            hc.Spec.InitContainers,
+		dnsPolicy:                 hc.Spec.DNSPolicy,
+		dnsConfig:                 hc.Spec.DNSConfig,
 	}
 }
 
@@ -259,11 +265,26 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 		desiredPodRevision:        desiredPodRevision,
 		desiredPodHash:            desiredPodHash,
 		desiredBootstrapTokenHash: desiredBootstrapTokenHash,
+		initContainers:            hc.Spec.InitContainers,
+		dnsPolicy:                 hc.Spec.DNSPolicy,
+		dnsConfig:                 hc.Spec.DNSConfig,
 	}
 }
 
 func (hnp *HumioNodePool) GetClusterName() string {
 	return hnp.clusterName
+}
+
+func (hnp *HumioNodePool) GetInitContainers() []corev1.Container {
+	return hnp.initContainers
+}
+
+func (hnp *HumioNodePool) GetDNSPolicy() corev1.DNSPolicy {
+	return hnp.dnsPolicy
+}
+
+func (hnp *HumioNodePool) GetDNSConfig() *corev1.PodDNSConfig {
+	return hnp.dnsConfig
 }
 
 func (hnp *HumioNodePool) GetNodePoolName() string {

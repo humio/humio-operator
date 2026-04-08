@@ -484,6 +484,21 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 	}
 	pod.Spec.Containers[humioIdx].Args = containerArgs
 
+	if len(hnp.GetInitContainers()) > 0 {
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, hnp.GetInitContainers()...)
+	}
+
+	if hnp.GetDNSPolicy() != "" {
+		if hnp.GetDNSPolicy() == corev1.DNSNone && hnp.GetDNSConfig() == nil {
+			return &corev1.Pod{}, fmt.Errorf(`invalid HumioCluster DNS configuration: when spec.dnsPolicy is %q, spec.dnsConfig must be set (required by Kubernetes PodSpec)`, corev1.DNSNone)
+		}
+		pod.Spec.DNSPolicy = hnp.GetDNSPolicy()
+	}
+
+	if hnp.GetDNSConfig() != nil {
+		pod.Spec.DNSConfig = hnp.GetDNSConfig()
+	}
+
 	pod.Annotations[PodRevisionAnnotation] = strconv.Itoa(hnp.GetDesiredPodRevision())
 	pod.Annotations[BootstrapTokenHashAnnotation] = attachments.bootstrapTokenSecretReference.hash
 	return &pod, nil
