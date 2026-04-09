@@ -110,6 +110,21 @@ type HumioClusterSpec struct {
 	// TelemetryConfig contains the configuration for telemetry collection when enabled
 	// Telemetry is enabled if this field is not nil
 	TelemetryConfig *TelemetryConfig `json:"telemetryConfig,omitempty"`
+
+	// InitContainers can be used to define additional init containers that run prior to the start of the core application within each Humio cluster pod.
+	// The InitContainers field is unaffected by the DisableInitContainer option.
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
+
+	// DNSPolicy defines the Pod-specific DNS policy for all pods in the cluster
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Enum=ClusterFirst;ClusterFirstWithHostNet;Default;None
+	DNSPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty"`
+
+	// DNSConfig defines the Pod-specific DNS configuration settings for all pods in the cluster.
+	// The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However,
+	// when a Pod's `dnsPolicy` is set to "`None`", the `dnsConfig` field must be specified.
+	// +kubebuilder:validation:XValidation:rule="self.dnsPolicy != 'None' || has(self.dnsConfig)",message="dnsConfig must be set when dnsPolicy is 'None'"
+	DNSConfig *corev1.PodDNSConfig `json:"dnsConfig,omitempty"`
 }
 
 // HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.
