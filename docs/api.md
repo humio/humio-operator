@@ -4277,15 +4277,19 @@ This is not recommended, unless you are using auto rebalancing partitions and ar
         <td>object</td>
         <td>
           DNSConfig defines the Pod-specific DNS configuration settings for all pods in the cluster.
-The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However
+The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However,
 when a Pod's `dnsPolicy` is set to "`None`", the `dnsConfig` field must be specified.<br/>
+          <br/>
+            <i>Validations</i>:<li>self.dnsPolicy != 'None' || has(self.dnsConfig): dnsConfig must be set when dnsPolicy is 'None'</li>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>dnsPolicy</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           DNSPolicy defines the Pod-specific DNS policy for all pods in the cluster<br/>
+          <br/>
+            <i>Enum</i>: ClusterFirst, ClusterFirstWithHostNet, Default, None<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12130,7 +12134,7 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 
 
 DNSConfig defines the Pod-specific DNS configuration settings for all pods in the cluster.
-The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However
+The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However,
 when a Pod's `dnsPolicy` is set to "`None`", the `dnsConfig` field must be specified.
 
 <table>

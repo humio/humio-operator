@@ -3764,7 +3764,7 @@ spec:
               dnsConfig:
                 description: |-
                   DNSConfig defines the Pod-specific DNS configuration settings for all pods in the cluster.
-                  The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However
+                  The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However,
                   when a Pod's `dnsPolicy` is set to "`None`", the `dnsConfig` field must be specified.
                 properties:
                   nameservers:
@@ -3807,9 +3807,17 @@ spec:
                     type: array
                     x-kubernetes-list-type: atomic
                 type: object
+                x-kubernetes-validations:
+                - message: dnsConfig must be set when dnsPolicy is 'None'
+                  rule: self.dnsPolicy != 'None' || has(self.dnsConfig)
               dnsPolicy:
                 description: DNSPolicy defines the Pod-specific DNS policy for all
                   pods in the cluster
+                enum:
+                - ClusterFirst
+                - ClusterFirstWithHostNet
+                - Default
+                - None
                 type: string
               environmentVariables:
                 description: |-

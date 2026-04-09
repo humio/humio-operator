@@ -116,11 +116,14 @@ type HumioClusterSpec struct {
 	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 
 	// DNSPolicy defines the Pod-specific DNS policy for all pods in the cluster
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Enum=ClusterFirst;ClusterFirstWithHostNet;Default;None
 	DNSPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty"`
 
 	// DNSConfig defines the Pod-specific DNS configuration settings for all pods in the cluster.
-	// The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However
+	// The `dnsConfig` field is optional and can work with any `dnsPolicy` settings. However,
 	// when a Pod's `dnsPolicy` is set to "`None`", the `dnsConfig` field must be specified.
+	// +kubebuilder:validation:XValidation:rule="self.dnsPolicy != 'None' || has(self.dnsConfig)",message="dnsConfig must be set when dnsPolicy is 'None'"
 	DNSConfig *corev1.PodDNSConfig `json:"dnsConfig,omitempty"`
 }
 
