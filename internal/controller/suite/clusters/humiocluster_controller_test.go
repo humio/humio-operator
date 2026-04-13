@@ -2820,6 +2820,63 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Prometheus Metrics Port", Label("envtest", "dummy", "real"), func() {
+		It("Should expose metrics container port 9090 when PROMETHEUS_METRICS_PORT is set to default", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-prom-default",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				Name:  "PROMETHEUS_METRICS_PORT",
+				Value: "9090",
+			})
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster with PROMETHEUS_METRICS_PORT=9090")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Verifying pod container port is 9090")
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			Expect(clusterPods).ToNot(BeEmpty())
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controller.HumioContainerName)
+				foundMetricsPort := false
+				for _, port := range pod.Spec.Containers[humioIdx].Ports {
+					if port.Name == controller.PrometheusMetricsPortName {
+						Expect(port.ContainerPort).To(Equal(int32(9090)))
+						foundMetricsPort = true
+					}
+				}
+				Expect(foundMetricsPort).To(BeTrue())
+			}
+		})
+
+		It("Should not expose metrics container port when PROMETHEUS_METRICS_PORT is not set", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-prom-unset",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster without PROMETHEUS_METRICS_PORT")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Verifying no metrics container port exists")
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			Expect(clusterPods).ToNot(BeEmpty())
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controller.HumioContainerName)
+				for _, port := range pod.Spec.Containers[humioIdx].Ports {
+					Expect(port.Name).ToNot(Equal(controller.PrometheusMetricsPortName))
+				}
+			}
+		})
+	})
+
 	Context("Humio Cluster Container Arguments", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly configure container arguments and ephemeral disks env var with default vhost selection method", func() {
 			key := types.NamespacedName{

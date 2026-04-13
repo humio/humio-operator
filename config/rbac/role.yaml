@@ -142,7 +142,6 @@ rules:
   - humioalerts/finalizers
   - humiobootstraptokens/finalizers
   - humioclusters/finalizers
-  - humiodependencychecks/finalizers
   - humioeventforwarders/finalizers
   - humioeventforwardingrules/finalizers
   - humioexternalclusters/finalizers
