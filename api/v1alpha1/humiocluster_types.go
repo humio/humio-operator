@@ -280,6 +280,12 @@ type HumioNodeSpec struct {
 
 	// PodDisruptionBudget defines the PDB configuration for this node spec
 	PodDisruptionBudget *HumioPodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
+
+	// ExpireAfter is the maximum duration a pod is allowed to run before being
+	// replaced. When set, pods older than this duration are cycled using the
+	// configured update strategy safety gates (MaxUnavailable, MinReadySeconds,
+	// zone awareness). Uses Go duration format (e.g. "24h", "168h").
+	ExpireAfter *metav1.Duration `json:"expireAfter,omitempty"`
 }
 
 // HumioOperatorFeatureFlags contains feature flags applied to the Humio operator.

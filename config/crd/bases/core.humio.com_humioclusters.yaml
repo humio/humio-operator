@@ -3965,6 +3965,13 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+              expireAfter:
+                description: |-
+                  ExpireAfter is the maximum duration a pod is allowed to run before being
+                  replaced. When set, pods older than this duration are cycled using the
+                  configured update strategy safety gates (MaxUnavailable, MinReadySeconds,
+                  zone awareness). Uses Go duration format (e.g. "24h", "168h").
+                type: string
               extraHumioVolumeMounts:
                 description: ExtraHumioVolumeMounts is the list of additional volume
                   mounts that will be added to the Humio container
@@ -9892,6 +9899,13 @@ spec:
                                 x-kubernetes-map-type: atomic
                             type: object
                           type: array
+                        expireAfter:
+                          description: |-
+                            ExpireAfter is the maximum duration a pod is allowed to run before being
+                            replaced. When set, pods older than this duration are cycled using the
+                            configured update strategy safety gates (MaxUnavailable, MinReadySeconds,
+                            zone awareness). Uses Go duration format (e.g. "24h", "168h").
+                          type: string
                         extraHumioVolumeMounts:
                           description: ExtraHumioVolumeMounts is the list of additional
                             volume mounts that will be added to the Humio container

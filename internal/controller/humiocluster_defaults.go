@@ -947,6 +947,10 @@ func (hnp *HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy
 	}
 }
 
+func (hnp *HumioNodePool) GetExpireAfter() *metav1.Duration {
+	return hnp.humioNodeSpec.ExpireAfter
+}
+
 func (hnp *HumioNodePool) GetPriorityClassName() string {
 	return hnp.humioNodeSpec.PriorityClassName
 }
