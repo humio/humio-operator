@@ -211,6 +211,16 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	// ensure pods that have exceeded their expireAfter duration are deleted
+	for _, pool := range humioNodePools.Items {
+		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
+			result, err := r.ensureExpiredPodsAreDeleted(ctx, hc, pool)
+			if result != emptyResult || err != nil {
+				return result, err
+			}
+		}
+	}
+
 	// create various k8s objects, e.g. Issuer, Certificate, ConfigMap, Ingress, Service, ServiceAccount, ClusterRole, ClusterRoleBinding
 	for _, fun := range []ctxHumioClusterFunc{
 		r.ensureValidCAIssuer,
@@ -2162,6 +2172,96 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	// return empty result, which allows reconciliation to continue and create the new pods
 	r.Log.Info("nothing to do")
 	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) ensureExpiredPodsAreDeleted(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
+	emptyResult := reconcile.Result{}
+
+	expireAfter := hnp.GetExpireAfter()
+	if expireAfter == nil {
+		return emptyResult, nil
+	}
+
+	foundPodList, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+	if err != nil {
+		return emptyResult, r.logErrorAndReturn(err, "failed to list pods for expireAfter check")
+	}
+
+	podsStatus, err := r.getPodsStatus(ctx, hc, hnp, foundPodList)
+	if err != nil {
+		return emptyResult, r.logErrorAndReturn(err, "failed to get pod status for expireAfter check")
+	}
+
+	if podsStatus.waitingOnPods() {
+		r.Log.Info("skipping expireAfter check because not all pods are ready")
+		return emptyResult, nil
+	}
+
+	now := time.Now()
+	maxAge := expireAfter.Duration
+	var expiredPods []corev1.Pod
+	var nearestExpiry time.Duration
+
+	for _, pod := range foundPodList {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		podAge := now.Sub(pod.CreationTimestamp.Time)
+		if podAge > maxAge {
+			expiredPods = append(expiredPods, pod)
+		} else {
+			remaining := maxAge - podAge
+			if nearestExpiry == 0 || remaining < nearestExpiry {
+				nearestExpiry = remaining
+			}
+		}
+	}
+
+	if len(expiredPods) == 0 {
+		if nearestExpiry > 0 {
+			r.Log.Info(fmt.Sprintf("no expired pods found, next expiry in %s", nearestExpiry))
+			return reconcile.Result{RequeueAfter: nearestExpiry}, nil
+		}
+		return emptyResult, nil
+	}
+
+	sort.Slice(expiredPods, func(i, j int) bool {
+		return expiredPods[i].CreationTimestamp.Time.Before(expiredPods[j].CreationTimestamp.Time)
+	})
+
+	if *hnp.GetUpdateStrategy().EnableZoneAwareness && !helpers.UseEnvtest() {
+		var zoneFilteredPods []corev1.Pod
+		targetZone := ""
+		for _, pod := range expiredPods {
+			if pod.Spec.NodeName == "" {
+				continue
+			}
+			zone, err := kubernetes.GetZoneForNodeName(ctx, r, pod.Spec.NodeName)
+			if err != nil {
+				return emptyResult, r.logErrorAndReturn(err, "unable to fetch zone for expired pod")
+			}
+			if targetZone == "" {
+				targetZone = zone
+			}
+			if zone == targetZone {
+				zoneFilteredPods = append(zoneFilteredPods, pod)
+			}
+		}
+		expiredPods = zoneFilteredPods
+	}
+
+	deletionBudget := podsStatus.scaledMaxUnavailableMinusNotReadyDueToMinReadySeconds()
+	for i := 0; i < deletionBudget && i < len(expiredPods); i++ {
+		pod := expiredPods[i]
+		podAge := now.Sub(pod.CreationTimestamp.Time)
+		r.Log.Info(fmt.Sprintf("deleting expired pod %s (age=%s, expireAfter=%s)", pod.Name, podAge.Truncate(time.Second), maxAge))
+		if err = r.Delete(ctx, &pod); err != nil {
+			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete expired pod %s", pod.Name)).Error()))
+		}
+	}
+
+	return reconcile.Result{RequeueAfter: time.Second * 1}, nil
 }
 
 func (r *HumioClusterReconciler) ingressesMatch(ingress *networkingv1.Ingress, desiredIngress *networkingv1.Ingress) bool {

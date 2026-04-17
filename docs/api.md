@@ -4306,6 +4306,16 @@ access Humio<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>expireAfter</b></td>
+        <td>string</td>
+        <td>
+          ExpireAfter is the maximum duration a pod is allowed to run before being
+replaced. When set, pods older than this duration are cycled using the
+configured update strategy safety gates (MaxUnavailable, MinReadySeconds,
+zone awareness). Uses Go duration format (e.g. "24h", "168h").<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humioclusterspecextrahumiovolumemountsindex">extraHumioVolumeMounts</a></b></td>
         <td>[]object</td>
         <td>
@@ -16825,6 +16835,16 @@ Precedence is given to more environment-specific variables, i.e. spec.environmen
         <td>[]object</td>
         <td>
           EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>expireAfter</b></td>
+        <td>string</td>
+        <td>
+          ExpireAfter is the maximum duration a pod is allowed to run before being
+replaced. When set, pods older than this duration are cycled using the
+configured update strategy safety gates (MaxUnavailable, MinReadySeconds,
+zone awareness). Uses Go duration format (e.g. "24h", "168h").<br/>
         </td>
         <td>false</td>
       </tr><tr>
