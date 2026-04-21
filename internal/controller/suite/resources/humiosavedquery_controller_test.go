@@ -23,12 +23,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humioapi "github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/suite"
 )
 
@@ -59,6 +61,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 					Name:               "test-saved-query",
 					ViewName:           testRepo.Spec.Name,
 					QueryString:        "#type=test | count()",
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -66,24 +69,27 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 			Expect(k8sClient.Create(ctx, toCreateSavedQuery)).Should(Succeed())
 
 			fetchedSavedQuery := &humiov1alpha1.HumioSavedQuery{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedSavedQuery)
-				condition := findCondition(fetchedSavedQuery.Status.Conditions, "Ready")
-				if condition != nil {
-					return string(condition.Status)
+			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedSavedQuery)
+				if err != nil {
+					return false
 				}
-				return ""
-			}, testTimeout, suite.TestInterval).Should(Equal("True"))
+				readyCondition := meta.FindStatusCondition(fetchedSavedQuery.Status.Conditions, "Ready")
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying Synced condition")
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedSavedQuery)
-				condition := findCondition(fetchedSavedQuery.Status.Conditions, "Synced")
-				if condition != nil {
-					return string(condition.Status)
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedSavedQuery)
+				if err != nil {
+					return false
 				}
-				return ""
-			}, testTimeout, suite.TestInterval).Should(Equal("True"))
+				syncedCondition := meta.FindStatusCondition(fetchedSavedQuery.Status.Conditions, "Synced")
+				return syncedCondition != nil &&
+					syncedCondition.Status == metav1.ConditionTrue
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying saved query spec")
 			Expect(fetchedSavedQuery.Spec.Name).To(Equal("test-saved-query"))
@@ -115,6 +121,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 					Name:               "test-saved-query-update",
 					ViewName:           testRepo.Spec.Name,
 					QueryString:        "#type=original | count()",
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -170,6 +177,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 					Name:               "test-saved-query-invalid",
 					ViewName:           "non-existent-view",
 					QueryString:        "#type=test | count()",
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -372,6 +380,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
 					QueryString:        "#type=noCluster | count()",
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -497,6 +506,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 					Name:               "", // Empty name
 					ViewName:           testRepo.Spec.Name,
 					QueryString:        "#type=test | count()",
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -520,6 +530,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 					Name:               "test-query",
 					ViewName:           "", // Empty view name
 					QueryString:        "#type=test | count()",
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -541,7 +552,8 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 					ManagedClusterName: clusterKey.Name,
 					Name:               "test-query",
 					ViewName:           testRepo.Spec.Name,
-					QueryString:        "", // Empty query
+					QueryString:        "",   // Empty query
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -1052,6 +1064,78 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 			Expect(errors.As(err, &notFoundErr)).To(BeTrue())
 		})
 	})
+
+	Context("Force-Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "savedquery-force-finalize",
+				Namespace: clusterKey.Namespace,
+			}
+
+			savedQuery := &humiov1alpha1.HumioSavedQuery{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioSavedQuerySpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "savedquery-force-finalize",
+					ViewName:           testRepo.Spec.Name,
+					QueryString:        "#type=test | count()",
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery Force-Finalize: Creating query with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery Force-Finalize: Waiting for Ready=True")
+			waitForCondition(ctx, key, "Ready")
+
+			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
+			Expect(k8sClient.Get(ctx, key, fetchedQuery)).Should(Succeed())
+
+			// Verify finalizer present
+			Expect(fetchedQuery.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetchedQuery)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedQuery)
+				return err == nil && fetchedQuery.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(k8sClient.Get(ctx, key, fetchedQuery)).Should(Succeed())
+			Expect(fetchedQuery.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				fresh := &humiov1alpha1.HumioSavedQuery{}
+				if err := k8sClient.Get(ctx, key, fresh); err != nil {
+					return err
+				}
+				if fresh.Annotations == nil {
+					fresh.Annotations = make(map[string]string)
+				}
+				fresh.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fresh)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedQuery)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+		})
+	})
 })
 
 // Helper function to verify condition state
@@ -1089,6 +1173,7 @@ func createTestSavedQuery(name, viewName, query string) *humiov1alpha1.HumioSave
 			Name:               name,
 			ViewName:           viewName,
 			QueryString:        query,
+			AllowDataDeletion:  true, // Allow test cleanup
 		},
 	}
 }

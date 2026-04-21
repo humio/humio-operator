@@ -20,12 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
@@ -157,6 +157,31 @@ func (r *HumioSavedQueryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	r.Log = r.Log.WithValues("Request.UID", hsq.UID)
 
+	// Check if resource is being deleted first, before attempting cluster config
+	// This prevents getting stuck when cluster config fails due to missing dependencies during deletion
+	if hsq.GetDeletionTimestamp() != nil {
+		r.Log.Info("Resource marked for deletion, attempting cleanup")
+
+		// Try to get cluster config, but proceed with deletion even if it fails
+		cluster, err := helpers.NewCluster(ctx, r, hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName, hsq.Namespace, helpers.UseCertManager(), true, false)
+		if err != nil || cluster == nil || cluster.Config() == nil {
+			r.Log.Info("Unable to obtain cluster config during deletion, proceeding with finalizer removal", "error", err)
+			// Can't get cluster config - resource might have permanent error
+			// Proceed to deletion handler which will remove finalizer
+			result, delErr, handled := r.handleResourceDeletion(ctx, nil, hsq)
+			if handled {
+				return result, delErr
+			}
+			// Deletion not handled (no finalizer) - let normal flow continue
+			return reconcile.Result{}, nil
+		}
+
+		// Got cluster config successfully - proceed with normal cleanup
+		humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+		return r.reconcileHumioSavedQuery(ctx, humioHttpClient, hsq)
+	}
+
+	// Normal reconciliation for non-deleting resources
 	cluster, err := helpers.NewCluster(ctx, r, hsq.Spec.ManagedClusterName, hsq.Spec.ExternalClusterName, hsq.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		setConditionErr := r.setCondition(ctx, hsq, SavedQueryConditionTypeReady, metav1.ConditionFalse, SavedQueryReasonConfigurationError, fmt.Sprintf("Unable to obtain Humio client config: %v", err))
@@ -303,6 +328,20 @@ func (r *HumioSavedQueryReconciler) ensureFinalizer(
 	hsq *humiov1alpha1.HumioSavedQuery,
 ) (reconcile.Result, error, bool) {
 	if helpers.ContainsElement(hsq.GetFinalizers(), HumioFinalizer) {
+		// Check for force finalize annotation
+		if ShouldForceFinalize(hsq) {
+			r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+				"resource", hsq.Name,
+				"namespace", hsq.Namespace)
+			hsq.SetFinalizers(helpers.RemoveElement(hsq.GetFinalizers(), HumioFinalizer))
+			err := r.Update(ctx, hsq)
+			if err != nil {
+				return reconcile.Result{}, err, true
+			}
+			r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+			return reconcile.Result{Requeue: true}, nil, true
+		}
+
 		return reconcile.Result{}, nil, false // Finalizer already present
 	}
 
@@ -368,10 +407,30 @@ func (r *HumioSavedQueryReconciler) handleResourceDeletion(
 		return reconcile.Result{}, nil, true
 	}
 
+	// Check for force finalize annotation
+	if ShouldForceFinalize(hsq) {
+		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+			"resource", hsq.Name,
+			"namespace", hsq.Namespace)
+		hsq.SetFinalizers(helpers.RemoveElement(hsq.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hsq)
+		if err != nil {
+			return reconcile.Result{}, err, true
+		}
+		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+		return reconcile.Result{Requeue: true}, nil, true
+	}
+
 	// Only delete from LogScale if we actually manage this query
 	// Check ManagedByOperator status field
 	if hsq.Status.ManagedByOperator == nil || !*hsq.Status.ManagedByOperator {
 		// Query is not managed by operator (adoption rejected or never created)
+		// However, still respect AllowDataDeletion to prevent accidental deletion
+		if !hsq.Spec.AllowDataDeletion {
+			return reconcile.Result{}, r.logErrorAndReturn(
+				fmt.Errorf("saved query may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+				"data deletion not enabled"), true
+		}
 		// Just remove finalizer without deleting from LogScale
 		r.Log.Info("Resource not managed by operator, removing finalizer without deleting from LogScale")
 		hsq.SetFinalizers(helpers.RemoveElement(hsq.GetFinalizers(), HumioFinalizer))
@@ -386,7 +445,14 @@ func (r *HumioSavedQueryReconciler) handleResourceDeletion(
 	r.Log.Info("Resource is managed by operator, checking if query exists in LogScale")
 	_, err := r.HumioClient.GetSavedQuery(ctx, client, hsq)
 	if errors.As(err, &humioapi.EntityNotFound{}) {
-		// Query doesn't exist in LogScale, just remove finalizer
+		// Query doesn't exist in LogScale - check if we should remove finalizer
+		// Respect AllowDataDeletion even for already-deleted resources
+		if !hsq.Spec.AllowDataDeletion {
+			return reconcile.Result{}, r.logErrorAndReturn(
+				fmt.Errorf("saved query may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+				"data deletion not enabled"), true
+		}
+		// Query doesn't exist in LogScale, safe to remove finalizer
 		r.Log.Info("Saved query not found in LogScale, removing finalizer")
 		hsq.SetFinalizers(helpers.RemoveElement(hsq.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hsq)
@@ -397,24 +463,30 @@ func (r *HumioSavedQueryReconciler) handleResourceDeletion(
 		return reconcile.Result{Requeue: true}, nil, true
 	}
 	if err != nil {
-		// Classify error to decide whether to retry or remove finalizer
-		if r.isPermanentError(err) {
-			// Permanent error (e.g., view doesn't exist, already deleted)
-			// Remove finalizer to unblock deletion
-			r.Log.Info("Permanent error checking if saved query exists, removing finalizer anyway", "error", err)
-			hsq.SetFinalizers(helpers.RemoveElement(hsq.GetFinalizers(), HumioFinalizer))
-			updateErr := r.Update(ctx, hsq)
-			if updateErr != nil {
-				return reconcile.Result{}, updateErr, true
-			}
-			r.Log.Info("Finalizer removed successfully despite permanent error")
-			return reconcile.Result{Requeue: true}, nil, true
-		}
-
-		// Transient error - retry
-		r.Log.Info("Transient error checking if saved query exists, will retry", "error", err)
+		// Error checking if saved query exists during deletion
+		// If the cluster is unavailable or the resource is already deleted, users can manually
+		// add the 'humio.com/force-finalize: "true"' annotation to remove the finalizer
+		r.Log.Error(err, "Failed to check if saved query exists during deletion. "+
+			"If the resource is already deleted or the cluster is unavailable, "+
+			"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to check if saved query exists during deletion"), true
 	}
+
+	// Check if data deletion is allowed
+	if !hsq.Spec.AllowDataDeletion {
+		return reconcile.Result{}, r.logErrorAndReturn(
+			fmt.Errorf("saved query may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+			"data deletion not enabled"), true
+	}
+
+	// Audit log before deletion
+	r.Log.Info("Proceeding with saved query deletion",
+		"allowDataDeletion", hsq.Spec.AllowDataDeletion,
+		"queryName", hsq.Spec.Name,
+		"viewName", hsq.Spec.ViewName,
+		"namespace", hsq.Namespace,
+		"deletionTimestamp", hsq.GetDeletionTimestamp(),
+	)
 
 	// Query exists in LogScale and we manage it, delete it
 	r.Log.Info("Deleting saved query from LogScale")
@@ -639,6 +711,12 @@ func (r *HumioSavedQueryReconciler) setCondition(ctx context.Context, hsq *humio
 			Reason:             reason,
 			Message:            message,
 		})
+
+		// Track the synced name when saved query is ready
+		if conditionType == SavedQueryConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = hsq.Spec.Name
+		}
+
 		return r.Status().Update(ctx, latest)
 	})
 }
@@ -693,61 +771,6 @@ func (r *HumioSavedQueryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// isPermanentError classifies whether an error during finalizer execution is permanent or transient.
-// Permanent errors indicate that we should give up and remove the finalizer (e.g., resource already deleted, view doesn't exist).
-// Transient errors indicate we should retry (e.g., network issues, temporary API unavailability).
-func (r *HumioSavedQueryReconciler) isPermanentError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// EntityNotFound errors are permanent - resource is already gone
-	var entityNotFound humioapi.EntityNotFound
-	if errors.As(err, &entityNotFound) {
-		return true
-	}
-
-	// Check for specific error messages that indicate permanent conditions
-	errMsg := err.Error()
-
-	// View/repository doesn't exist - permanent
-	if strings.Contains(errMsg, "Could not find") ||
-		strings.Contains(errMsg, "does not exist") ||
-		strings.Contains(errMsg, "not found") {
-		return true
-	}
-
-	// Permission denied - usually permanent
-	if strings.Contains(errMsg, "permission denied") ||
-		strings.Contains(errMsg, "unauthorized") ||
-		strings.Contains(errMsg, "forbidden") ||
-		strings.Contains(errMsg, "authentication") {
-		return true
-	}
-
-	// Invalid configuration - permanent
-	if strings.Contains(errMsg, "invalid") ||
-		strings.Contains(errMsg, "malformed") {
-		return true
-	}
-
-	// Context errors are transient (timeout, cancellation)
-	if errors.Is(err, context.Canceled) ||
-		errors.Is(err, context.DeadlineExceeded) {
-		return false
-	}
-
-	// Network errors are typically transient
-	if strings.Contains(errMsg, "connection") ||
-		strings.Contains(errMsg, "timeout") ||
-		strings.Contains(errMsg, "dial") {
-		return false
-	}
-
-	// Default to transient (safer - we'll retry)
-	return false
-}
-
 func savedQueryAlreadyAsExpected(fromKubernetes *humiov1alpha1.HumioSavedQuery, fromGraphQL *humiographql.SavedQueryDetailsV2, compareDescriptionAndLabels bool) (bool, map[string]string) {
 	keyValues := map[string]string{}
 
@@ -769,7 +792,8 @@ func savedQueryAlreadyAsExpected(fromKubernetes *humiov1alpha1.HumioSavedQuery, 
 		}
 
 		// Compare labels (use sorted comparison for order independence)
-		if diff := cmp.Diff(fromGraphQL.Labels, fromKubernetes.Spec.Labels); diff != "" {
+		// Use EquateEmpty to treat nil and empty slices as equal
+		if diff := cmp.Diff(fromGraphQL.Labels, fromKubernetes.Spec.Labels, cmpopts.EquateEmpty()); diff != "" {
 			keyValues["labels"] = diff
 		}
 	}

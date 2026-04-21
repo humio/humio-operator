@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -176,6 +177,7 @@ type Config struct {
 	Token            string
 	CACertificatePEM string
 	Insecure         bool
+	UseBasicAuth     bool
 	DialContext      func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
@@ -215,7 +217,11 @@ func (c *Client) headers() map[string]string {
 	headers := map[string]string{}
 
 	if c.Token() != "" {
-		headers["Authorization"] = fmt.Sprintf("Bearer %s", c.Token())
+		if c.config.UseBasicAuth {
+			headers["Authorization"] = fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte(c.Token())))
+		} else {
+			headers["Authorization"] = fmt.Sprintf("Bearer %s", c.Token())
+		}
 	}
 
 	if c.config.UserAgent != "" {

@@ -31,6 +31,26 @@ const (
 	HumioIngestTokenStateConfigError = "ConfigError"
 )
 
+const (
+	// IngestTokenConditionTypeReady represents whether the ingest token is ready for use
+	IngestTokenConditionTypeReady = "Ready"
+	// IngestTokenConditionTypeSynced represents whether the ingest token is synced with LogScale
+	IngestTokenConditionTypeSynced = "Synced"
+)
+
+const (
+	// IngestTokenReasonReady indicates the ingest token is ready
+	IngestTokenReasonReady = "Ready"
+	// IngestTokenReasonCreated indicates the ingest token was successfully created
+	IngestTokenReasonCreated = "Created"
+	// IngestTokenReasonUpdated indicates the ingest token was successfully updated
+	IngestTokenReasonUpdated = "Updated"
+	// IngestTokenReasonNotFound indicates the ingest token was not found in LogScale
+	IngestTokenReasonNotFound = "NotFound"
+	// IngestTokenReasonConfigError indicates a configuration error
+	IngestTokenReasonConfigError = "ConfigurationError"
+)
+
 // HumioIngestTokenSpec defines the desired state of HumioIngestToken.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioIngestTokenSpec struct {
@@ -47,7 +67,6 @@ type HumioIngestTokenSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the ingest token inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ParserName is the name of the parser which will be assigned to the ingest token.
@@ -69,17 +88,30 @@ type HumioIngestTokenSpec struct {
 	// the ingest token.
 	// +kubebuilder:validation:Optional
 	TokenSecretAnnotations map[string]string `json:"tokenSecretAnnotations,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioIngestTokenStatus defines the observed state of HumioIngestToken.
 type HumioIngestTokenStatus struct {
-	// State reflects the current state of the HumioIngestToken
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioIngestToken
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioingesttokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the ingest token"
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Ingest Token"
 

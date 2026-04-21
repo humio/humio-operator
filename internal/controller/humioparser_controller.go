@@ -32,6 +32,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -81,13 +84,28 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	cluster, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hp)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
+		setConditionErr := r.setCondition(ctx, hp,
+			humiov1alpha1.ParserConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.ParserReasonConfigError,
+			fmt.Sprintf("Unable to obtain humio client config: %v", err))
+		if setConditionErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setConditionErr, "unable to set condition")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hp)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle parser rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
 
 	r.Log.Info("Checking if parser is marked to be deleted")
 	// Check if the HumioParser instance is marked to be deleted, which is
@@ -96,6 +114,20 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if isHumioParserMarkedToBeDeleted {
 		r.Log.Info("Parser marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
+			// Check for force finalize annotation
+			if ShouldForceFinalize(hp) {
+				r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+					"resource", hp.Name,
+					"namespace", hp.Namespace)
+				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
+				err := r.Update(ctx, hp)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			_, err := r.HumioClient.GetParser(ctx, humioHttpClient, hp)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
@@ -131,14 +163,26 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
 		_, err := humioClient.GetParser(ctx, humioHttpClient, hp)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
+			_ = r.setCondition(ctx, hp,
+				humiov1alpha1.ParserConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.ParserReasonNotFound,
+				"Parser not found in LogScale")
 			return
 		}
 		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
+			_ = r.setCondition(ctx, hp,
+				humiov1alpha1.ParserConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.ParserReasonConfigError,
+				fmt.Sprintf("Failed to get parser: %v", err))
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioParserStateExists, hp)
+		_ = r.setCondition(ctx, hp,
+			humiov1alpha1.ParserConditionTypeReady,
+			metav1.ConditionTrue,
+			humiov1alpha1.ParserReasonReady,
+			"Parser is ready")
 	}(ctx, r.HumioClient, hp)
 
 	// Get current parser
@@ -194,7 +238,27 @@ func (r *HumioParserReconciler) finalize(ctx context.Context, client *humioapi.C
 		return err
 	}
 
-	return r.HumioClient.DeleteParser(ctx, client, hp)
+	// Check if data deletion is allowed
+	if !hp.Spec.AllowDataDeletion {
+		return fmt.Errorf("parser may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+	}
+
+	// Audit log before deletion
+	r.Log.Info("Proceeding with parser deletion",
+		"allowDataDeletion", hp.Spec.AllowDataDeletion,
+		"parserName", hp.Spec.Name,
+		"repositoryName", hp.Spec.RepositoryName,
+		"namespace", hp.Namespace,
+		"deletionTimestamp", hp.GetDeletionTimestamp(),
+	)
+
+	err = r.HumioClient.DeleteParser(ctx, client, hp)
+	if err != nil {
+		return err
+	}
+
+	r.Log.Info("Successfully deleted parser", "parserName", hp.Spec.Name)
+	return nil
 }
 
 func (r *HumioParserReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioParser) error {
@@ -209,13 +273,54 @@ func (r *HumioParserReconciler) addFinalizer(ctx context.Context, hp *humiov1alp
 	return nil
 }
 
-func (r *HumioParserReconciler) setState(ctx context.Context, state string, hp *humiov1alpha1.HumioParser) error {
-	if hp.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioParser resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioParserReconciler) setCondition(ctx context.Context,
+	hp *humiov1alpha1.HumioParser,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioParser{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hp), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = parserStateFromCondition(status, reason)
+
+		// Track the synced name when parser is ready
+		if conditionType == humiov1alpha1.ParserConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+func parserStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioParserStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting parser state to %s", state))
-	hp.Status.State = state
-	return r.Status().Update(ctx, hp)
+	switch reason {
+	case humiov1alpha1.ParserReasonNotFound:
+		return humiov1alpha1.HumioParserStateNotFound
+	case humiov1alpha1.ParserReasonConfigError:
+		return humiov1alpha1.HumioParserStateConfigError
+	default:
+		return humiov1alpha1.HumioParserStateUnknown
+	}
 }
 
 func (r *HumioParserReconciler) logErrorAndReturn(err error, msg string) error {
@@ -243,4 +348,40 @@ func parserAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioPa
 	}
 
 	return len(keyValues) == 0, keyValues
+}
+
+// detectAndHandleRename checks if the parser name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioParserReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hp *humiov1alpha1.HumioParser) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "parser",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioParser).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioParser).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioParser).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioParser).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteParser(ctx, apiClient, obj.(*humiov1alpha1.HumioParser))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioParser),
+				humiov1alpha1.ParserConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.ParserReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hp, config, r.Log)
 }

@@ -36,7 +36,6 @@ type HumioSavedQuerySpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the saved query inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the SavedQuery will be managed. This can also be a Repository
@@ -60,6 +59,10 @@ type HumioSavedQuerySpec struct {
 	// +kubebuilder:validation:MaxItems=10
 	// +kubebuilder:validation:Optional
 	Labels []string `json:"labels,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioSavedQueryStatus defines the observed state of HumioSavedQuery.
@@ -75,6 +78,11 @@ type HumioSavedQueryStatus struct {
 	// This is used to detect and handle view migrations.
 	// +optional
 	LastSyncedViewName string `json:"lastSyncedViewName,omitempty"`
+	// LastSyncedName tracks the last successfully synced name in LogScale
+	// to detect rename operations. When spec.name differs from this value,
+	// the controller will delete the old saved query and create a new one.
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 	// ManagedByOperator indicates whether the operator successfully owns this LogScale saved query.
 	// Set to true when the operator creates a new query or successfully adopts an existing one.
 	// Set to false when adoption is rejected.

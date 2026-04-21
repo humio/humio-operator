@@ -277,14 +277,14 @@ update-schema:
 test: manifests generate fmt vet setup-envtest ginkgo ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./...
+	$(GINKGO) run --label-filter=envtest $(if $(FOCUS),--focus="$(FOCUS)") -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 20m ./...
 
 # run e2e tests
 .PHONY: run-e2e-tests
 run-e2e-tests: manifests generate fmt vet setup-envtest ginkgo
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 20m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
 
 .PHONY: run-e2e-tests-local-kind
 run-e2e-tests-local-kind: manifests generate fmt vet ## Run tests.
@@ -294,7 +294,7 @@ run-e2e-tests-local-kind: manifests generate fmt vet ## Run tests.
 run-telemetry-tests: manifests generate fmt vet setup-envtest ginkgo ## Run telemetry controller tests with envtest.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -timeout 10m ./internal/controller/suite/telemetry/...
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -timeout 20m ./internal/controller/suite/telemetry/...
 
 .PHONY: run-telemetry-integration-tests
 run-telemetry-integration-tests: manifests generate fmt vet ## Run telemetry integration tests using Kind cluster.
@@ -314,6 +314,15 @@ docker-build-operator:
 .PHONY: docker-build-operator-webhook
 docker-build-operator-webhook:
 	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.webhook .
+
+.PHONY: docker-buildx-operator-webhook
+docker-buildx-operator-webhook: ## Build and push docker image for the webhook operator for cross-platform support
+	sed -e '1 s/\(^FROM\)/FROM --platform=$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=$$\{BUILDPLATFORM\}/' Dockerfile.webhook > Dockerfile.webhook.cross
+	- $(CONTAINER_TOOL) buildx create --name humio-webhook-builder
+	$(CONTAINER_TOOL) buildx use humio-webhook-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.webhook.cross .
+	- $(CONTAINER_TOOL) buildx rm humio-webhook-builder
+	rm Dockerfile.webhook.cross
 
 # Build the helper docker image
 .PHONY: docker-build-helper

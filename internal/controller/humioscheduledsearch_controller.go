@@ -32,7 +32,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -82,25 +84,36 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 
 	cluster, err := helpers.NewCluster(ctx, r, hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName, hss.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1beta1.HumioScheduledSearchStateConfigError, hss)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set scheduled search state")
+		setConditionErr := r.setCondition(ctx, hss, humiov1beta1.ScheduledSearchConditionTypeReady, metav1.ConditionFalse, humiov1beta1.ScheduledSearchReasonConfigError, "Unable to obtain humio client config")
+		if setConditionErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setConditionErr, "unable to set scheduled search condition")
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hss)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle scheduled search rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
+
 	defer func(ctx context.Context, hss *humiov1beta1.HumioScheduledSearch) {
 		_, err := r.getScheduledSearchVersionAware(ctx, humioHttpClient, hss)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1beta1.HumioScheduledSearchStateNotFound, hss)
+			_ = r.setCondition(ctx, hss, humiov1beta1.ScheduledSearchConditionTypeReady, metav1.ConditionFalse, humiov1beta1.ScheduledSearchReasonNotFound, "Scheduled search not found")
 			return
 		}
 		if err != nil {
-			_ = r.setState(ctx, humiov1beta1.HumioScheduledSearchStateUnknown, hss)
+			_ = r.setCondition(ctx, hss, humiov1beta1.ScheduledSearchConditionTypeReady, metav1.ConditionUnknown, humiov1beta1.ScheduledSearchReasonConfigError, fmt.Sprintf("Failed to get scheduled search: %v", err))
 			return
 		}
-		_ = r.setState(ctx, humiov1beta1.HumioScheduledSearchStateExists, hss)
+		_ = r.setCondition(ctx, hss, humiov1beta1.ScheduledSearchConditionTypeReady, metav1.ConditionTrue, humiov1beta1.ScheduledSearchReasonReady, "Scheduled search is ready")
 	}(ctx, hss)
 
 	return r.reconcileHumioScheduledSearch(ctx, humioHttpClient, hss)
@@ -113,7 +126,20 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 	if isMarkedForDeletion {
 		r.Log.Info("ScheduledSearch marked to be deleted")
 		if helpers.ContainsElement(hss.GetFinalizers(), HumioFinalizer) {
-			_, err := r.getScheduledSearchVersionAware(ctx, client, hss)
+			// If the resource is in ConfigError state (rename blocked), we need to use LastSyncedName
+			// to check if it exists in LogScale, since Spec.Name may contain an attempted new name
+			// that was never synced to LogScale
+			nameToCheck := hss.Spec.Name
+			if hss.Status.LastSyncedName != "" && hss.Status.LastSyncedName != hss.Spec.Name {
+				nameToCheck = hss.Status.LastSyncedName
+				r.Log.Info("Using LastSyncedName for deletion check", "lastSyncedName", hss.Status.LastSyncedName, "specName", hss.Spec.Name)
+			}
+
+			// Create a copy with the correct name to check existence
+			hssToCheck := hss.DeepCopy()
+			hssToCheck.Spec.Name = nameToCheck
+
+			_, err := r.getScheduledSearchVersionAware(ctx, client, hssToCheck)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hss.SetFinalizers(helpers.RemoveElement(hss.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, hss)
@@ -128,9 +154,31 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting scheduled search")
-			if err := r.deleteScheduledSearchVersionAware(ctx, client, hss); err != nil {
+
+			// Check if data deletion is allowed
+			if !hss.Spec.AllowDataDeletion {
+				err := fmt.Errorf("scheduled search may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete scheduled search blocked")
+			}
+
+			// Audit log before deletion
+			r.Log.Info("Proceeding with scheduled search deletion",
+				"allowDataDeletion", hss.Spec.AllowDataDeletion,
+				"searchName", nameToCheck,
+				"viewName", hss.Spec.ViewName,
+				"namespace", hss.Namespace,
+				"deletionTimestamp", hss.GetDeletionTimestamp(),
+			)
+
+			// Use the copy with the correct name for deletion
+			hssToDelete := hss.DeepCopy()
+			hssToDelete.Spec.Name = nameToCheck
+
+			if err := r.deleteScheduledSearchVersionAware(ctx, client, hssToDelete); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete scheduled search returned error")
 			}
+
+			r.Log.Info("Successfully deleted scheduled search", "searchName", nameToCheck)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -344,20 +392,54 @@ func (r *HumioScheduledSearchReconciler) convertToV1Alpha1(hss *humiov1beta1.Hum
 	return hssV1
 }
 
-func (r *HumioScheduledSearchReconciler) setState(ctx context.Context, state string, hss *humiov1beta1.HumioScheduledSearch) error {
-	if hss.Status.State == state {
-		return nil
-	}
-	// fetch fresh copy
-	key := types.NamespacedName{
-		Name:      hss.Name,
-		Namespace: hss.Namespace,
-	}
-	_ = r.Get(ctx, key, hss)
+// setCondition sets a condition on the HumioScheduledSearch resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioScheduledSearchReconciler) setCondition(ctx context.Context,
+	hss *humiov1beta1.HumioScheduledSearch,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
 
-	r.Log.Info(fmt.Sprintf("setting scheduled search to %s", state))
-	hss.Status.State = state
-	return r.Status().Update(ctx, hss)
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1beta1.HumioScheduledSearch{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hss), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = scheduledSearchStateFromCondition(status, reason)
+
+		// Track the synced name when scheduled search is ready
+		if conditionType == humiov1beta1.ScheduledSearchConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+func scheduledSearchStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1beta1.HumioScheduledSearchStateExists
+	}
+	switch reason {
+	case humiov1beta1.ScheduledSearchReasonNotFound:
+		return humiov1beta1.HumioScheduledSearchStateNotFound
+	case humiov1beta1.ScheduledSearchReasonConfigError:
+		return humiov1beta1.HumioScheduledSearchStateConfigError
+	default:
+		return humiov1beta1.HumioScheduledSearchStateUnknown
+	}
 }
 
 func (r *HumioScheduledSearchReconciler) logErrorAndReturn(err error, msg string) error {
@@ -426,4 +508,41 @@ func scheduledSearchAlreadyAsExpectedV2(fromKubernetesCustomResource *humiov1bet
 		keyValues["searchIntervalOffsetSeconds"] = diff
 	}
 	return len(keyValues) == 0, keyValues
+}
+
+// detectAndHandleRename checks if the scheduled search name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioScheduledSearchReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hss *humiov1beta1.HumioScheduledSearch) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "scheduled search",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1beta1.HumioScheduledSearch).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1beta1.HumioScheduledSearch).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1beta1.HumioScheduledSearch).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1beta1.HumioScheduledSearch).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			// ScheduledSearch uses version-aware delete
+			return r.deleteScheduledSearchVersionAware(ctx, apiClient, obj.(*humiov1beta1.HumioScheduledSearch))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1beta1.HumioScheduledSearch),
+				humiov1beta1.ScheduledSearchConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1beta1.ScheduledSearchReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hss, config, r.Log)
 }

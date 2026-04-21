@@ -192,6 +192,17 @@ func (r *HumioEventForwarderReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hef)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle event forwarder rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
+
 	defer func(parentCtx context.Context) {
 		// Skip status update during deletion by checking if resource still exists
 		// and hasn't been deleted
@@ -219,9 +230,12 @@ func (r *HumioEventForwarderReconciler) Reconcile(ctx context.Context, req ctrl.
 			readyCondition := meta.FindStatusCondition(fresh.Status.Conditions, humiov1alpha1.EventForwarderConditionTypeReady)
 			if readyCondition != nil {
 				// Skip for permanent failure reasons that should not be overwritten
-				if readyCondition.Status == metav1.ConditionFalse && readyCondition.Reason == humiov1alpha1.EventForwarderReasonAdoptionRejected {
-					r.Log.V(1).Info("skipping defer status update - permanent failure condition present", "reason", readyCondition.Reason)
-					return nil
+				if readyCondition.Status == metav1.ConditionFalse {
+					if readyCondition.Reason == humiov1alpha1.EventForwarderReasonAdoptionRejected ||
+						readyCondition.Reason == humiov1alpha1.EventForwarderReasonConfigError {
+						r.Log.V(1).Info("skipping defer status update - permanent failure condition present", "reason", readyCondition.Reason)
+						return nil
+					}
 				}
 				// Skip for lifecycle event reasons that were just set by main reconciliation
 				// This prevents race conditions between defer block and main reconciliation status updates
@@ -270,6 +284,8 @@ func (r *HumioEventForwarderReconciler) Reconcile(ctx context.Context, req ctrl.
 				Reason:             humiov1alpha1.EventForwarderReasonReady,
 				Message:            "Event forwarder is ready",
 			})
+			// Track the synced name when event forwarder is ready
+			fresh.Status.LastSyncedName = fresh.Spec.Name
 			return r.Status().Update(cleanupCtx, fresh)
 		})
 		if err != nil && !k8serrors.IsNotFound(err) {
@@ -289,6 +305,20 @@ func (r *HumioEventForwarderReconciler) ensureFinalizer(
 	hef *humiov1alpha1.HumioEventForwarder,
 ) (reconcile.Result, error, bool) {
 	if helpers.ContainsElement(hef.GetFinalizers(), HumioFinalizer) {
+		// Check for force finalize annotation
+		if ShouldForceFinalize(hef) {
+			r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+				"resource", hef.Name,
+				"namespace", hef.Namespace)
+			hef.SetFinalizers(helpers.RemoveElement(hef.GetFinalizers(), HumioFinalizer))
+			err := r.Update(ctx, hef)
+			if err != nil {
+				return reconcile.Result{}, err, true
+			}
+			r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+			return reconcile.Result{Requeue: true}, nil, true
+		}
+
 		return reconcile.Result{}, nil, false // Finalizer already present
 	}
 
@@ -355,6 +385,20 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 		return reconcile.Result{}, nil, true
 	}
 
+	// Check for force finalize annotation
+	if ShouldForceFinalize(hef) {
+		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+			"resource", hef.Name,
+			"namespace", hef.Namespace)
+		hef.SetFinalizers(helpers.RemoveElement(hef.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hef)
+		if err != nil {
+			return reconcile.Result{}, err, true
+		}
+		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+		return reconcile.Result{Requeue: true}, nil, true
+	}
+
 	// Check if we ever adopted/created this forwarder
 	// We use ManagedByOperator as the primary indicator (more explicit)
 	// Fall back to EventForwarderID check for backwards compatibility
@@ -369,8 +413,15 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 		return reconcile.Result{Requeue: true}, nil, true
 	}
 
-	// If no ID and ManagedByOperator is not explicitly set, we never took ownership - just remove the finalizer
+	// If no ID and ManagedByOperator is not explicitly set, we never took ownership
+	// However, we still need to respect AllowDataDeletion to prevent accidental deletion
 	if hef.Status.EventForwarderID == "" {
+		// Check if data deletion is allowed before removing finalizer
+		if !hef.Spec.AllowDataDeletion {
+			return reconcile.Result{}, r.logErrorAndReturn(
+				fmt.Errorf("event forwarder may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+				"data deletion not enabled"), true
+		}
 		r.Log.Info("No forwarder ID in status - never adopted or created, removing finalizer")
 		hef.SetFinalizers(helpers.RemoveElement(hef.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hef)
@@ -384,7 +435,14 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 	// We have an ID - verify the forwarder exists before trying to delete
 	_, err := r.HumioClient.GetEventForwarder(ctx, client, hef)
 	if errors.As(err, &humioapi.EntityNotFound{}) {
-		// Forwarder already deleted, just remove finalizer
+		// Forwarder already deleted - check if we should remove finalizer
+		// Respect AllowDataDeletion even for already-deleted resources
+		if !hef.Spec.AllowDataDeletion {
+			return reconcile.Result{}, r.logErrorAndReturn(
+				fmt.Errorf("event forwarder may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+				"data deletion not enabled"), true
+		}
+		// Forwarder already deleted, safe to remove finalizer
 		hef.SetFinalizers(helpers.RemoveElement(hef.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hef)
 		if err != nil {
@@ -394,22 +452,12 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 		return reconcile.Result{Requeue: true}, nil, true
 	}
 	if err != nil {
-		// Classify error to decide whether to retry or remove finalizer
-		if r.isPermanentError(err) {
-			// Permanent error (e.g., cluster unreachable, authentication failure)
-			// Remove finalizer to unblock deletion
-			r.Log.Info("Permanent error checking if forwarder exists, removing finalizer anyway", "error", err)
-			hef.SetFinalizers(helpers.RemoveElement(hef.GetFinalizers(), HumioFinalizer))
-			updateErr := r.Update(ctx, hef)
-			if updateErr != nil {
-				return reconcile.Result{}, updateErr, true
-			}
-			r.Log.Info("Finalizer removed successfully despite permanent error")
-			return reconcile.Result{Requeue: true}, nil, true
-		}
-
-		// Transient error - retry
-		r.Log.Info("Transient error checking if forwarder exists, will retry", "error", err)
+		// Error checking if forwarder exists during deletion
+		// If the cluster is unavailable or the resource is already deleted, users can manually
+		// add the 'humio.com/force-finalize: "true"' annotation to remove the finalizer
+		r.Log.Error(err, "Failed to check if forwarder exists during deletion. "+
+			"If the resource is already deleted or the cluster is unavailable, "+
+			"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to check if forwarder exists during deletion"), true
 	}
 
@@ -417,9 +465,17 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 	r.Log.Info("Checking for dependent event forwarding rules before deletion")
 	rules, err := r.checkForDependentRules(ctx, client, hef)
 	if err != nil {
-		// In test/dummy mode, the GraphQL call will fail with "connection refused"
-		// Treat this as "no dependent rules found" and proceed with deletion
-		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "dial tcp") {
+		// In test/dummy mode, the GraphQL call will fail with various network errors
+		// Treat these as "no dependent rules found" and proceed with deletion
+		errMsg := err.Error()
+		isNetworkError := strings.Contains(errMsg, "connection refused") ||
+			strings.Contains(errMsg, "dial tcp") ||
+			strings.Contains(errMsg, "no such host") ||
+			strings.Contains(errMsg, "network unreachable") ||
+			strings.Contains(errMsg, "i/o timeout") ||
+			strings.Contains(errMsg, "connection reset")
+
+		if helpers.UseEnvtest() || isNetworkError {
 			r.Log.Info("Unable to check for dependent rules (likely test/dummy mode), assuming no dependencies", "error", err)
 			rules = nil
 			err = nil
@@ -434,6 +490,21 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 		// Don't change Ready status - just block deletion and requeue
 		return reconcile.Result{RequeueAfter: 15 * time.Second}, r.logErrorAndReturn(errors.New(errMsg), "event forwarder has dependent rules"), true
 	}
+
+	// Check if data deletion is allowed
+	if !hef.Spec.AllowDataDeletion {
+		return reconcile.Result{}, r.logErrorAndReturn(
+			fmt.Errorf("event forwarder may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+			"data deletion not enabled"), true
+	}
+
+	// Audit log before deletion
+	r.Log.Info("Proceeding with event forwarder deletion",
+		"allowDataDeletion", hef.Spec.AllowDataDeletion,
+		"forwarderName", hef.Spec.Name,
+		"namespace", hef.Namespace,
+		"deletionTimestamp", hef.GetDeletionTimestamp(),
+	)
 
 	// Run finalization logic for humioFinalizer. If the
 	// finalization logic fails, don't remove the finalizer so
@@ -918,6 +989,125 @@ func (r *HumioEventForwarderReconciler) rejectAdoption(
 	)
 }
 
+// logDependentRules finds and logs all EventForwardingRules that depend on this EventForwarder
+// to inform users about automatic cascading updates
+func (r *HumioEventForwarderReconciler) logDependentRules(ctx context.Context, hef *humiov1alpha1.HumioEventForwarder) error {
+	// List all EventForwardingRules in the forwarder's namespace
+	sameNsRuleList := &humiov1alpha1.HumioEventForwardingRuleList{}
+	if err := r.List(ctx, sameNsRuleList, client.InNamespace(hef.Namespace)); err != nil {
+		return fmt.Errorf("failed to list EventForwardingRules in namespace %s: %w", hef.Namespace, err)
+	}
+
+	var rulesWithRef []string
+	var rulesWithDirectID []string
+
+	// Check rules in same namespace
+	for _, rule := range sameNsRuleList.Items {
+		if rule.Spec.EventForwarderRef != nil {
+			refNamespace := rule.Spec.EventForwarderRef.Namespace
+			if refNamespace == "" {
+				refNamespace = rule.Namespace
+			}
+			if rule.Spec.EventForwarderRef.Name == hef.Name && refNamespace == hef.Namespace {
+				rulesWithRef = append(rulesWithRef, fmt.Sprintf("%s/%s", rule.Namespace, rule.Name))
+			}
+		}
+		// Check if any rules use this forwarder's ID directly
+		if rule.Status.ResolvedEventForwarderID == hef.Status.EventForwarderID && hef.Status.EventForwarderID != "" {
+			if rule.Spec.EventForwarderID != "" {
+				rulesWithDirectID = append(rulesWithDirectID, fmt.Sprintf("%s/%s", rule.Namespace, rule.Name))
+			}
+		}
+	}
+
+	// For cluster-wide operators, check other namespaces
+	if r.Namespace == "" {
+		allRuleList := &humiov1alpha1.HumioEventForwardingRuleList{}
+		if err := r.List(ctx, allRuleList); err != nil {
+			return fmt.Errorf("failed to list EventForwardingRules cluster-wide: %w", err)
+		}
+
+		for _, rule := range allRuleList.Items {
+			if rule.Namespace != hef.Namespace {
+				if rule.Spec.EventForwarderRef != nil {
+					refNamespace := rule.Spec.EventForwarderRef.Namespace
+					if refNamespace == "" {
+						refNamespace = rule.Namespace
+					}
+					if rule.Spec.EventForwarderRef.Name == hef.Name && refNamespace == hef.Namespace {
+						rulesWithRef = append(rulesWithRef, fmt.Sprintf("%s/%s", rule.Namespace, rule.Name))
+					}
+				}
+				// Check for direct ID usage
+				if rule.Status.ResolvedEventForwarderID == hef.Status.EventForwarderID && hef.Status.EventForwarderID != "" {
+					if rule.Spec.EventForwarderID != "" {
+						rulesWithDirectID = append(rulesWithDirectID, fmt.Sprintf("%s/%s", rule.Namespace, rule.Name))
+					}
+				}
+			}
+		}
+	}
+
+	// Log information about dependent rules
+	if len(rulesWithRef) > 0 {
+		r.Log.Info("EventForwarder rename will trigger automatic updates for dependent EventForwardingRules",
+			"forwarder", fmt.Sprintf("%s/%s", hef.Namespace, hef.Name),
+			"dependentRulesWithRef", rulesWithRef,
+			"count", len(rulesWithRef))
+	}
+
+	if len(rulesWithDirectID) > 0 {
+		r.Log.Info("WARNING: EventForwardingRules using direct eventForwarderID will NOT be automatically updated",
+			"forwarder", fmt.Sprintf("%s/%s", hef.Namespace, hef.Name),
+			"rulesWithDirectID", rulesWithDirectID,
+			"count", len(rulesWithDirectID),
+			"action", "These rules must be updated manually with the new forwarder ID")
+	}
+
+	return nil
+}
+
+// detectAndHandleRename checks if the event forwarder name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioEventForwarderReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hef *humiov1alpha1.HumioEventForwarder) (bool, reconcile.Result, error) {
+
+	// Find and log dependent EventForwardingRules to inform user BEFORE calling shared handler
+	if err := r.logDependentRules(ctx, hef); err != nil {
+		r.Log.Error(err, "failed to log dependent rules (continuing with rename check)")
+	}
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "event forwarder",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioEventForwarder).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioEventForwarder).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioEventForwarder).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioEventForwarder).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteEventForwarder(ctx, apiClient, obj.(*humiov1alpha1.HumioEventForwarder))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			// EventForwarder uses setCondition instead of setState
+			forwarder := obj.(*humiov1alpha1.HumioEventForwarder)
+			return r.setCondition(ctx, forwarder, humiov1alpha1.EventForwarderConditionTypeReady,
+				metav1.ConditionFalse, humiov1alpha1.EventForwarderReasonConfigError,
+				"Rename requires annotation")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hef, config, r.Log)
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioEventForwarderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
@@ -943,6 +1133,12 @@ func (r *HumioEventForwarderReconciler) setCondition(ctx context.Context, hef *h
 			Reason:             reason,
 			Message:            message,
 		})
+
+		// Track the synced name when event forwarder is ready
+		if conditionType == humiov1alpha1.EventForwarderConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = hef.Spec.Name
+		}
+
 		return r.Status().Update(ctx, latest)
 	})
 }
@@ -1041,72 +1237,6 @@ func (r *HumioEventForwarderReconciler) sanitizeSecretError(err error) error {
 	msg = secretWordsPattern.ReplaceAllString(msg, "$1=[redacted]")
 
 	return fmt.Errorf("%s", msg)
-}
-
-// isPermanentError classifies whether an error during finalizer execution is permanent or transient.
-// Permanent errors indicate that we should give up and remove the finalizer (e.g., resource already deleted, not found).
-// Transient errors indicate we should retry (e.g., network issues, temporary API unavailability).
-func (r *HumioEventForwarderReconciler) isPermanentError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// EntityNotFound errors are permanent - resource is already gone
-	var entityNotFound humioapi.EntityNotFound
-	if errors.As(err, &entityNotFound) {
-		return true
-	}
-
-	// Kubernetes NotFound errors are permanent
-	if k8serrors.IsNotFound(err) {
-		return true
-	}
-
-	// Check for specific error messages that indicate permanent conditions
-	errMsg := err.Error()
-
-	// Resource doesn't exist - permanent
-	if strings.Contains(errMsg, "Could not find") ||
-		strings.Contains(errMsg, "does not exist") ||
-		strings.Contains(errMsg, "not found") {
-		return true
-	}
-
-	// Authentication/authorization failures - usually permanent
-	if strings.Contains(errMsg, "permission denied") ||
-		strings.Contains(errMsg, "unauthorized") ||
-		strings.Contains(errMsg, "forbidden") ||
-		strings.Contains(errMsg, "authentication") {
-		return true
-	}
-
-	// Invalid configuration - permanent
-	if strings.Contains(errMsg, "invalid") ||
-		strings.Contains(errMsg, "malformed") {
-		return true
-	}
-
-	// Context errors are transient (timeout, cancellation)
-	if errors.Is(err, context.Canceled) ||
-		errors.Is(err, context.DeadlineExceeded) {
-		return false
-	}
-
-	// Kubernetes conflict errors are transient
-	if k8serrors.IsConflict(err) {
-		return false
-	}
-
-	// Network errors are typically transient
-	if strings.Contains(errMsg, "connection") ||
-		strings.Contains(errMsg, "timeout") ||
-		strings.Contains(errMsg, "dial") ||
-		strings.Contains(errMsg, "EOF") {
-		return false
-	}
-
-	// Default to transient (safer - we'll retry)
-	return false
 }
 
 // checkForDependentRules checks if any EventForwardingRules (managed or unmanaged) are using this forwarder.

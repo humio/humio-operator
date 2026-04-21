@@ -45,8 +45,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -170,7 +174,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if result, err := r.ensureHumioClusterBootstrapToken(ctx, hc); result != emptyResult || err != nil {
 		if err != nil {
 			_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-				withMessage(err.Error()))
+				withMessage(err.Error()).
+				withState(humiov1alpha1.HumioClusterStateConfigError))
 		}
 		return result, err
 	}
@@ -256,7 +261,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 			_, err = r.updateStatus(ctx, r.Status(), hc, statusOptions().
 				withNodePoolState(hc.Status.State, pool.GetNodePoolName(), desiredPodRevision, pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), ""))
-			return reconcile.Result{Requeue: true}, err
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -401,7 +409,78 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&policyv1.PodDisruptionBudget{}).
 		Owns(&networkingv1.Ingress{}).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(
+			r.findClustersReferencingConfigMap,
+		), builder.WithPredicates(configMapDataChangedPredicate())).
 		Complete(r)
+}
+
+// findClustersReferencingConfigMap returns reconcile requests for all HumioClusters that reference the given ConfigMap via imageSource.configMapRef.
+func (r *HumioClusterReconciler) findClustersReferencingConfigMap(ctx context.Context, obj client.Object) []reconcile.Request {
+	// ConfigMaps owned by a HumioCluster are already handled by Owns(), skip them.
+	for _, ref := range obj.GetOwnerReferences() {
+		if ref.Kind == "HumioCluster" {
+			return nil
+		}
+	}
+
+	clusterList := &humiov1alpha1.HumioClusterList{}
+	if err := r.List(ctx, clusterList, client.InNamespace(obj.GetNamespace())); err != nil {
+		r.Log.Error(err, "failed to list HumioCluster instances while handling ConfigMap change",
+			"configMapName", obj.GetName(), "namespace", obj.GetNamespace())
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, cluster := range clusterList.Items {
+		if referencesConfigMap(&cluster, obj.GetName()) {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      cluster.Name,
+					Namespace: cluster.Namespace,
+				},
+			})
+		}
+	}
+	return requests
+}
+
+// referencesConfigMap checks whether a HumioCluster references the named ConfigMap via imageSource.configMapRef at the top-level spec or in any node pool.
+func referencesConfigMap(cluster *humiov1alpha1.HumioCluster, configMapName string) bool {
+	if cluster.Spec.ImageSource != nil &&
+		cluster.Spec.ImageSource.ConfigMapRef != nil &&
+		cluster.Spec.ImageSource.ConfigMapRef.Name == configMapName {
+		return true
+	}
+	for _, np := range cluster.Spec.NodePools {
+		if np.ImageSource != nil &&
+			np.ImageSource.ConfigMapRef != nil &&
+			np.ImageSource.ConfigMapRef.Name == configMapName {
+			return true
+		}
+	}
+	return false
+}
+
+// configMapDataChangedPredicate returns a predicate that only passes through Update events where the ConfigMap .Data has actually changed.
+// This avoids unnecessary reconciliations from metadata-only changes.
+func configMapDataChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldCM, ok := e.ObjectOld.(*corev1.ConfigMap)
+			if !ok {
+				return false
+			}
+			newCM, ok := e.ObjectNew.(*corev1.ConfigMap)
+			if !ok {
+				return false
+			}
+			return !equality.Semantic.DeepEqual(oldCM.Data, newCM.Data)
+		},
+	}
 }
 
 func (r *HumioClusterReconciler) nodePoolPodsReady(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (bool, error) {
@@ -488,6 +567,12 @@ func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Co
 		}
 		r.Log.Info("secret not populated yet, waiting on HumioBootstrapTokenReconciler")
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// Check if bootstrap token auto-creation is disabled
+	if !bootstrapTokenAutoCreateOrDefault(hc) {
+		r.Log.Info("spec.bootstrapToken.autoCreate is false but no bootstrap token found, setting ConfigError state")
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("spec.bootstrapToken.autoCreate is false but no bootstrap token found which references cluster %s", hc.Name)
 	}
 
 	hbt := kubernetes.ConstructHumioBootstrapToken(hc.GetName(), hc.GetNamespace())
@@ -1456,7 +1541,13 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not authenticate with bootstrap token")
 	}
-	clientWithBootstrapToken := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+
+	clientWithBootstrapToken, authErr := r.HumioClient.AuthenticateWithBootstrapToken(ctx, cluster.Config(), req)
+	if authErr != nil {
+		_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			withMessage("bootstrap token authentication failed with both Bearer and Basic auth"))
+		return reconcile.Result{}, r.logErrorAndReturn(authErr, "bootstrap token authentication failed")
+	}
 
 	if err = r.ensurePersonalAPITokenForAdminUser(ctx, clientWithBootstrapToken, req, hc); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to create permission tokens")
@@ -2017,7 +2108,10 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		r.Log.Info(fmt.Sprintf("updating cluster state as no difference was detected, updating from=%s to=%s", hnp.GetState(), humiov1alpha1.HumioClusterStateRunning))
 		_, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().
 			withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), ""))
-		return reconcile.Result{Requeue: true}, err
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// we expect an annotation for the bootstrap token to be present
@@ -2056,7 +2150,10 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			))
 
 			_, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().withNodePoolState(hc.Status.State, hnp.GetNodePoolName(), newRevision, desiredPodHash, desiredBootstrapTokenHash, ""))
-			return reconcile.Result{Requeue: true}, err
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -3215,10 +3312,7 @@ func (r *HumioClusterReconciler) createTelemetryCollectionResource(ctx context.C
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      collectionName,
 			Namespace: hc.Namespace,
-			Labels: map[string]string{
-				"humio.com/managed-by": "humio-operator",
-				"humio.com/cluster":    hc.Name,
-			},
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
 		},
 		Spec: humiov1alpha1.HumioTelemetryCollectionSpec{
 			ClusterIdentifier:  hc.Spec.TelemetryConfig.ClusterIdentifier,
@@ -3319,10 +3413,7 @@ func (r *HumioClusterReconciler) createTelemetryExportResource(ctx context.Conte
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      exportName,
 			Namespace: hc.Namespace,
-			Labels: map[string]string{
-				"humio.com/managed-by": "humio-operator",
-				"humio.com/cluster":    hc.Name,
-			},
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
 		},
 		Spec: humiov1alpha1.HumioTelemetryExportSpec{
 			RemoteReport: humiov1alpha1.HumioTelemetryRemoteReportConfig{

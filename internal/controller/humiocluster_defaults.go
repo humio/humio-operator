@@ -39,6 +39,8 @@ const (
 	HumioPort                    = 8080
 	ElasticPortName              = "es"
 	ElasticPort                  = 9200
+	PrometheusMetricsPortName    = "metrics"
+	PrometheusMetricsPort        = 9090
 	idpCertificateFilename       = "idp-certificate.pem"
 	ExtraKafkaPropertiesFilename = "extra-kafka-properties.properties"
 	ViewGroupPermissionsFilename = "view-group-permissions.json"
@@ -150,6 +152,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			ImageSource:                                 hc.Spec.ImageSource,
 			HumioESServicePort:                          hc.Spec.HumioESServicePort,
 			HumioServicePort:                            hc.Spec.HumioServicePort,
+			HumioPrometheusMetricsServicePort:           hc.Spec.HumioPrometheusMetricsServicePort,
 			HumioServiceType:                            hc.Spec.HumioServiceType,
 			HumioServiceAnnotations:                     hc.Spec.HumioServiceAnnotations,
 			InitServiceAccountName:                      hc.Spec.InitServiceAccountName,
@@ -207,43 +210,44 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			Image:     hnp.Image,
 			NodeCount: hnp.NodeCount,
 			DataVolumePersistentVolumeClaimSpecTemplate: hnp.DataVolumePersistentVolumeClaimSpecTemplate,
-			DataVolumeSource:               hnp.DataVolumeSource,
-			DisableInitContainer:           hnp.DisableInitContainer,
-			EnvironmentVariablesSource:     hnp.EnvironmentVariablesSource,
-			PodAnnotations:                 hnp.PodAnnotations,
-			ShareProcessNamespace:          hnp.ShareProcessNamespace,
-			HumioServiceAccountName:        hnp.HumioServiceAccountName,
-			ImagePullSecrets:               hnp.ImagePullSecrets,
-			HelperImage:                    hnp.HelperImage,
-			ImagePullPolicy:                hnp.ImagePullPolicy,
-			ContainerSecurityContext:       hnp.ContainerSecurityContext,
-			ContainerStartupProbe:          hnp.ContainerStartupProbe,
-			ContainerLivenessProbe:         hnp.ContainerLivenessProbe,
-			ContainerReadinessProbe:        hnp.ContainerReadinessProbe,
-			PodSecurityContext:             hnp.PodSecurityContext,
-			Resources:                      hnp.Resources,
-			Tolerations:                    hnp.Tolerations,
-			TopologySpreadConstraints:      hnp.TopologySpreadConstraints,
-			TerminationGracePeriodSeconds:  hnp.TerminationGracePeriodSeconds,
-			Affinity:                       hnp.Affinity,
-			SidecarContainers:              hnp.SidecarContainers,
-			ExtraKafkaConfigs:              hnp.ExtraKafkaConfigs,
-			ExtraHumioVolumeMounts:         hnp.ExtraHumioVolumeMounts,
-			ExtraVolumes:                   hnp.ExtraVolumes,
-			HumioServiceAccountAnnotations: hnp.HumioServiceAccountAnnotations,
-			HumioServiceLabels:             hnp.HumioServiceLabels,
-			EnvironmentVariables:           mergeEnvVars(hc.Spec.CommonEnvironmentVariables, hnp.EnvironmentVariables),
-			ImageSource:                    hnp.ImageSource,
-			HumioESServicePort:             hnp.HumioESServicePort,
-			HumioServicePort:               hnp.HumioServicePort,
-			HumioServiceType:               hnp.HumioServiceType,
-			HumioServiceAnnotations:        hnp.HumioServiceAnnotations,
-			InitServiceAccountName:         hnp.InitServiceAccountName,
-			PodLabels:                      hnp.PodLabels,
-			UpdateStrategy:                 hnp.UpdateStrategy,
-			PriorityClassName:              hnp.PriorityClassName,
-			NodePoolFeatures:               hnp.NodePoolFeatures,
-			PodDisruptionBudget:            hnp.PodDisruptionBudget,
+			DataVolumeSource:                  hnp.DataVolumeSource,
+			DisableInitContainer:              hnp.DisableInitContainer,
+			EnvironmentVariablesSource:        hnp.EnvironmentVariablesSource,
+			PodAnnotations:                    hnp.PodAnnotations,
+			ShareProcessNamespace:             hnp.ShareProcessNamespace,
+			HumioServiceAccountName:           hnp.HumioServiceAccountName,
+			ImagePullSecrets:                  hnp.ImagePullSecrets,
+			HelperImage:                       hnp.HelperImage,
+			ImagePullPolicy:                   hnp.ImagePullPolicy,
+			ContainerSecurityContext:          hnp.ContainerSecurityContext,
+			ContainerStartupProbe:             hnp.ContainerStartupProbe,
+			ContainerLivenessProbe:            hnp.ContainerLivenessProbe,
+			ContainerReadinessProbe:           hnp.ContainerReadinessProbe,
+			PodSecurityContext:                hnp.PodSecurityContext,
+			Resources:                         hnp.Resources,
+			Tolerations:                       hnp.Tolerations,
+			TopologySpreadConstraints:         hnp.TopologySpreadConstraints,
+			TerminationGracePeriodSeconds:     hnp.TerminationGracePeriodSeconds,
+			Affinity:                          hnp.Affinity,
+			SidecarContainers:                 hnp.SidecarContainers,
+			ExtraKafkaConfigs:                 hnp.ExtraKafkaConfigs,
+			ExtraHumioVolumeMounts:            hnp.ExtraHumioVolumeMounts,
+			ExtraVolumes:                      hnp.ExtraVolumes,
+			HumioServiceAccountAnnotations:    hnp.HumioServiceAccountAnnotations,
+			HumioServiceLabels:                hnp.HumioServiceLabels,
+			EnvironmentVariables:              mergeEnvVars(hc.Spec.CommonEnvironmentVariables, hnp.EnvironmentVariables),
+			ImageSource:                       hnp.ImageSource,
+			HumioESServicePort:                hnp.HumioESServicePort,
+			HumioServicePort:                  hnp.HumioServicePort,
+			HumioPrometheusMetricsServicePort: hnp.HumioPrometheusMetricsServicePort,
+			HumioServiceType:                  hnp.HumioServiceType,
+			HumioServiceAnnotations:           hnp.HumioServiceAnnotations,
+			InitServiceAccountName:            hnp.InitServiceAccountName,
+			PodLabels:                         hnp.PodLabels,
+			UpdateStrategy:                    hnp.UpdateStrategy,
+			PriorityClassName:                 hnp.PriorityClassName,
+			NodePoolFeatures:                  hnp.NodePoolFeatures,
+			PodDisruptionBudget:               hnp.PodDisruptionBudget,
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -458,6 +462,7 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(HumioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(ElasticPort)},
+		{Name: "PROMETHEUS_METRICS_PORT", Value: strconv.Itoa(int(hnp.GetHumioPrometheusMetricsServicePort()))},
 		{Name: "DEFAULT_DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
 		{Name: "DEFAULT_SEGMENT_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
 		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hnp.GetDigestPartitionsCount())},
@@ -1017,6 +1022,13 @@ func (hnp *HumioNodePool) GetHumioESServicePort() int32 {
 	return ElasticPort
 }
 
+func (hnp *HumioNodePool) GetHumioPrometheusMetricsServicePort() int32 {
+	if hnp.humioNodeSpec.HumioPrometheusMetricsServicePort != 0 {
+		return hnp.humioNodeSpec.HumioPrometheusMetricsServicePort
+	}
+	return PrometheusMetricsPort
+}
+
 func (hnp *HumioNodePool) GetServiceType() corev1.ServiceType {
 	if hnp.humioNodeSpec.HumioServiceType != "" {
 		return hnp.humioNodeSpec.HumioServiceType
@@ -1190,6 +1202,16 @@ func humioPathOrDefault(hc *humiov1alpha1.HumioCluster) string {
 
 func licenseSecretKeyRefOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.SecretKeySelector {
 	return hc.Spec.License.SecretKeyRef
+}
+
+func bootstrapTokenAutoCreateOrDefault(hc *humiov1alpha1.HumioCluster) bool {
+	if hc.Spec.BootstrapToken == nil {
+		return true
+	}
+	if hc.Spec.BootstrapToken.AutoCreate == nil {
+		return true
+	}
+	return *hc.Spec.BootstrapToken.AutoCreate
 }
 
 type HumioNodePoolList struct {

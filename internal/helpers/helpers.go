@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-
 	uberzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -285,46 +283,6 @@ func UseKindCluster() bool {
 // This is to allow reruns of tests to be performed where resources can be reused.
 func PreserveKindCluster() bool {
 	return os.Getenv("PRESERVE_KIND_CLUSTER") == TrueStr
-}
-
-func GetWatchNamespace() (string, error) {
-	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-	// which specifies the Namespace to watch.
-	// An empty value means the operator is running with cluster scope.
-	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
-
-	ns, found := os.LookupEnv(watchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
-	}
-	return ns, nil
-}
-
-func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
-	cacheOptions := cache.Options{}
-
-	watchNamespace, err := GetWatchNamespace()
-	if err != nil {
-		return cacheOptions, err
-	}
-
-	if watchNamespace == "" {
-		return cacheOptions, nil
-	}
-
-	defaultNamespaces := make(map[string]cache.Config)
-	namespaces := strings.Split(watchNamespace, ",")
-	for _, namespace := range namespaces {
-		if namespace = strings.TrimSpace(namespace); namespace != "" {
-			defaultNamespaces[namespace] = cache.Config{}
-		}
-	}
-
-	if len(defaultNamespaces) > 0 {
-		cacheOptions.DefaultNamespaces = defaultNamespaces
-	}
-
-	return cacheOptions, nil
 }
 
 // EmptySliceIfNil returns the slice or an empty slice if it's nil

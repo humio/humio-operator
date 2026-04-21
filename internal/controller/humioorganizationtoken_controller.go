@@ -90,9 +90,9 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 	// setup humio client configuration
 	cluster, err := helpers.NewCluster(ctx, r, hot.Spec.ManagedClusterName, hot.Spec.ExternalClusterName, hot.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := setState(ctx, r, hot, humiov1alpha1.HumioTokenConfigError, hot.Status.HumioID)
-		if setStateErr != nil {
-			return reconcile.Result{}, logErrorAndReturn(r.Log, setStateErr, "unable to set cluster state")
+		setConditionErr := setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, "Unable to obtain humio client config", hot.Status.HumioID)
+		if setConditionErr != nil {
+			return reconcile.Result{}, logErrorAndReturn(r.Log, setConditionErr, "unable to set cluster state")
 		}
 		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "unable to obtain humio client config")
 	}
@@ -100,31 +100,8 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	// handle delete logic
-	isHumioOrganizationTokenMarkedToBeDeleted := hot.GetDeletionTimestamp() != nil
-	if isHumioOrganizationTokenMarkedToBeDeleted {
-		r.Log.Info("OrganizationToken marked to be deleted")
-		if helpers.ContainsElement(hot.GetFinalizers(), HumioFinalizer) {
-			_, err := r.HumioClient.GetOrganizationToken(ctx, humioHttpClient, hot)
-			// first iteration on delete we don't enter here since OrganizationToken should exist
-			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hot.SetFinalizers(helpers.RemoveElement(hot.GetFinalizers(), HumioFinalizer))
-				err := r.Update(ctx, hot)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				r.Log.Info("finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
-			}
-			// first iteration on delete we run the finalize function which includes delete
-			r.Log.Info("OrganizationToken contains finalizer so run finalize method")
-			if err := r.finalize(ctx, humioHttpClient, hot); err != nil {
-				_ = setState(ctx, r, hot, humiov1alpha1.HumioTokenUnknown, hot.Status.HumioID)
-				return reconcile.Result{}, logErrorAndReturn(r.Log, err, "finalize method returned an error")
-			}
-			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
-		}
-		return reconcile.Result{}, nil
+	if hot.GetDeletionTimestamp() != nil {
+		return r.handleOrganizationTokenDeletion(ctx, humioHttpClient, hot)
 	}
 
 	// Add finalizer for OrganizationToken so we can run cleanup on delete
@@ -133,6 +110,82 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	// Get or create OrganizationToken
+	result, currentOrganizationToken, err := r.ensureOrganizationTokenExists(ctx, humioHttpClient, hot, cluster)
+	if err != nil || result.Requeue || result.RequeueAfter > 0 { //nolint:staticcheck // SA1019: result.Requeue used intentionally
+		return result, err
+	}
+
+	// Update if needed
+	asExpected, err := r.updateOrganizationTokenIfNeeded(ctx, humioHttpClient, hot, currentOrganizationToken)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// ensure associated k8s secret exists
+	if err := r.ensureTokenSecret(ctx, hot, humioHttpClient, cluster); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Update final status
+	if err := r.updateOrganizationTokenFinalStatus(ctx, humioHttpClient, hot, asExpected, currentOrganizationToken); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+}
+
+// handleOrganizationTokenDeletion handles the deletion logic for organization tokens
+func (r *HumioOrganizationTokenReconciler) handleOrganizationTokenDeletion(ctx context.Context, humioHttpClient *humioapi.Client, hot *humiov1alpha1.HumioOrganizationToken) (ctrl.Result, error) {
+	r.Log.Info("OrganizationToken marked to be deleted")
+	if !helpers.ContainsElement(hot.GetFinalizers(), HumioFinalizer) {
+		return reconcile.Result{}, nil
+	}
+
+	// Check for force finalize annotation
+	if ShouldForceFinalize(hot) {
+		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+			"resource", hot.Name,
+			"namespace", hot.Namespace)
+		hot.SetFinalizers(helpers.RemoveElement(hot.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hot)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	_, err := r.HumioClient.GetOrganizationToken(ctx, humioHttpClient, hot)
+	// first iteration on delete we don't enter here since OrganizationToken should exist
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		hot.SetFinalizers(helpers.RemoveElement(hot.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hot)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("finalizer removed successfully")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// first iteration on delete we run the finalize function which includes delete
+	r.Log.Info("OrganizationToken contains finalizer so run finalize method")
+	if err := r.finalize(ctx, humioHttpClient, hot); err != nil {
+		// Error during finalization
+		// If the cluster is unavailable or the resource is already deleted, users can manually
+		// add the 'humio.com/force-finalize: "true"' annotation to remove the finalizer
+		r.Log.Error(err, "Failed to finalize organization token during deletion. "+
+			"If the resource is already deleted or the cluster is unavailable, "+
+			"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
+		_ = setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, fmt.Sprintf("Finalize error: %v", err), hot.Status.HumioID)
+		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "finalize method returned an error")
+	}
+	// If no error was detected, we need to requeue so that we can remove the finalizer
+	return reconcile.Result{Requeue: true}, nil
+}
+
+// ensureOrganizationTokenExists gets or creates the organization token
+func (r *HumioOrganizationTokenReconciler) ensureOrganizationTokenExists(ctx context.Context, humioHttpClient *humioapi.Client, hot *humiov1alpha1.HumioOrganizationToken, cluster helpers.ClusterInterface) (ctrl.Result, *humiographql.OrganizationTokenDetailsOrganizationPermissionsToken, error) {
 	r.Log.Info("get current OrganizationToken")
 	currentOrganizationToken, err := r.HumioClient.GetOrganizationToken(ctx, humioHttpClient, hot)
 	if err != nil {
@@ -141,51 +194,56 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 			// run validation across spec fields
 			validation, err := r.validateDependencies(ctx, humioHttpClient, hot, currentOrganizationToken)
 			if err != nil {
-				return handleCriticalError(ctx, r, hot, err)
+				result, returnErr := handleCriticalError(ctx, r, hot, err)
+				return result, nil, returnErr
 			}
 			// create the OrganizationToken after successful validation
 			tokenId, secret, addErr := r.HumioClient.CreateOrganizationToken(ctx, humioHttpClient, hot, validation.IPFilterID, validation.Permissions)
 			if addErr != nil {
-				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not create OrganizationToken")
+				return reconcile.Result{}, nil, logErrorAndReturn(r.Log, addErr, "could not create OrganizationToken")
 			}
-			err = setState(ctx, r, hot, humiov1alpha1.HumioTokenExists, tokenId)
+			err = setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.TokenReasonCreated, "OrganizationToken created successfully", tokenId)
 			if err != nil {
 				// we lost the tokenId so we need to reconcile
-				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not set Status.HumioID")
+				return reconcile.Result{}, nil, logErrorAndReturn(r.Log, addErr, "could not set Status.HumioID")
 			}
 			// create k8s secret
 			err = ensureTokenSecretExists(ctx, r, hot, cluster, nil, hot.Spec.Name, secret)
 			if err != nil {
 				// we lost the humio generated secret so we need to rotateToken
-				_ = setState(ctx, r, hot, humiov1alpha1.HumioTokenConfigError, tokenId)
-				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not create k8s secret for OrganizationToken")
+				_ = setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, "Failed to create k8s secret", tokenId)
+				return reconcile.Result{}, nil, logErrorAndReturn(r.Log, addErr, "could not create k8s secret for OrganizationToken")
 			}
 			r.Log.Info("successfully created OrganizationToken")
-			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+			return reconcile.Result{RequeueAfter: time.Second * 5}, nil, nil
 		}
-		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "could not check if OrganizationToken exists")
+		return reconcile.Result{}, nil, logErrorAndReturn(r.Log, err, "could not check if OrganizationToken exists")
 	}
+	return reconcile.Result{}, currentOrganizationToken, nil
+}
 
+// updateOrganizationTokenIfNeeded checks if organization token differs and updates if needed
+func (r *HumioOrganizationTokenReconciler) updateOrganizationTokenIfNeeded(ctx context.Context, humioHttpClient *humioapi.Client, hot *humiov1alpha1.HumioOrganizationToken, currentOrganizationToken *humiographql.OrganizationTokenDetailsOrganizationPermissionsToken) (bool, error) {
 	// OrganizationToken exists, we check for differences
 	asExpected, diffKeysAndValues := r.organizationTokenAlreadyAsExpected(hot, currentOrganizationToken)
 	if !asExpected {
 		// we plan to update so we validate dependencies
 		validation, err := r.validateDependencies(ctx, humioHttpClient, hot, currentOrganizationToken)
 		if err != nil {
-			return handleCriticalError(ctx, r, hot, err)
+			_, returnErr := handleCriticalError(ctx, r, hot, err)
+			return false, returnErr
 		}
 		r.Log.Info("information differs, triggering update for OrganizationToken", "diff", diffKeysAndValues)
 		updateErr := r.HumioClient.UpdateOrganizationToken(ctx, humioHttpClient, hot, validation.Permissions)
 		if updateErr != nil {
-			return reconcile.Result{}, logErrorAndReturn(r.Log, updateErr, "could not update OrganizationToken")
+			return false, logErrorAndReturn(r.Log, updateErr, "could not update OrganizationToken")
 		}
 	}
+	return asExpected, nil
+}
 
-	// ensure associated k8s secret exists
-	if err := r.ensureTokenSecret(ctx, hot, humioHttpClient, cluster); err != nil {
-		return reconcile.Result{}, err
-	}
-
+// updateOrganizationTokenFinalStatus updates the final status of the organization token
+func (r *HumioOrganizationTokenReconciler) updateOrganizationTokenFinalStatus(ctx context.Context, humioHttpClient *humioapi.Client, hot *humiov1alpha1.HumioOrganizationToken, asExpected bool, currentOrganizationToken *humiographql.OrganizationTokenDetailsOrganizationPermissionsToken) error {
 	// At the end of successful reconcile refetch in case of updated state and validate dependencies
 	var humioOrganizationToken *humiographql.OrganizationTokenDetailsOrganizationPermissionsToken
 	var lastErr error
@@ -198,20 +256,19 @@ func (r *HumioOrganizationTokenReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	if errors.As(lastErr, &humioapi.EntityNotFound{}) {
-		_ = setState(ctx, r, hot, humiov1alpha1.HumioTokenNotFound, hot.Status.HumioID)
+		_ = setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonNotFound, "OrganizationToken not found", hot.Status.HumioID)
 	} else if lastErr != nil {
-		_ = setState(ctx, r, hot, humiov1alpha1.HumioTokenUnknown, hot.Status.HumioID)
+		_ = setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, fmt.Sprintf("Failed to get token: %v", lastErr), hot.Status.HumioID)
 	} else {
 		// on every reconcile validate dependencies that can change outside of k8s
 		_, lastErr := r.validateDependencies(ctx, humioHttpClient, hot, humioOrganizationToken)
 		if lastErr != nil {
-			return handleCriticalError(ctx, r, hot, lastErr)
+			_, returnErr := handleCriticalError(ctx, r, hot, lastErr)
+			return returnErr
 		}
-		_ = setState(ctx, r, hot, humiov1alpha1.HumioTokenExists, hot.Status.HumioID)
+		_ = setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.TokenReasonReady, "OrganizationToken is ready", hot.Status.HumioID)
 	}
-
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -236,6 +293,11 @@ func (r *HumioOrganizationTokenReconciler) getHumioOrganizationToken(ctx context
 }
 
 func (r *HumioOrganizationTokenReconciler) finalize(ctx context.Context, client *humioapi.Client, hot *humiov1alpha1.HumioOrganizationToken) error {
+	// Check if data deletion is allowed
+	if !hot.Spec.AllowDataDeletion {
+		return fmt.Errorf("token may contain data and data deletion not enabled. Set allowDataDeletion to true to allow deletion or add the %s annotation to force deletion", ForceFinalizerAnnotation)
+	}
+
 	if hot.Status.HumioID != "" {
 		err := r.HumioClient.DeleteOrganizationToken(ctx, client, hot)
 		if err != nil {
@@ -372,7 +434,7 @@ func (r *HumioOrganizationTokenReconciler) ensureTokenSecret(ctx context.Context
 				// we can try rotate again on the next reconcile
 				return logErrorAndReturn(r.Log, err, "could not rotate OrganizationToken")
 			}
-			err = setState(ctx, r, hot, humiov1alpha1.HumioTokenExists, tokenId)
+			err = setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.TokenReasonUpdated, "OrganizationToken rotated successfully", tokenId)
 			if err != nil {
 				// we lost the Humio ID so we need to reconcile
 				return logErrorAndReturn(r.Log, err, "could not update OrganizationToken Status with tokenId")
@@ -389,7 +451,7 @@ func (r *HumioOrganizationTokenReconciler) ensureTokenSecret(ctx context.Context
 		// k8s secret exists, ensure it is up to date
 		err = ensureTokenSecretExists(ctx, r, hot, cluster, existingSecret, "OrganizationToken", "")
 		if err != nil {
-			_ = setState(ctx, r, hot, humiov1alpha1.HumioTokenConfigError, hot.Status.HumioID)
+			_ = setCondition(ctx, r, hot, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, "Failed to update k8s secret", hot.Status.HumioID)
 			return logErrorAndReturn(r.Log, err, "could not ensure OrganizationToken k8s secret exists")
 		}
 	}

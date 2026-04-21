@@ -32,6 +32,9 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -82,13 +85,28 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	cluster, err := helpers.NewCluster(ctx, r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioIngestTokenStateConfigError, hit)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
+		setConditionErr := r.setCondition(ctx, hit,
+			humiov1alpha1.IngestTokenConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.IngestTokenReasonConfigError,
+			fmt.Sprintf("Unable to obtain humio client config: %v", err))
+		if setConditionErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setConditionErr, "unable to set condition")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hit)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle ingest token rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
 
 	r.Log.Info("Checking if ingest token is marked to be deleted")
 	// Check if the HumioIngestToken instance is marked to be deleted, which is
@@ -97,6 +115,20 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if isHumioIngestTokenMarkedToBeDeleted {
 		r.Log.Info("Ingest token marked to be deleted")
 		if helpers.ContainsElement(hit.GetFinalizers(), HumioFinalizer) {
+			// Check for force finalize annotation
+			if ShouldForceFinalize(hit) {
+				r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+					"resource", hit.Name,
+					"namespace", hit.Namespace)
+				hit.SetFinalizers(helpers.RemoveElement(hit.GetFinalizers(), HumioFinalizer))
+				err := r.Update(ctx, hit)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			_, err := r.HumioClient.GetIngestToken(ctx, humioHttpClient, hit)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hit.SetFinalizers(helpers.RemoveElement(hit.GetFinalizers(), HumioFinalizer))
@@ -113,6 +145,12 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Ingest token contains finalizer so run finalizer method")
 			if err := r.finalize(ctx, humioHttpClient, hit); err != nil {
+				// Error during finalization
+				// If the cluster is unavailable or the resource is already deleted, users can manually
+				// add the 'humio.com/force-finalize: "true"' annotation to remove the finalizer
+				r.Log.Error(err, "Failed to finalize ingest token during deletion. "+
+					"If the resource is already deleted or the cluster is unavailable, "+
+					"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 			// If no error was detected, we need to requeue so that we can remove the finalizer
@@ -132,14 +170,26 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	defer func(ctx context.Context, humioClient humio.Client, hit *humiov1alpha1.HumioIngestToken) {
 		_, err := humioClient.GetIngestToken(ctx, humioHttpClient, hit)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
+			_ = r.setCondition(ctx, hit,
+				humiov1alpha1.IngestTokenConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.IngestTokenReasonNotFound,
+				"Ingest token not found in LogScale")
 			return
 		}
 		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateUnknown, hit)
+			_ = r.setCondition(ctx, hit,
+				humiov1alpha1.IngestTokenConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.IngestTokenReasonConfigError,
+				fmt.Sprintf("Failed to get ingest token: %v", err))
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateExists, hit)
+		_ = r.setCondition(ctx, hit,
+			humiov1alpha1.IngestTokenConditionTypeReady,
+			metav1.ConditionTrue,
+			humiov1alpha1.IngestTokenReasonReady,
+			"Ingest token is ready")
 	}(ctx, r.HumioClient, hit)
 
 	// Get current ingest token
@@ -201,7 +251,27 @@ func (r *HumioIngestTokenReconciler) finalize(ctx context.Context, client *humio
 		return err
 	}
 
-	return r.HumioClient.DeleteIngestToken(ctx, client, hit)
+	// Check if data deletion is allowed
+	if !hit.Spec.AllowDataDeletion {
+		return fmt.Errorf("ingest token may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+	}
+
+	// Audit log before deletion
+	r.Log.Info("Proceeding with ingest token deletion",
+		"allowDataDeletion", hit.Spec.AllowDataDeletion,
+		"tokenName", hit.Spec.Name,
+		"repositoryName", hit.Spec.RepositoryName,
+		"namespace", hit.Namespace,
+		"deletionTimestamp", hit.GetDeletionTimestamp(),
+	)
+
+	err = r.HumioClient.DeleteIngestToken(ctx, client, hit)
+	if err != nil {
+		return err
+	}
+
+	r.Log.Info("Successfully deleted ingest token", "tokenName", hit.Spec.Name)
+	return nil
 }
 
 func (r *HumioIngestTokenReconciler) addFinalizer(ctx context.Context, hit *humiov1alpha1.HumioIngestToken) error {
@@ -257,13 +327,54 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 	return nil
 }
 
-func (r *HumioIngestTokenReconciler) setState(ctx context.Context, state string, hit *humiov1alpha1.HumioIngestToken) error {
-	if hit.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioIngestToken resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioIngestTokenReconciler) setCondition(ctx context.Context,
+	hit *humiov1alpha1.HumioIngestToken,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioIngestToken{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hit), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = ingestTokenStateFromCondition(status, reason)
+
+		// Track the synced name when ingest token is ready
+		if conditionType == humiov1alpha1.IngestTokenConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+func ingestTokenStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioIngestTokenStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting ingest token state to %s", state))
-	hit.Status.State = state
-	return r.Status().Update(ctx, hit)
+	switch reason {
+	case humiov1alpha1.IngestTokenReasonNotFound:
+		return humiov1alpha1.HumioIngestTokenStateNotFound
+	case humiov1alpha1.IngestTokenReasonConfigError:
+		return humiov1alpha1.HumioIngestTokenStateConfigError
+	default:
+		return humiov1alpha1.HumioIngestTokenStateUnknown
+	}
 }
 
 func (r *HumioIngestTokenReconciler) logErrorAndReturn(err error, msg string) error {
@@ -295,4 +406,40 @@ func ingestTokenAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.Hu
 	}
 
 	return len(keyValues) == 0, keyValues
+}
+
+// detectAndHandleRename checks if the ingest token name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioIngestTokenReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "ingest token",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioIngestToken).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioIngestToken).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioIngestToken).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioIngestToken).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteIngestToken(ctx, apiClient, obj.(*humiov1alpha1.HumioIngestToken))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioIngestToken),
+				humiov1alpha1.IngestTokenConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.IngestTokenReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hit, config, r.Log)
 }

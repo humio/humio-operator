@@ -62,6 +62,11 @@ spec:
           spec:
             description: HumioSavedQuerySpec defines the desired state of HumioSavedQuery.
             properties:
+              allowDataDeletion:
+                description: |-
+                  AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+                  If false or unset, the operator will not delete the LogScale resource on CR deletion.
+                type: boolean
               description:
                 description: |-
                   Description is the description of the SavedQuery.
@@ -95,9 +100,6 @@ spec:
                 description: Name is the name of the saved query inside Humio
                 minLength: 1
                 type: string
-                x-kubernetes-validations:
-                - message: Value is immutable
-                  rule: self == oldSelf
               queryString:
                 description: QueryString is the actual query that will be saved
                 maxLength: 1048576
@@ -181,6 +183,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              lastSyncedName:
+                description: |-
+                  LastSyncedName tracks the last successfully synced name in LogScale
+                  to detect rename operations. When spec.name differs from this value,
+                  the controller will delete the old saved query and create a new one.
+                type: string
               lastSyncedViewName:
                 description: |-
                   LastSyncedViewName tracks the view name where the saved query was last successfully synced.

@@ -90,6 +90,7 @@ type ClusterClient interface {
 	GetHumioHttpClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections(string)
 	TestAPIToken(context.Context, *humioapi.Config, reconcile.Request) error
+	AuthenticateWithBootstrapToken(context.Context, *humioapi.Config, reconcile.Request) (*humioapi.Client, error)
 	Status(context.Context, *humioapi.Client) (*humioapi.StatusResponse, error)
 	GetEvictionStatus(context.Context, *humioapi.Client) (*humiographql.GetEvictionStatusResponse, error)
 	SetIsBeingEvicted(context.Context, *humioapi.Client, int, bool) error
@@ -116,6 +117,7 @@ type RepositoriesClient interface {
 	GetRepository(context.Context, *humioapi.Client, *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error)
 	UpdateRepository(context.Context, *humioapi.Client, *humiov1alpha1.HumioRepository) error
 	DeleteRepository(context.Context, *humioapi.Client, *humiov1alpha1.HumioRepository) error
+	RenameRepository(context.Context, *humioapi.Client, string, string) error
 }
 
 type ViewsClient interface {
@@ -123,6 +125,7 @@ type ViewsClient interface {
 	GetView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView, bool) (*humiographql.GetSearchDomainSearchDomainView, error)
 	UpdateView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
 	DeleteView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
+	RenameView(context.Context, *humioapi.Client, string, string) error
 }
 
 type MultiClusterSearchViewsClient interface {
@@ -385,7 +388,8 @@ func (h *ClientConfig) GetHumioHttpClient(config *humioapi.Config, req ctrl.Requ
 		equal := existingConfig.Token == config.Token &&
 			existingConfig.Insecure == config.Insecure &&
 			existingConfig.CACertificatePEM == config.CACertificatePEM &&
-			existingConfig.Address.String() == config.Address.String()
+			existingConfig.Address.String() == config.Address.String() &&
+			existingConfig.UseBasicAuth == config.UseBasicAuth
 
 		// If the cluster address or SSL configuration has changed, we must create a new transport
 		if !equal {
@@ -489,6 +493,27 @@ func (h *ClientConfig) TestAPIToken(ctx context.Context, config *humioapi.Config
 	humioHttpClient := h.GetHumioHttpClient(config, req)
 	_, err := humiographql.GetUsername(ctx, humioHttpClient)
 	return err
+}
+
+func (h *ClientConfig) AuthenticateWithBootstrapToken(ctx context.Context, config *humioapi.Config, req reconcile.Request) (*humioapi.Client, error) {
+	config.UseBasicAuth = false
+	client := h.GetHumioHttpClient(config, req)
+	resp, err := humiographql.GetCurrentUser(ctx, client)
+	if err == nil && resp != nil && resp.CurrentUser.Username != "" {
+		h.logger.Info(fmt.Sprintf("bootstrap token Bearer auth succeeded as user %s (isRoot=%v)", resp.CurrentUser.Username, resp.CurrentUser.IsRoot))
+		return client, nil
+	}
+
+	h.logger.Info("bootstrap token Bearer auth failed, retrying with Basic auth")
+	config.UseBasicAuth = true
+	client = h.GetHumioHttpClient(config, req)
+	resp, err = humiographql.GetCurrentUser(ctx, client)
+	if err == nil && resp != nil && resp.CurrentUser.Username != "" {
+		h.logger.Info(fmt.Sprintf("bootstrap token Basic auth succeeded as user %s (isRoot=%v)", resp.CurrentUser.Username, resp.CurrentUser.IsRoot))
+		return client, nil
+	}
+
+	return nil, fmt.Errorf("bootstrap token authentication failed with both Bearer and Basic auth: %v", err)
 }
 
 func (h *ClientConfig) AddIngestToken(ctx context.Context, client *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
@@ -625,6 +650,10 @@ func (h *ClientConfig) GetParser(ctx context.Context, client *humioapi.Client, h
 }
 
 func (h *ClientConfig) UpdateParser(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioParser) error {
+	tagFields := []string{}
+	if hp.Spec.TagFields != nil {
+		tagFields = hp.Spec.TagFields
+	}
 	_, err := humiographql.CreateParserOrUpdate(
 		ctx,
 		client,
@@ -632,7 +661,7 @@ func (h *ClientConfig) UpdateParser(ctx context.Context, client *humioapi.Client
 		hp.Spec.Name,
 		hp.Spec.ParserScript,
 		humioapi.TestDataToParserTestCaseInput(hp.Spec.TestData),
-		hp.Spec.TagFields,
+		tagFields,
 		[]string{},
 		true,
 	)
@@ -965,94 +994,27 @@ func (h *ClientConfig) UpdateRepository(ctx context.Context, client *humioapi.Cl
 		return err
 	}
 
-	if cmp.Diff(curRepository.GetDescription(), &hr.Spec.Description) != "" {
-		_, err = humiographql.UpdateDescriptionForSearchDomain(
-			ctx,
-			client,
-			hr.Spec.Name,
-			hr.Spec.Description,
-		)
-		if err != nil {
-			return err
-		}
+	// Update description if explicitly set
+	if err := h.updateRepositoryDescription(ctx, client, hr, curRepository); err != nil {
+		return err
 	}
 
-	var desiredRetentionTimeInDays *float64
-	if hr.Spec.Retention.TimeInDays != nil {
-		desiredRetentionTimeInDaysFloat := float64(*hr.Spec.Retention.TimeInDays)
-		desiredRetentionTimeInDays = &desiredRetentionTimeInDaysFloat
-	}
-	if cmp.Diff(curRepository.GetTimeBasedRetention(), desiredRetentionTimeInDays) != "" {
-		if desiredRetentionTimeInDays != nil && *desiredRetentionTimeInDays > 0 {
-			if curRepository.GetTimeBasedRetention() == nil || *desiredRetentionTimeInDays < *curRepository.GetTimeBasedRetention() {
-				if !hr.Spec.AllowDataDeletion {
-					return fmt.Errorf("repository may contain data and data deletion not enabled")
-				}
-			}
-		}
-
-		_, err = humiographql.UpdateTimeBasedRetention(
-			ctx,
-			client,
-			hr.Spec.Name,
-			desiredRetentionTimeInDays,
-		)
-		if err != nil {
-			return err
-		}
+	// Update time-based retention
+	if err := h.updateTimeBasedRetention(ctx, client, hr, curRepository); err != nil {
+		return err
 	}
 
-	var desiredRetentionStorageSizeInGB *float64
-	if hr.Spec.Retention.StorageSizeInGB != nil {
-		desiredRetentionStorageSizeInGBFloat := float64(*hr.Spec.Retention.StorageSizeInGB)
-		desiredRetentionStorageSizeInGB = &desiredRetentionStorageSizeInGBFloat
-	}
-	if cmp.Diff(curRepository.GetStorageSizeBasedRetention(), desiredRetentionStorageSizeInGB) != "" {
-		if desiredRetentionStorageSizeInGB != nil && *desiredRetentionStorageSizeInGB > 0 {
-			if curRepository.GetStorageSizeBasedRetention() == nil || *desiredRetentionStorageSizeInGB < *curRepository.GetStorageSizeBasedRetention() {
-				if !hr.Spec.AllowDataDeletion {
-					return fmt.Errorf("repository may contain data and data deletion not enabled")
-				}
-			}
-		}
-
-		_, err = humiographql.UpdateStorageBasedRetention(
-			ctx,
-			client,
-			hr.Spec.Name,
-			desiredRetentionStorageSizeInGB,
-		)
-		if err != nil {
-			return err
-		}
+	// Update storage-based retention
+	if err := h.updateStorageBasedRetention(ctx, client, hr, curRepository); err != nil {
+		return err
 	}
 
-	var desiredRetentionIngestSizeInGB *float64
-	if hr.Spec.Retention.IngestSizeInGB != nil {
-		desiredRetentionIngestSizeInGBFloat := float64(*hr.Spec.Retention.IngestSizeInGB)
-		desiredRetentionIngestSizeInGB = &desiredRetentionIngestSizeInGBFloat
-	}
-	if cmp.Diff(curRepository.GetIngestSizeBasedRetention(), desiredRetentionIngestSizeInGB) != "" {
-		if desiredRetentionIngestSizeInGB != nil && *desiredRetentionIngestSizeInGB > 0 {
-			if curRepository.GetIngestSizeBasedRetention() == nil || *desiredRetentionIngestSizeInGB < *curRepository.GetIngestSizeBasedRetention() {
-				if !hr.Spec.AllowDataDeletion {
-					return fmt.Errorf("repository may contain data and data deletion not enabled")
-				}
-			}
-		}
-
-		_, err = humiographql.UpdateIngestBasedRetention(
-			ctx,
-			client,
-			hr.Spec.Name,
-			desiredRetentionIngestSizeInGB,
-		)
-
-		if err != nil {
-			return err
-		}
+	// Update ingest-based retention
+	if err := h.updateIngestBasedRetention(ctx, client, hr, curRepository); err != nil {
+		return err
 	}
 
+	// Update automatic search
 	if curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch) {
 		_, err = humiographql.SetAutomaticSearching(
 			ctx,
@@ -1065,6 +1027,115 @@ func (h *ClientConfig) UpdateRepository(ctx context.Context, client *humioapi.Cl
 		}
 	}
 
+	return nil
+}
+
+// updateRepositoryDescription updates the repository description if explicitly set
+func (h *ClientConfig) updateRepositoryDescription(ctx context.Context, client *humioapi.Client, hr *humiov1alpha1.HumioRepository, curRepository *humiographql.RepositoryDetails) error {
+	if hr.Spec.Description != nil {
+		if cmp.Diff(curRepository.GetDescription(), hr.Spec.Description) != "" {
+			_, err := humiographql.UpdateDescriptionForSearchDomain(
+				ctx,
+				client,
+				hr.Spec.Name,
+				*hr.Spec.Description,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// updateTimeBasedRetention updates time-based retention settings
+func (h *ClientConfig) updateTimeBasedRetention(ctx context.Context, client *humioapi.Client, hr *humiov1alpha1.HumioRepository, curRepository *humiographql.RepositoryDetails) error {
+	var desiredRetentionTimeInDays *float64
+	if hr.Spec.Retention.TimeInDays != nil {
+		desiredRetentionTimeInDaysFloat := float64(*hr.Spec.Retention.TimeInDays)
+		desiredRetentionTimeInDays = &desiredRetentionTimeInDaysFloat
+	}
+
+	if cmp.Diff(curRepository.GetTimeBasedRetention(), desiredRetentionTimeInDays) != "" {
+		if desiredRetentionTimeInDays != nil && *desiredRetentionTimeInDays > 0 {
+			if curRepository.GetTimeBasedRetention() == nil || *desiredRetentionTimeInDays < *curRepository.GetTimeBasedRetention() {
+				if !hr.Spec.AllowDataDeletion {
+					return fmt.Errorf("repository may contain data and data deletion not enabled")
+				}
+			}
+		}
+
+		_, err := humiographql.UpdateTimeBasedRetention(
+			ctx,
+			client,
+			hr.Spec.Name,
+			desiredRetentionTimeInDays,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// updateStorageBasedRetention updates storage-based retention settings
+func (h *ClientConfig) updateStorageBasedRetention(ctx context.Context, client *humioapi.Client, hr *humiov1alpha1.HumioRepository, curRepository *humiographql.RepositoryDetails) error {
+	var desiredRetentionStorageSizeInGB *float64
+	if hr.Spec.Retention.StorageSizeInGB != nil {
+		desiredRetentionStorageSizeInGBFloat := float64(*hr.Spec.Retention.StorageSizeInGB)
+		desiredRetentionStorageSizeInGB = &desiredRetentionStorageSizeInGBFloat
+	}
+
+	if cmp.Diff(curRepository.GetStorageSizeBasedRetention(), desiredRetentionStorageSizeInGB) != "" {
+		if desiredRetentionStorageSizeInGB != nil && *desiredRetentionStorageSizeInGB > 0 {
+			if curRepository.GetStorageSizeBasedRetention() == nil || *desiredRetentionStorageSizeInGB < *curRepository.GetStorageSizeBasedRetention() {
+				if !hr.Spec.AllowDataDeletion {
+					return fmt.Errorf("repository may contain data and data deletion not enabled")
+				}
+			}
+		}
+
+		_, err := humiographql.UpdateStorageBasedRetention(
+			ctx,
+			client,
+			hr.Spec.Name,
+			desiredRetentionStorageSizeInGB,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// updateIngestBasedRetention updates ingest-based retention settings
+func (h *ClientConfig) updateIngestBasedRetention(ctx context.Context, client *humioapi.Client, hr *humiov1alpha1.HumioRepository, curRepository *humiographql.RepositoryDetails) error {
+	var desiredRetentionIngestSizeInGB *float64
+	if hr.Spec.Retention.IngestSizeInGB != nil {
+		desiredRetentionIngestSizeInGBFloat := float64(*hr.Spec.Retention.IngestSizeInGB)
+		desiredRetentionIngestSizeInGB = &desiredRetentionIngestSizeInGBFloat
+	}
+
+	if cmp.Diff(curRepository.GetIngestSizeBasedRetention(), desiredRetentionIngestSizeInGB) != "" {
+		if desiredRetentionIngestSizeInGB != nil && *desiredRetentionIngestSizeInGB > 0 {
+			if curRepository.GetIngestSizeBasedRetention() == nil || *desiredRetentionIngestSizeInGB < *curRepository.GetIngestSizeBasedRetention() {
+				if !hr.Spec.AllowDataDeletion {
+					return fmt.Errorf("repository may contain data and data deletion not enabled")
+				}
+			}
+		}
+
+		_, err := humiographql.UpdateIngestBasedRetention(
+			ctx,
+			client,
+			hr.Spec.Name,
+			desiredRetentionIngestSizeInGB,
+		)
+
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1088,6 +1159,21 @@ func (h *ClientConfig) DeleteRepository(ctx context.Context, client *humioapi.Cl
 		"deleted by humio-operator",
 	)
 	return err
+}
+
+// RenameRepository renames a repository in LogScale using the renameSearchDomain mutation
+func (h *ClientConfig) RenameRepository(ctx context.Context, client *humioapi.Client, oldName, newName string) error {
+	resp, err := humiographql.RenameSearchDomain(ctx, client, oldName, newName)
+	if err != nil {
+		return fmt.Errorf("failed to rename repository %q to %q: %w", oldName, newName, err)
+	}
+
+	if resp.RenameSearchDomain.GetName() != newName {
+		return fmt.Errorf("rename did not complete correctly: expected %q but got %q",
+			newName, resp.RenameSearchDomain.GetName())
+	}
+
+	return nil
 }
 
 func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView, includeFederated bool) (*humiographql.GetSearchDomainSearchDomainView, error) {
@@ -1202,6 +1288,21 @@ func (h *ClientConfig) DeleteView(ctx context.Context, client *humioapi.Client, 
 		"Deleted by humio-operator",
 	)
 	return err
+}
+
+// RenameView renames a view in LogScale using the renameSearchDomain mutation
+func (h *ClientConfig) RenameView(ctx context.Context, client *humioapi.Client, oldName, newName string) error {
+	resp, err := humiographql.RenameSearchDomain(ctx, client, oldName, newName)
+	if err != nil {
+		return fmt.Errorf("failed to rename view %q to %q: %w", oldName, newName, err)
+	}
+
+	if resp.RenameSearchDomain.GetName() != newName {
+		return fmt.Errorf("rename did not complete correctly: expected %q but got %q",
+			newName, resp.RenameSearchDomain.GetName())
+	}
+
+	return nil
 }
 
 func validateSearchDomain(ctx context.Context, client *humioapi.Client, searchDomainName string) error {

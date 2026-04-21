@@ -17,3 +17,6 @@ spec:
   enabled: true
   labels:
     - "example-label"
+  # allowDataDeletion enables deletion of this aggregate alert including any data.
+  # Default is false. Only considered when deletionTimestamp is set.
+  # allowDataDeletion: false

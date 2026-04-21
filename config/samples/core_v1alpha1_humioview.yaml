@@ -8,3 +8,6 @@ spec:
   connections:
     - repositoryName: "example-repository"
       filter: "*"
+  # allowDataDeletion enables deletion of this view including any data.
+  # Default is false. Only considered when deletionTimestamp is set.
+  # allowDataDeletion: false

@@ -31,6 +31,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -69,12 +72,8 @@ func (r *HumioSystemPermissionRoleReconciler) Reconcile(ctx context.Context, req
 	err := r.Get(ctx, req.NamespacedName, hp)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
@@ -82,46 +81,29 @@ func (r *HumioSystemPermissionRoleReconciler) Reconcile(ctx context.Context, req
 
 	cluster, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioSystemPermissionRoleStateConfigError, hp)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
+		setConditionErr := r.setCondition(ctx, hp, humiov1alpha1.SystemPermissionRoleConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.SystemPermissionRoleReasonConfigError, "Unable to obtain humio client config")
+		if setConditionErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setConditionErr, "unable to set cluster state")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	r.Log.Info("Checking if systemPermissionRole is marked to be deleted")
-	// Check if the HumioSystemPermissionRole instance is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
-	isHumioSystemPermissionRoleMarkedToBeDeleted := hp.GetDeletionTimestamp() != nil
-	if isHumioSystemPermissionRoleMarkedToBeDeleted {
-		r.Log.Info("SystemPermissionRole marked to be deleted")
-		if helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
-			_, err := r.HumioClient.GetSystemPermissionRole(ctx, humioHttpClient, hp)
-			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
-				err := r.Update(ctx, hp)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
-			}
-
-			// Run finalization logic for HumioFinalizer. If the
-			// finalization logic fails, don't remove the finalizer so
-			// that we can retry during the next reconciliation.
-			r.Log.Info("SystemPermissionRole contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
-			}
-			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
-		}
-		return reconcile.Result{}, nil
+	// Check for rename BEFORE processing the resource
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hp)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle system permission role rename")
+	}
+	if renamed {
+		return result, nil
 	}
 
-	// Add finalizer for this CR
+	// Handle deletion
+	if hp.GetDeletionTimestamp() != nil {
+		return r.handleSystemPermissionRoleDeletion(ctx, humioHttpClient, hp)
+	}
+
+	// Add finalizer
 	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to systemPermissionRole")
 		if err := r.addFinalizer(ctx, hp); err != nil {
@@ -129,48 +111,108 @@ func (r *HumioSystemPermissionRoleReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
-	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioSystemPermissionRole) {
-		_, err := humioClient.GetSystemPermissionRole(ctx, humioHttpClient, hp)
-		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioSystemPermissionRoleStateNotFound, hp)
-			return
-		}
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioSystemPermissionRoleStateUnknown, hp)
-			return
-		}
-		_ = r.setState(ctx, humiov1alpha1.HumioSystemPermissionRoleStateExists, hp)
-	}(ctx, r.HumioClient, hp)
+	// Defer status update
+	defer r.updateSystemPermissionRoleFinalStatus(ctx, humioHttpClient, hp)
 
-	// Get current systemPermissionRole
+	// Ensure system permission role exists and is updated
+	if err := r.ensureSystemPermissionRole(ctx, humioHttpClient, hp); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+}
+
+// handleSystemPermissionRoleDeletion handles the deletion logic for system permission roles
+func (r *HumioSystemPermissionRoleReconciler) handleSystemPermissionRoleDeletion(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioSystemPermissionRole) (ctrl.Result, error) {
+	r.Log.Info("SystemPermissionRole marked to be deleted")
+	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
+		return reconcile.Result{}, nil
+	}
+
+	// Check for force finalize annotation
+	if ShouldForceFinalize(hp) {
+		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+			"resource", hp.Name,
+			"namespace", hp.Namespace)
+		hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hp)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	_, err := r.HumioClient.GetSystemPermissionRole(ctx, humioHttpClient, hp)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		// Role doesn't exist in LogScale - check if we should remove finalizer
+		if !hp.Spec.AllowDataDeletion {
+			return reconcile.Result{}, r.logErrorAndReturn(
+				fmt.Errorf("system permission role may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+				"data deletion not enabled")
+		}
+		hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hp)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("Finalizer removed successfully")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	r.Log.Info("SystemPermissionRole contains finalizer so run finalizer method")
+	if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
+		// Error during finalization
+		// If the cluster is unavailable or the resource is already deleted, users can manually
+		// add the 'humio.com/force-finalize: "true"' annotation to remove the finalizer
+		r.Log.Error(err, "Failed to finalize system permission role during deletion. "+
+			"If the resource is already deleted or the cluster is unavailable, "+
+			"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
+	}
+	return reconcile.Result{Requeue: true}, nil
+}
+
+// ensureSystemPermissionRole ensures the system permission role exists and is updated
+func (r *HumioSystemPermissionRoleReconciler) ensureSystemPermissionRole(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioSystemPermissionRole) error {
 	r.Log.Info("get current systemPermissionRole")
 	curSystemPermissionRole, err := r.HumioClient.GetSystemPermissionRole(ctx, humioHttpClient, hp)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("systemPermissionRole doesn't exist. Now adding systemPermissionRole")
-			// create systemPermissionRole
 			addErr := r.HumioClient.AddSystemPermissionRole(ctx, humioHttpClient, hp)
 			if addErr != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create systemPermissionRole")
+				return r.logErrorAndReturn(addErr, "could not create systemPermissionRole")
 			}
 			r.Log.Info("created systemPermissionRole")
-			return reconcile.Result{Requeue: true}, nil
+			return nil
 		}
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if systemPermissionRole exists")
+		return r.logErrorAndReturn(err, "could not check if systemPermissionRole exists")
 	}
 
 	if asExpected, diffKeysAndValues := systemPermissionRoleAlreadyAsExpected(hp, curSystemPermissionRole); !asExpected {
-		r.Log.Info("information differs, triggering update",
-			"diff", diffKeysAndValues,
-		)
+		r.Log.Info("information differs, triggering update", "diff", diffKeysAndValues)
 		err = r.HumioClient.UpdateSystemPermissionRole(ctx, humioHttpClient, hp)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update systemPermissionRole")
+			return r.logErrorAndReturn(err, "could not update systemPermissionRole")
 		}
 	}
+	return nil
+}
 
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+// updateSystemPermissionRoleFinalStatus updates the final status of the system permission role
+func (r *HumioSystemPermissionRoleReconciler) updateSystemPermissionRoleFinalStatus(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioSystemPermissionRole) {
+	_, err := r.HumioClient.GetSystemPermissionRole(ctx, humioHttpClient, hp)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		_ = r.setCondition(ctx, hp, humiov1alpha1.SystemPermissionRoleConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.SystemPermissionRoleReasonNotFound, "System permission role not found")
+		return
+	}
+	if err != nil {
+		_ = r.setCondition(ctx, hp, humiov1alpha1.SystemPermissionRoleConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.SystemPermissionRoleReasonConfigError, fmt.Sprintf("Failed to get system permission role: %v", err))
+		return
+	}
+	_ = r.setCondition(ctx, hp, humiov1alpha1.SystemPermissionRoleConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.SystemPermissionRoleReasonReady, "System permission role is ready")
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -189,6 +231,20 @@ func (r *HumioSystemPermissionRoleReconciler) finalize(ctx context.Context, clie
 		}
 		return err
 	}
+
+	// Check if data deletion is allowed
+	if !hp.Spec.AllowDataDeletion {
+		return fmt.Errorf("system permission role may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+	}
+
+	// Audit log before deletion
+	r.Log.Info("Proceeding with system permission role deletion",
+		"allowDataDeletion", hp.Spec.AllowDataDeletion,
+		"roleName", hp.Spec.Name,
+		"namespace", hp.Namespace,
+		"deletionTimestamp", hp.GetDeletionTimestamp(),
+	)
+
 	return r.HumioClient.DeleteSystemPermissionRole(ctx, client, hp)
 }
 
@@ -204,13 +260,54 @@ func (r *HumioSystemPermissionRoleReconciler) addFinalizer(ctx context.Context, 
 	return nil
 }
 
-func (r *HumioSystemPermissionRoleReconciler) setState(ctx context.Context, state string, hp *humiov1alpha1.HumioSystemPermissionRole) error {
-	if hp.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioSystemPermissionRole resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioSystemPermissionRoleReconciler) setCondition(ctx context.Context,
+	hp *humiov1alpha1.HumioSystemPermissionRole,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioSystemPermissionRole{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hp), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = systemPermissionRoleStateFromCondition(status, reason)
+
+		// Track the synced name when system permission role is ready
+		if conditionType == humiov1alpha1.SystemPermissionRoleConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+func systemPermissionRoleStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioSystemPermissionRoleStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting systemPermissionRole state to %s", state))
-	hp.Status.State = state
-	return r.Status().Update(ctx, hp)
+	switch reason {
+	case humiov1alpha1.SystemPermissionRoleReasonNotFound:
+		return humiov1alpha1.HumioSystemPermissionRoleStateNotFound
+	case humiov1alpha1.SystemPermissionRoleReasonConfigError:
+		return humiov1alpha1.HumioSystemPermissionRoleStateConfigError
+	default:
+		return humiov1alpha1.HumioSystemPermissionRoleStateUnknown
+	}
 }
 
 func (r *HumioSystemPermissionRoleReconciler) logErrorAndReturn(err error, msg string) error {
@@ -250,4 +347,40 @@ func systemPermissionRoleAlreadyAsExpected(fromKubernetesCustomResource *humiov1
 	}
 
 	return len(keyValues) == 0, keyValues
+}
+
+// detectAndHandleRename checks if the system permission role name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioSystemPermissionRoleReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hspr *humiov1alpha1.HumioSystemPermissionRole) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "system permission role",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioSystemPermissionRole).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioSystemPermissionRole).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioSystemPermissionRole).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioSystemPermissionRole).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteSystemPermissionRole(ctx, apiClient, obj.(*humiov1alpha1.HumioSystemPermissionRole))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioSystemPermissionRole),
+				humiov1alpha1.SystemPermissionRoleConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.SystemPermissionRoleReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hspr, config, r.Log)
 }

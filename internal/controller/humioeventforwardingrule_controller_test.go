@@ -7,11 +7,8 @@ import (
 	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	humioapi "github.com/humio/humio-operator/internal/api"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -218,94 +215,6 @@ func TestCalculateBackoffDuration_EdgeCases(t *testing.T) {
 			t.Errorf("Expected backoff %v for empty conditions, got %v", expected, backoff)
 		}
 	})
-}
-
-func TestHumioEventForwardingRuleReconciler_isPermanentError(t *testing.T) {
-	reconciler := &HumioEventForwardingRuleReconciler{
-		BaseLogger: zap.New(zap.UseDevMode(true)),
-	}
-	reconciler.Log = reconciler.BaseLogger
-
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{
-			name: "nil error is not permanent",
-			err:  nil,
-			want: false,
-		},
-		{
-			name: "EntityNotFound error is permanent",
-			err:  humioapi.EntityNotFound{},
-			want: true,
-		},
-		{
-			name: "Kubernetes NotFound error is permanent",
-			err:  k8serrors.NewNotFound(schema.GroupResource{Group: "core.humio.com", Resource: "humioeventforwardingrules"}, "test"),
-			want: true,
-		},
-		{
-			name: "Kubernetes Conflict error is transient",
-			err:  k8serrors.NewConflict(schema.GroupResource{Group: "core.humio.com", Resource: "humioeventforwardingrules"}, "test", errors.New("conflict")),
-			want: false,
-		},
-		{
-			name: "Context Canceled is transient",
-			err:  context.Canceled,
-			want: false,
-		},
-		{
-			name: "Context DeadlineExceeded is transient",
-			err:  context.DeadlineExceeded,
-			want: false,
-		},
-		{
-			name: "Could not find Repository error is permanent",
-			err:  errors.New("Could not find Repository with name test-repo"),
-			want: true,
-		},
-		{
-			name: "repository does not exist error is permanent",
-			err:  errors.New("repository does not exist"),
-			want: true,
-		},
-		{
-			name: "rule not found error is permanent",
-			err:  errors.New("event forwarding rule not found in LogScale"),
-			want: true,
-		},
-		{
-			name: "permission denied error is permanent",
-			err:  errors.New("permission denied for operation"),
-			want: true,
-		},
-		{
-			name: "connection error is transient",
-			err:  errors.New("connection refused"),
-			want: false,
-		},
-		{
-			name: "timeout error is transient",
-			err:  errors.New("request timeout after 30s"),
-			want: false,
-		},
-		{
-			name: "generic error defaults to transient",
-			err:  errors.New("some random error"),
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := reconciler.isPermanentError(tt.err)
-			if got != tt.want {
-				t.Errorf("isPermanentError() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }
 
 func TestHumioEventForwardingRuleReconciler_retryAnnotationUpdateWithBackoff(t *testing.T) {

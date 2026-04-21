@@ -21,7 +21,10 @@ import (
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -67,14 +70,43 @@ func (r *HumioPackageRegistryReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, hpr)
+	if err != nil {
+		return result, logErrorAndReturn(r.Log, err, "failed to handle package registry rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
+
 	// handle delete logic
 	isMarkedToBeDeleted := hpr.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
 		r.Log.Info("HumioPackageRegistry marked to be deleted")
 		if helpers.ContainsElement(hpr.GetFinalizers(), HumioFinalizer) {
+			// Check for force finalize annotation
+			if ShouldForceFinalize(hpr) {
+				r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+					"resource", hpr.Name,
+					"namespace", hpr.Namespace)
+				hpr.SetFinalizers(helpers.RemoveElement(hpr.GetFinalizers(), HumioFinalizer))
+				err := r.Update(ctx, hpr)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			r.Log.Info("HumioPackageRegistry contains finalizer so run finalize method")
-			if err := r.finalize(); err != nil {
-				_ = r.setState(ctx, humiov1alpha1.HumioPackageRegistryStateUnknown, err.Error(), hpr)
+			if err := r.finalize(hpr); err != nil {
+				_ = r.setCondition(ctx, hpr,
+					humiov1alpha1.PackageRegistryConditionTypeReady,
+					metav1.ConditionFalse,
+					humiov1alpha1.PackageRegistryReasonUnknown,
+					err.Error())
 				return reconcile.Result{}, logErrorAndReturn(r.Log, err, "finalize method returned an error")
 			}
 			// remove finalizer
@@ -101,7 +133,11 @@ func (r *HumioPackageRegistryReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// if disabled, set state and return
 	if !hpr.Spec.Enabled {
-		_ = r.setState(ctx, humiov1alpha1.HumioPackageRegistryStateDisabled, "Registry is disabled", hpr)
+		_ = r.setCondition(ctx, hpr,
+			humiov1alpha1.PackageRegistryConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageRegistryReasonDisabled,
+			"Registry is disabled")
 		return reconcile.Result{}, nil
 	}
 
@@ -109,7 +145,11 @@ func (r *HumioPackageRegistryReconciler) Reconcile(ctx context.Context, req ctrl
 	rClient, err := r.getPackageRegistryClient(hpr)
 	if err != nil || rClient == nil {
 		r.Log.Error(err, "Failed to initialize registry client")
-		_ = r.setState(ctx, humiov1alpha1.HumioPackageRegistryStateConfigError, err.Error(), hpr)
+		_ = r.setCondition(ctx, hpr,
+			humiov1alpha1.PackageRegistryConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageRegistryReasonConfigError,
+			err.Error())
 		return reconcile.Result{}, err
 	}
 
@@ -117,11 +157,19 @@ func (r *HumioPackageRegistryReconciler) Reconcile(ctx context.Context, req ctrl
 	err = rClient.CheckConnection(ctx)
 	if err != nil {
 		r.Log.Error(err, "Failed to check registry connection")
-		_ = r.setState(ctx, humiov1alpha1.HumioPackageRegistryStateConfigError, err.Error(), hpr)
+		_ = r.setCondition(ctx, hpr,
+			humiov1alpha1.PackageRegistryConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageRegistryReasonConfigError,
+			err.Error())
 		return reconcile.Result{}, err
 	}
 
-	err = r.setState(ctx, humiov1alpha1.HumioPackageRegistryStateExists, "Connection tested successfully", hpr)
+	err = r.setCondition(ctx, hpr,
+		humiov1alpha1.PackageRegistryConditionTypeReady,
+		metav1.ConditionTrue,
+		humiov1alpha1.PackageRegistryReasonActive,
+		"Connection tested successfully")
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -155,19 +203,76 @@ func (r *HumioPackageRegistryReconciler) logErrorAndReturn(err error, msg string
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-func (r *HumioPackageRegistryReconciler) finalize() error {
-	var err error
-	return err
+func (r *HumioPackageRegistryReconciler) finalize(hpr *humiov1alpha1.HumioPackageRegistry) error {
+	// Check if data deletion is allowed
+	if !hpr.Spec.AllowDataDeletion {
+		return fmt.Errorf("package registry may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+	}
+
+	// Audit log before deletion
+	r.Log.Info("Proceeding with package registry deletion",
+		"allowDataDeletion", hpr.Spec.AllowDataDeletion,
+		"registryName", hpr.Spec.RegistryType,
+		"namespace", hpr.Namespace,
+		"deletionTimestamp", hpr.GetDeletionTimestamp(),
+	)
+
+	// No actual deletion needed - PackageRegistry is a configuration resource
+	return nil
 }
 
-func (r *HumioPackageRegistryReconciler) setState(ctx context.Context, state string, message string, hpr *humiov1alpha1.HumioPackageRegistry) error {
-	if hpr.Status.State == state && hpr.Status.Message == message {
-		return nil
+// setCondition sets a condition on the HumioPackageRegistry resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioPackageRegistryReconciler) setCondition(ctx context.Context,
+	hpr *humiov1alpha1.HumioPackageRegistry,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioPackageRegistry{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hpr), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State and Message fields based on condition
+		latest.Status.State = r.stateFromCondition(status, reason)
+		latest.Status.Message = message
+
+		// Track the synced name when package registry is ready
+		if conditionType == humiov1alpha1.PackageRegistryConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.DisplayName
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+// stateFromCondition converts condition status and reason to legacy State field value
+//
+//nolint:unparam // reason parameter kept for consistency with other controllers
+func (r *HumioPackageRegistryReconciler) stateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioPackageRegistryStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting HumioPackageRegistry state to: %s, message to: %s", state, message))
-	hpr.Status.State = state
-	hpr.Status.Message = message
-	return r.Status().Update(ctx, hpr)
+	switch reason {
+	case humiov1alpha1.PackageRegistryReasonDisabled:
+		return humiov1alpha1.HumioPackageRegistryStateDisabled
+	case humiov1alpha1.PackageRegistryReasonConfigError:
+		return humiov1alpha1.HumioPackageRegistryStateConfigError
+	default:
+		return humiov1alpha1.HumioPackageRegistryStateUnknown
+	}
 }
 
 func (r *HumioPackageRegistryReconciler) getK8sHumioPackageRegistry(ctx context.Context, req ctrl.Request) (*humiov1alpha1.HumioPackageRegistry, error) {
@@ -189,4 +294,68 @@ func (r *HumioPackageRegistryReconciler) getPackageRegistryClient(hpr *humiov1al
 		fmt.Printf("Could not initiate PackageRegistryClient for type: %s", hpr.Spec.RegistryType)
 	}
 	return client, err
+}
+
+// detectAndHandleRename checks if the package registry name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+// Note: HumioPackageRegistry uses Spec.DisplayName instead of Spec.Name
+// Note: PackageRegistry is Kubernetes-only and doesn't require LogScale API calls
+func (r *HumioPackageRegistryReconciler) detectAndHandleRename(ctx context.Context,
+	hpr *humiov1alpha1.HumioPackageRegistry) (bool, reconcile.Result, error) {
+
+	// Skip rename check if resource is being deleted
+	if hpr.GetDeletionTimestamp() != nil {
+		return false, reconcile.Result{}, nil
+	}
+
+	// Only check if we have a previously synced name
+	if hpr.Status.LastSyncedName == "" {
+		return false, reconcile.Result{}, nil
+	}
+
+	// No rename needed (note: comparing DisplayName, not Name)
+	if hpr.Status.LastSyncedName == hpr.Spec.DisplayName {
+		return false, reconcile.Result{}, nil
+	}
+
+	r.Log.Info("Package registry display name change detected",
+		"namespace", hpr.Namespace,
+		"name", hpr.Name,
+		"oldName", hpr.Status.LastSyncedName,
+		"newName", hpr.Spec.DisplayName)
+
+	// Require explicit annotation for safety
+	if hpr.Annotations["humio.com/allow-rename"] != AllowRenameAnnotationValue {
+		err := fmt.Errorf("package registry display name change detected (from %q to %q), but the required annotation is not set. "+
+			"To proceed, add the annotation 'humio.com/allow-rename: \"true\"' to this resource",
+			hpr.Status.LastSyncedName, hpr.Spec.DisplayName)
+
+		setStateErr := r.setCondition(ctx, hpr,
+			humiov1alpha1.PackageRegistryConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageRegistryReasonConfigError,
+			err.Error())
+		if setStateErr != nil {
+			return false, reconcile.Result{}, setStateErr
+		}
+
+		r.Log.Error(err, "blocking package registry rename - annotation required")
+		return true, reconcile.Result{}, nil
+	}
+
+	r.Log.Info("HumioPackageRegistry rename does not require LogScale API calls",
+		"oldName", hpr.Status.LastSyncedName,
+		"newName", hpr.Spec.DisplayName,
+		"reason", "Package registries are Kubernetes-only resources")
+
+	// Clear the lastSyncedName so the normal reconcile validates with the new name
+	hpr.Status.LastSyncedName = ""
+	if err := r.Status().Update(ctx, hpr); err != nil {
+		return false, reconcile.Result{}, fmt.Errorf("failed to clear lastSyncedName: %w", err)
+	}
+
+	r.Log.Info("Package registry rename complete, requeueing",
+		"newName", hpr.Spec.DisplayName)
+
+	return true, reconcile.Result{Requeue: true}, nil
 }

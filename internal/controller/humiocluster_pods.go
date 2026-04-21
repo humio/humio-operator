@@ -153,6 +153,11 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 							ContainerPort: ElasticPort,
 							Protocol:      "TCP",
 						},
+						{
+							Name:          PrometheusMetricsPortName,
+							ContainerPort: hnp.GetHumioPrometheusMetricsServicePort(),
+							Protocol:      "TCP",
+						},
 					},
 					Env: hnp.GetEnvironmentVariables(),
 					VolumeMounts: []corev1.VolumeMount{
@@ -821,6 +826,14 @@ func (r *HumioClusterReconciler) getDesiredBootstrapTokenHash(ctx context.Contex
 
 	if len(humioBootstrapTokens) == 0 {
 		return "", fmt.Errorf("could not find bootstrap token matching labels %+v: %w", kubernetes.LabelsForHumioBootstrapToken(hc.GetName()), err)
+	}
+
+	if len(humioBootstrapTokens) > 1 {
+		var tokenNames []string
+		for _, token := range humioBootstrapTokens {
+			tokenNames = append(tokenNames, token.Name)
+		}
+		r.Log.Error(fmt.Errorf("multiple bootstrap tokens found"), fmt.Sprintf("found multiple bootstrap tokens (%v) with managedClusterName '%s'. Using the first token '%s'. Please remove duplicate bootstrap tokens or update their managedClusterName to reference different clusters", tokenNames, hc.GetName(), humioBootstrapTokens[0].Name))
 	}
 
 	if humioBootstrapTokens[0].Status.State != humiov1alpha1.HumioBootstrapTokenStateReady {

@@ -29,6 +29,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/internal/cacheconfig"
 	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/suite"
 	"github.com/humio/humio-operator/internal/helpers"
@@ -133,7 +134,7 @@ var _ = BeforeSuite(func() {
 		}, time.Second*30, time.Millisecond*100).Should(BeTrue(), "CRDs should be available in test environment")
 	}
 
-	cacheOptions, err := helpers.GetCacheOptionsWithWatchNamespace()
+	cacheOptions, err := cacheconfig.GetCacheOptionsWithWatchNamespace()
 	if err != nil {
 		ctrl.Log.Info("unable to get WatchNamespace: the manager will watch and manage resources in all namespaces")
 	}

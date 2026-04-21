@@ -23,7 +23,10 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -80,28 +83,11 @@ func (p *HumioPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	humioHttpClient := p.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	// handle delete logic
-	isMarkedToBeDeleted := hp.GetDeletionTimestamp() != nil
-	if isMarkedToBeDeleted {
-		p.Log.Info("HumioPackage marked to be deleted")
-		if helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
-			p.Log.Info("HumioPackage contains finalizer so run finalize method")
-			// finalize uninstalls package from views
-			p.finalize(ctx, hp, humioHttpClient)
-			hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
-			err := p.Update(ctx, hp)
-			if err != nil {
-				return reconcile.Result{}, logErrorAndReturn(p.Log, err, "update to remove finalizer failed")
-			}
-			p.Log.Info("Successfully ran finalize method for HumioPackage", "package", hp.Spec.PackageName)
-			// work completed, return
-			return reconcile.Result{}, nil
-		}
-		// finalizer not present, return
-		return reconcile.Result{}, nil
+	if hp.GetDeletionTimestamp() != nil {
+		return p.handlePackageDeletion(ctx, humioHttpClient, hp)
 	}
 
 	// Add finalizer for this CR
-	p.Log.Info("Checking if HumioPackage requires finalizer")
 	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
 		p.Log.Info("Finalizer not present, adding finalizer to HumioPackage")
 		hp.SetFinalizers(append(hp.GetFinalizers(), HumioFinalizer))
@@ -113,7 +99,11 @@ func (p *HumioPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// get PackageRegistryClient
 	registryClient, err := p.getPackageRegistryClient(ctx, hp)
 	if err != nil || registryClient == nil {
-		_ = p.setState(ctx, humiov1alpha1.HumioPackageStateConfigError, err.Error(), "", hp)
+		_ = p.setCondition(ctx, hp,
+			humiov1alpha1.PackageConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageReasonConfigError,
+			err.Error(), "")
 		return reconcile.Result{}, logErrorAndReturn(p.Log, err, "failed to initialize registry client")
 	}
 
@@ -121,50 +111,102 @@ func (p *HumioPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	viewNames, err := hp.Spec.ResolveInstallTargets(ctx, p.Client, hp.Namespace)
 	if err != nil {
 		p.Log.Error(err, "failed to resolve package install targets")
-		_ = p.setState(ctx, humiov1alpha1.HumioPackageStateConfigError, fmt.Sprintf("Error resolving install targets: %s", err), "", hp)
+		_ = p.setCondition(ctx, hp,
+			humiov1alpha1.PackageConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageReasonConfigError,
+			fmt.Sprintf("Error resolving install targets: %s", err), "")
 		return reconcile.Result{}, err
 	}
 
 	// if package already marked as installed, confirm and return
-	if hp.Status.HumioPackageName != "" {
-		validated := make([]string, 0, len(viewNames))
-		for _, view := range viewNames {
-			packageDetails, err := p.HumioClient.CheckPackage(ctx, humioHttpClient, hp, view)
-			if err != nil || packageDetails == nil {
-				p.Log.Error(err, "package not installed in view", "view", view)
-				continue
-			}
-			validated = append(validated, view)
-		}
-		// confirmed package installed in all views
-		if len(viewNames) == len(validated) {
-			return reconcile.Result{}, nil
-		}
+	if p.checkPackageAlreadyInstalled(ctx, humioHttpClient, hp, viewNames) {
+		return reconcile.Result{}, nil
 	}
 
-	// check package exists
+	// Validate package exists in registry
 	if !registryClient.CheckPackageExists(hp) {
 		p.Log.Info("Package not found in registry")
-		_ = p.setState(ctx, humiov1alpha1.HumioPackageStateNotFound, "Package not found in registry", "", hp)
+		_ = p.setCondition(ctx, hp,
+			humiov1alpha1.PackageConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageReasonNotFound,
+			"Package not found in registry", "")
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 	p.Log.Info("Successfully found package in registry")
 
-	// download package
-	lsPackage := registries.NewLogscalePackage(hp, p.Log)
-	path, err := lsPackage.BuildDownloadPath(PackagesDownloadPath, reconcileID)
-	if err != nil {
-		p.Log.Error(err, "failed to generate package download path")
-		_ = p.setState(ctx, humiov1alpha1.HumioPackageStateConfigError, "Error generating download path", "", hp)
-		return reconcile.Result{}, err
-	}
-	downloadCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
+	// Download, validate and install package
+	return p.downloadValidateAndInstall(ctx, humioHttpClient, hp, registryClient, viewNames, reconcileID)
+}
 
-	err = registryClient.DownloadPackage(downloadCtx, hp, path)
+// handlePackageDeletion handles the deletion logic for packages
+func (p *HumioPackageReconciler) handlePackageDeletion(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioPackage) (ctrl.Result, error) {
+	p.Log.Info("HumioPackage marked to be deleted")
+	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
+		return reconcile.Result{}, nil
+	}
+
+	// Check for force finalize annotation
+	if ShouldForceFinalize(hp) {
+		p.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+			"resource", hp.Name,
+			"namespace", hp.Namespace)
+		hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
+		err := p.Update(ctx, hp)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		p.Log.Info("Finalizer removed successfully via force-finalize annotation")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Check if data deletion is allowed
+	if !hp.Spec.AllowDataDeletion {
+		return reconcile.Result{}, logErrorAndReturn(p.Log,
+			fmt.Errorf("package may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion"),
+			"data deletion not enabled")
+	}
+
+	p.Log.Info("HumioPackage contains finalizer so run finalize method")
+	// finalize uninstalls package from views
+	p.finalize(ctx, hp, humioHttpClient)
+	hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
+	err := p.Update(ctx, hp)
 	if err != nil {
-		p.Log.Error(err, "failed to download package to local path")
-		_ = p.setState(ctx, humiov1alpha1.HumioPackageStateConfigError, "Error downloading package from registry", "", hp)
+		return reconcile.Result{}, logErrorAndReturn(p.Log, err, "update to remove finalizer failed")
+	}
+	p.Log.Info("Successfully ran finalize method for HumioPackage", "package", hp.Spec.PackageName)
+	return reconcile.Result{}, nil
+}
+
+// checkPackageAlreadyInstalled checks if package is already installed in all views
+func (p *HumioPackageReconciler) checkPackageAlreadyInstalled(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioPackage, viewNames []string) bool {
+	if hp.Status.HumioPackageName == "" {
+		return false
+	}
+
+	validated := make([]string, 0, len(viewNames))
+	for _, view := range viewNames {
+		packageDetails, err := p.HumioClient.CheckPackage(ctx, humioHttpClient, hp, view)
+		if err != nil || packageDetails == nil {
+			p.Log.Error(err, "package not installed in view", "view", view)
+			continue
+		}
+		validated = append(validated, view)
+	}
+	// confirmed package installed in all views
+	if len(viewNames) == len(validated) {
+		return true
+	}
+	return false
+}
+
+// downloadValidateAndInstall orchestrates the package download, validation, and installation process
+func (p *HumioPackageReconciler) downloadValidateAndInstall(ctx context.Context, humioHttpClient *humioapi.Client, hp *humiov1alpha1.HumioPackage, registryClient registries.RegistryClientInterface, viewNames []string, reconcileID string) (ctrl.Result, error) {
+	// Download package
+	lsPackage, path, err := p.downloadPackage(ctx, hp, registryClient, reconcileID)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 	defer func() {
@@ -173,34 +215,97 @@ func (p *HumioPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
-	// validate/analyze package content
+	// Validate package
+	pkName, result, err := p.validatePackage(ctx, hp, humioHttpClient, lsPackage, viewNames)
+	if err != nil {
+		return result, err
+	}
+
+	// Install package
+	return p.installAndUpdateStatus(ctx, hp, humioHttpClient, viewNames, path, pkName)
+}
+
+// downloadPackage downloads the package from the registry to a local path
+func (p *HumioPackageReconciler) downloadPackage(ctx context.Context, hp *humiov1alpha1.HumioPackage, registryClient registries.RegistryClientInterface, reconcileID string) (*registries.LogscalePackage, string, error) {
+	lsPackage := registries.NewLogscalePackage(hp, p.Log)
+	path, err := lsPackage.BuildDownloadPath(PackagesDownloadPath, reconcileID)
+	if err != nil {
+		p.Log.Error(err, "failed to generate package download path")
+		_ = p.setCondition(ctx, hp,
+			humiov1alpha1.PackageConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageReasonConfigError,
+			"Error generating download path", "")
+		return nil, "", err
+	}
+
+	downloadCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	err = registryClient.DownloadPackage(downloadCtx, hp, path)
+	if err != nil {
+		p.Log.Error(err, "failed to download package to local path")
+		_ = p.setCondition(ctx, hp,
+			humiov1alpha1.PackageConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageReasonConfigError,
+			"Error downloading package from registry", "")
+		return nil, "", err
+	}
+
+	return lsPackage, path, nil
+}
+
+// validatePackage validates and analyzes the package content
+func (p *HumioPackageReconciler) validatePackage(ctx context.Context, hp *humiov1alpha1.HumioPackage, humioHttpClient *humioapi.Client, lsPackage *registries.LogscalePackage, viewNames []string) (string, ctrl.Result, error) {
 	pkName, err := lsPackage.Validate(ctx, p.HumioClient, humioHttpClient, viewNames[0])
 	if err != nil {
 		p.Log.Error(err, "failed to validate package")
 		msg := fmt.Sprintf("Package failed validation: %s", err)
-		_ = p.setState(ctx, humiov1alpha1.HumioPackageStateConfigError, msg, "", hp)
+		_ = p.setCondition(ctx, hp,
+			humiov1alpha1.PackageConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.PackageReasonConfigError,
+			msg, "")
 		// validate failures cannot usually self-heal so we can delay
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return "", reconcile.Result{RequeueAfter: 10 * time.Second}, err
 	}
 	p.Log.Info("Successfully validated package", "package", pkName)
+	return pkName, ctrl.Result{}, nil
+}
 
-	// install package in targets
+// installAndUpdateStatus installs the package in all targets and updates the status accordingly
+func (p *HumioPackageReconciler) installAndUpdateStatus(ctx context.Context, hp *humiov1alpha1.HumioPackage, humioHttpClient *humioapi.Client, viewNames []string, path string, pkName string) (ctrl.Result, error) {
 	failedInstalls := p.installPackage(ctx, humioHttpClient, viewNames, hp, path)
-	// we have install errors, set debug message on status and then return
+
+	// Check for install errors
 	if len(failedInstalls) > 0 {
-		// not all failed
+		// Partial failure - some targets succeeded
 		if len(failedInstalls) < len(viewNames) {
-			_ = p.setState(ctx, humiov1alpha1.HumioPackageStatePartialFailed, "Package could not be installed in all targets", "", hp)
+			_ = p.setCondition(ctx, hp,
+				humiov1alpha1.PackageConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.PackageReasonPartialFailed,
+				"Package could not be installed in all targets", "")
 		} else {
-			_ = p.setState(ctx, humiov1alpha1.HumioPackageStateFailed, "Package could not be installed", "", hp)
+			// Complete failure - all targets failed
+			_ = p.setCondition(ctx, hp,
+				humiov1alpha1.PackageConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.PackageReasonFailed,
+				"Package could not be installed", "")
 		}
-		// we want to retry installing the package
-		p.Log.Error(err, fmt.Sprintf("error installing package in targets: %v", failedInstalls))
+		// Retry installing the package
+		p.Log.Error(nil, fmt.Sprintf("error installing package in targets: %v", failedInstalls))
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	// update status to success state
-	err = p.setState(ctx, humiov1alpha1.HumioPackageStateExists, "Package installed successfully", pkName, hp)
+	// Success - update status
+	err := p.setCondition(ctx, hp,
+		humiov1alpha1.PackageConditionTypeReady,
+		metav1.ConditionTrue,
+		humiov1alpha1.PackageReasonInstalled,
+		"Package installed successfully", pkName)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -253,23 +358,66 @@ func (p *HumioPackageReconciler) getPackageRegistryClient(ctx context.Context, h
 	return client, err
 }
 
-func (p *HumioPackageReconciler) setState(ctx context.Context, state, message, pkName string, hp *humiov1alpha1.HumioPackage) error {
-	if hp.Status.State == state && hp.Status.Message == message && hp.Status.HumioPackageName == pkName {
-		return nil
-	}
-	// trim the err message
-	if len(message) > 100 {
-		message = message[0:90] + "..."
-	}
+// setCondition sets a condition on the HumioPackage resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (p *HumioPackageReconciler) setCondition(ctx context.Context,
+	hp *humiov1alpha1.HumioPackage,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message, pkName string) error {
 
-	p.Log.Info(fmt.Sprintf("setting HumioPackage state to: %s, message to: %s", state, message))
-	hp.Status.State = state
-	hp.Status.Message = message
-	// we don't want to reset the value in case of errors
-	if pkName != "" {
-		hp.Status.HumioPackageName = pkName
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioPackage{}
+		if err := p.Get(ctx, client.ObjectKeyFromObject(hp), latest); err != nil {
+			return err
+		}
+
+		// Trim the message
+		if len(message) > 100 {
+			message = message[0:90] + "..."
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State and Message fields based on condition
+		latest.Status.State = p.stateFromCondition(status, reason)
+		latest.Status.Message = message
+		// We don't want to reset the value in case of errors
+		if pkName != "" {
+			latest.Status.HumioPackageName = pkName
+		}
+
+		return p.Status().Update(ctx, latest)
+	})
+}
+
+// stateFromCondition converts condition status and reason to legacy State field value
+//
+//nolint:unparam // reason parameter kept for consistency with other controllers
+func (p *HumioPackageReconciler) stateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioPackageStateExists
 	}
-	return p.Status().Update(ctx, hp)
+	switch reason {
+	case humiov1alpha1.PackageReasonNotFound:
+		return humiov1alpha1.HumioPackageStateNotFound
+	case humiov1alpha1.PackageReasonConfigError:
+		return humiov1alpha1.HumioPackageStateConfigError
+	case humiov1alpha1.PackageReasonFailed:
+		return humiov1alpha1.HumioPackageStateFailed
+	case humiov1alpha1.PackageReasonPartialFailed:
+		return humiov1alpha1.HumioPackageStatePartialFailed
+	default:
+		return humiov1alpha1.HumioPackageStateUnknown
+	}
 }
 
 func (p *HumioPackageReconciler) finalize(ctx context.Context, hp *humiov1alpha1.HumioPackage, humioHttpClient *humioapi.Client) {

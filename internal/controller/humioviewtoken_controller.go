@@ -91,38 +91,15 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// setup humio client configuration
 	cluster, err := helpers.NewCluster(ctx, r, hvt.Spec.ManagedClusterName, hvt.Spec.ExternalClusterName, hvt.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		_ = setState(ctx, r, hvt, humiov1alpha1.HumioTokenConfigError, hvt.Status.HumioID)
+		_ = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, "Unable to obtain humio client config", hvt.Status.HumioID)
 		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "unable to obtain humio client config")
 	}
 
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	// handle delete logic
-	isHumioViewTokenMarkedToBeDeleted := hvt.GetDeletionTimestamp() != nil
-	if isHumioViewTokenMarkedToBeDeleted {
-		r.Log.Info("ViewToken marked to be deleted")
-		if helpers.ContainsElement(hvt.GetFinalizers(), HumioFinalizer) {
-			_, err := r.HumioClient.GetViewToken(ctx, humioHttpClient, hvt)
-			// first iteration on delete we don't enter here since ViewToken should exist
-			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hvt.SetFinalizers(helpers.RemoveElement(hvt.GetFinalizers(), HumioFinalizer))
-				err := r.Update(ctx, hvt)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				r.Log.Info("finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
-			}
-			// first iteration on delete we run the finalize function
-			r.Log.Info("ViewToken contains finalizer so run finalize method")
-			if err := r.finalize(ctx, humioHttpClient, hvt); err != nil {
-				_ = setState(ctx, r, hvt, humiov1alpha1.HumioTokenUnknown, hvt.Status.HumioID)
-				return reconcile.Result{}, logErrorAndReturn(r.Log, err, "finalize method returned an error")
-			}
-			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
-		}
-		return reconcile.Result{}, nil
+	if hvt.GetDeletionTimestamp() != nil {
+		return r.handleViewTokenDeletion(ctx, humioHttpClient, hvt)
 	}
 
 	// Add finalizer for ViewToken so we can run cleanup on delete
@@ -131,6 +108,82 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Get or create ViewToken
+	result, currentViewToken, err := r.ensureViewTokenExists(ctx, humioHttpClient, hvt, cluster)
+	if err != nil || result.Requeue || result.RequeueAfter > 0 { //nolint:staticcheck // SA1019: result.Requeue used intentionally
+		return result, err
+	}
+
+	// Update if needed
+	asExpected, err := r.updateViewTokenIfNeeded(ctx, humioHttpClient, hvt, currentViewToken)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// ensure associated k8s secret exists
+	if err := r.ensureTokenSecret(ctx, hvt, humioHttpClient, cluster); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Update final status
+	if err := r.updateViewTokenFinalStatus(ctx, humioHttpClient, hvt, asExpected, currentViewToken); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+}
+
+// handleViewTokenDeletion handles the deletion logic for view tokens
+func (r *HumioViewTokenReconciler) handleViewTokenDeletion(ctx context.Context, humioHttpClient *humioapi.Client, hvt *humiov1alpha1.HumioViewToken) (ctrl.Result, error) {
+	r.Log.Info("ViewToken marked to be deleted")
+	if !helpers.ContainsElement(hvt.GetFinalizers(), HumioFinalizer) {
+		return reconcile.Result{}, nil
+	}
+
+	// Check for force finalize annotation
+	if ShouldForceFinalize(hvt) {
+		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+			"resource", hvt.Name,
+			"namespace", hvt.Namespace)
+		hvt.SetFinalizers(helpers.RemoveElement(hvt.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hvt)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	_, err := r.HumioClient.GetViewToken(ctx, humioHttpClient, hvt)
+	// first iteration on delete we don't enter here since ViewToken should exist
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		hvt.SetFinalizers(helpers.RemoveElement(hvt.GetFinalizers(), HumioFinalizer))
+		err := r.Update(ctx, hvt)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.Log.Info("finalizer removed successfully")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// first iteration on delete we run the finalize function
+	r.Log.Info("ViewToken contains finalizer so run finalize method")
+	if err := r.finalize(ctx, humioHttpClient, hvt); err != nil {
+		// Error during finalization
+		// If the cluster is unavailable or the resource is already deleted, users can manually
+		// add the 'humio.com/force-finalize: "true"' annotation to remove the finalizer
+		r.Log.Error(err, "Failed to finalize view token during deletion. "+
+			"If the resource is already deleted or the cluster is unavailable, "+
+			"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
+		_ = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, fmt.Sprintf("Finalize error: %v", err), hvt.Status.HumioID)
+		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "finalize method returned an error")
+	}
+	// If no error was detected, we need to requeue so that we can remove the finalizer
+	return reconcile.Result{Requeue: true}, nil
+}
+
+// ensureViewTokenExists gets or creates the view token
+func (r *HumioViewTokenReconciler) ensureViewTokenExists(ctx context.Context, humioHttpClient *humioapi.Client, hvt *humiov1alpha1.HumioViewToken, cluster helpers.ClusterInterface) (ctrl.Result, *humiographql.ViewTokenDetailsViewPermissionsToken, error) {
 	r.Log.Info("get current ViewToken")
 	currentViewToken, err := r.HumioClient.GetViewToken(ctx, humioHttpClient, hvt)
 	if err != nil {
@@ -139,51 +192,56 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// run validation across spec fields
 			validation, err := r.validateDependencies(ctx, humioHttpClient, hvt, currentViewToken)
 			if err != nil {
-				return handleCriticalError(ctx, r, hvt, err)
+				result, returnErr := handleCriticalError(ctx, r, hvt, err)
+				return result, nil, returnErr
 			}
 			// create the ViewToken after successful validation
 			tokenId, secret, addErr := r.HumioClient.CreateViewToken(ctx, humioHttpClient, hvt, validation.IPFilterID, validation.ViewIDs, validation.Permissions)
 			if addErr != nil {
-				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not create ViewToken")
+				return reconcile.Result{}, nil, logErrorAndReturn(r.Log, addErr, "could not create ViewToken")
 			}
-			err = setState(ctx, r, hvt, humiov1alpha1.HumioTokenExists, tokenId)
+			err = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.TokenReasonCreated, "ViewToken created successfully", tokenId)
 			if err != nil {
 				// we lost the tokenId so we need to reconcile
-				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not set Status.HumioID")
+				return reconcile.Result{}, nil, logErrorAndReturn(r.Log, addErr, "could not set Status.HumioID")
 			}
 			// create k8s secret
 			err = ensureTokenSecretExists(ctx, r, hvt, cluster, nil, hvt.Spec.Name, secret)
 			if err != nil {
 				// we lost the humio generated secret so we need to rotateToken
-				_ = setState(ctx, r, hvt, humiov1alpha1.HumioTokenConfigError, tokenId)
-				return reconcile.Result{}, logErrorAndReturn(r.Log, addErr, "could not create k8s secret for ViewToken")
+				_ = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, "Failed to create k8s secret", tokenId)
+				return reconcile.Result{}, nil, logErrorAndReturn(r.Log, addErr, "could not create k8s secret for ViewToken")
 			}
 			r.Log.Info("successfully created ViewToken")
-			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+			return reconcile.Result{RequeueAfter: time.Second * 5}, nil, nil
 		}
-		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "could not check if ViewToken exists")
+		return reconcile.Result{}, nil, logErrorAndReturn(r.Log, err, "could not check if ViewToken exists")
 	}
+	return reconcile.Result{}, currentViewToken, nil
+}
 
+// updateViewTokenIfNeeded checks if view token differs and updates if needed
+func (r *HumioViewTokenReconciler) updateViewTokenIfNeeded(ctx context.Context, humioHttpClient *humioapi.Client, hvt *humiov1alpha1.HumioViewToken, currentViewToken *humiographql.ViewTokenDetailsViewPermissionsToken) (bool, error) {
 	// ViewToken exists, we check for differences
 	asExpected, diffKeysAndValues := r.viewTokenAlreadyAsExpected(hvt, currentViewToken)
 	if !asExpected {
 		// we plan to update so we validate dependencies
 		validation, err := r.validateDependencies(ctx, humioHttpClient, hvt, currentViewToken)
 		if err != nil {
-			return handleCriticalError(ctx, r, hvt, err)
+			_, returnErr := handleCriticalError(ctx, r, hvt, err)
+			return false, returnErr
 		}
 		r.Log.Info("information differs, triggering update for ViewToken", "diff", diffKeysAndValues)
 		updateErr := r.HumioClient.UpdateViewToken(ctx, humioHttpClient, hvt, validation.Permissions)
 		if updateErr != nil {
-			return reconcile.Result{}, logErrorAndReturn(r.Log, updateErr, "could not update ViewToken")
+			return false, logErrorAndReturn(r.Log, updateErr, "could not update ViewToken")
 		}
 	}
+	return asExpected, nil
+}
 
-	// ensure associated k8s secret exists
-	if err := r.ensureTokenSecret(ctx, hvt, humioHttpClient, cluster); err != nil {
-		return reconcile.Result{}, err
-	}
-
+// updateViewTokenFinalStatus updates the final status of the view token
+func (r *HumioViewTokenReconciler) updateViewTokenFinalStatus(ctx context.Context, humioHttpClient *humioapi.Client, hvt *humiov1alpha1.HumioViewToken, asExpected bool, currentViewToken *humiographql.ViewTokenDetailsViewPermissionsToken) error {
 	// on every reconcile validate dependencies that can change outside of k8s
 	var humioViewToken *humiographql.ViewTokenDetailsViewPermissionsToken
 	var lastErr error
@@ -196,20 +254,19 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if errors.As(lastErr, &humioapi.EntityNotFound{}) {
-		_ = setState(ctx, r, hvt, humiov1alpha1.HumioTokenNotFound, hvt.Status.HumioID)
+		_ = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonNotFound, "ViewToken not found", hvt.Status.HumioID)
 	} else if lastErr != nil {
-		_ = setState(ctx, r, hvt, humiov1alpha1.HumioTokenUnknown, hvt.Status.HumioID)
+		_ = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, fmt.Sprintf("Failed to get token: %v", lastErr), hvt.Status.HumioID)
 	} else {
 
 		_, lastErr = r.validateDependencies(ctx, humioHttpClient, hvt, humioViewToken)
 		if lastErr != nil {
-			return handleCriticalError(ctx, r, hvt, lastErr)
+			_, returnErr := handleCriticalError(ctx, r, hvt, lastErr)
+			return returnErr
 		}
-		_ = setState(ctx, r, hvt, humiov1alpha1.HumioTokenExists, hvt.Status.HumioID)
+		_ = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.TokenReasonReady, "ViewToken is ready", hvt.Status.HumioID)
 	}
-
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -234,6 +291,11 @@ func (r *HumioViewTokenReconciler) getHumioViewToken(ctx context.Context, req ct
 }
 
 func (r *HumioViewTokenReconciler) finalize(ctx context.Context, humioClient *humioapi.Client, hvt *humiov1alpha1.HumioViewToken) error {
+	// Check if data deletion is allowed
+	if !hvt.Spec.AllowDataDeletion {
+		return fmt.Errorf("token may contain data and data deletion not enabled. Set allowDataDeletion to true to allow deletion or add the %s annotation to force deletion", ForceFinalizerAnnotation)
+	}
+
 	if hvt.Status.HumioID != "" {
 		err := r.HumioClient.DeleteViewToken(ctx, humioClient, hvt)
 		if err != nil {
@@ -436,7 +498,7 @@ func (r *HumioViewTokenReconciler) ensureTokenSecret(ctx context.Context, hvt *h
 				// we can try rotate again on the next reconcile
 				return logErrorAndReturn(r.Log, err, "could not rotate ViewToken")
 			}
-			err = setState(ctx, r, hvt, humiov1alpha1.HumioTokenExists, tokenId)
+			err = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.TokenReasonUpdated, "ViewToken rotated successfully", tokenId)
 			if err != nil {
 				// we lost the Humio ID so we need to reconcile
 				return logErrorAndReturn(r.Log, err, "could not update ViewToken Status with tokenId")
@@ -454,7 +516,7 @@ func (r *HumioViewTokenReconciler) ensureTokenSecret(ctx context.Context, hvt *h
 		// k8s secret exists, ensure it is up to date
 		err = ensureTokenSecretExists(ctx, r, hvt, cluster, existingSecret, "ViewToken", "")
 		if err != nil {
-			_ = setState(ctx, r, hvt, humiov1alpha1.HumioTokenConfigError, hvt.Status.HumioID)
+			_ = setCondition(ctx, r, hvt, humiov1alpha1.TokenConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.TokenReasonConfigError, "Failed to update k8s secret", hvt.Status.HumioID)
 			return logErrorAndReturn(r.Log, err, "could not ensure updated k8s secret for ViewToken")
 		}
 	}

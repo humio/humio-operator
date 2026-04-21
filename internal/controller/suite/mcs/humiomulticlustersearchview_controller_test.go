@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -123,6 +124,22 @@ var _ = Describe("HumioMultiClusterSearchView Controller", func() {
 				return updatedViewDetails.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioMultiClusterSearchViewStateExists))
 
+			suite.UsingClusterBy(toCreateMCSView.Name, "HumioMultiClusterSearchView: Verifying Ready condition is set")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: toCreateMCSView.Name, Namespace: toCreateMCSView.Namespace}, updatedViewDetails)
+				if err != nil {
+					return false
+				}
+				readyCondition := meta.FindStatusCondition(updatedViewDetails.Status.Conditions,
+					humiov1alpha1.MultiClusterSearchViewConditionTypeReady)
+				return readyCondition != nil &&
+					readyCondition.Status == metav1.ConditionTrue &&
+					readyCondition.Reason == humiov1alpha1.MultiClusterSearchViewReasonReady
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(toCreateMCSView.Name, "HumioMultiClusterSearchView: Verifying backward compatible State field is maintained")
+			Expect(updatedViewDetails.Status.State).Should(Equal(humiov1alpha1.HumioMultiClusterSearchViewStateExists))
+
 			suite.UsingClusterBy(toCreateMCSView.Name, "Querying the LogScale API directly to confirm the view was created and correctly configured in the initial form")
 			// query the humio api directly to confirm the details according to the humio api matches what we expect
 			mcsView, err := testHumioClient.GetMultiClusterSearchView(ctx, humioHttpClient, toCreateMCSView)
@@ -165,6 +182,9 @@ var _ = Describe("HumioMultiClusterSearchView Controller", func() {
 			}
 			updatedDescription := "some updated description"
 			Eventually(func() error {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: toCreateMCSView.Name, Namespace: toCreateMCSView.Namespace}, updatedViewDetails); err != nil {
+					return err
+				}
 				updatedViewDetails.Spec.Connections = append(updatedViewDetails.Spec.Connections, remoteConnection)
 				updatedViewDetails.Spec.Connections[0].Filter = "restrictedfilterstring"
 				updatedViewDetails.Spec.Connections[0].ViewOrRepoName = "humio-usage"
@@ -220,6 +240,9 @@ var _ = Describe("HumioMultiClusterSearchView Controller", func() {
 
 			suite.UsingClusterBy(toCreateMCSView.Name, "Removing the local connection on the custom resource")
 			Eventually(func() error {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: toCreateMCSView.Name, Namespace: toCreateMCSView.Namespace}, updatedViewDetails); err != nil {
+					return err
+				}
 				updatedViewDetails.Spec.Connections = updatedViewDetails.Spec.Connections[1:]
 				return k8sClient.Update(ctx, updatedViewDetails)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -314,6 +337,162 @@ var _ = Describe("HumioMultiClusterSearchView Controller", func() {
 			Expect(k8sClient.Delete(ctx, updatedViewDetails)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: toCreateMCSView.Name, Namespace: toCreateMCSView.Namespace}, updatedViewDetails)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
+	Context("Rename Tests", Label("envtest", "dummy", "real"), func() {
+		It("should block multi-cluster search view rename without annotation", func() {
+			ctx := context.Background()
+			keyLocal := types.NamespacedName{
+				Name:      fmt.Sprintf("humiocluster-rename-blocked-%d", GinkgoRandomSeed()),
+				Namespace: testProcessNamespace,
+			}
+			featureFlagEnvVar := corev1.EnvVar{Name: "INITIAL_FEATURE_FLAGS", Value: "+MultiClusterSearch"}
+
+			toCreateLocal := suite.ConstructBasicSingleNodeHumioCluster(keyLocal, true)
+			toCreateLocal.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}
+			toCreateLocal.Spec.NodeCount = 1
+			toCreateLocal.Spec.EnvironmentVariables = append(toCreateLocal.Spec.EnvironmentVariables, featureFlagEnvVar)
+
+			suite.UsingClusterBy(keyLocal.Name, "Creating cluster for rename test")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreateLocal, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreateLocal)
+
+			key := types.NamespacedName{
+				Name:      fmt.Sprintf("mcsview-rename-blocked-%d", GinkgoRandomSeed()),
+				Namespace: keyLocal.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioMultiClusterSearchView{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioMultiClusterSearchViewSpec{
+					ManagedClusterName: toCreateLocal.Name,
+					Name:               fmt.Sprintf("original-mcsview-%d", GinkgoRandomSeed()),
+					Description:        "test rename blocking",
+					Connections: []humiov1alpha1.HumioMultiClusterSearchViewConnection{
+						{
+							ClusterIdentity: keyLocal.Name,
+							Filter:          "*",
+							Type:            humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal,
+							ViewOrRepoName:  "humio",
+						},
+					},
+					AutomaticSearch: helpers.BoolPtr(true),
+				},
+			}
+
+			suite.UsingClusterBy(keyLocal.Name, "HumioMultiClusterSearchView: Creating multi-cluster search view")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioMultiClusterSearchView{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioMultiClusterSearchViewStateExists))
+
+			suite.UsingClusterBy(keyLocal.Name, "HumioMultiClusterSearchView: Attempting rename without annotation")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, fetched); err != nil {
+					return err
+				}
+				fetched.Spec.Name = fmt.Sprintf("renamed-mcsview-%d", GinkgoRandomSeed())
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(keyLocal.Name, "HumioMultiClusterSearchView: Verifying ConfigError state")
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioMultiClusterSearchViewStateConfigError))
+
+			suite.UsingClusterBy(keyLocal.Name, "HumioMultiClusterSearchView: Cleaning up")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should delete-recreate multi-cluster search view with annotation", func() {
+			ctx := context.Background()
+			keyLocal := types.NamespacedName{
+				Name:      fmt.Sprintf("humiocluster-rename-allowed-%d", GinkgoRandomSeed()),
+				Namespace: testProcessNamespace,
+			}
+			featureFlagEnvVar := corev1.EnvVar{Name: "INITIAL_FEATURE_FLAGS", Value: "+MultiClusterSearch"}
+
+			toCreateLocal := suite.ConstructBasicSingleNodeHumioCluster(keyLocal, true)
+			toCreateLocal.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}
+			toCreateLocal.Spec.NodeCount = 1
+			toCreateLocal.Spec.EnvironmentVariables = append(toCreateLocal.Spec.EnvironmentVariables, featureFlagEnvVar)
+
+			suite.UsingClusterBy(keyLocal.Name, "Creating cluster for rename test")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreateLocal, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreateLocal)
+
+			key := types.NamespacedName{
+				Name:      fmt.Sprintf("mcsview-rename-allowed-%d", GinkgoRandomSeed()),
+				Namespace: keyLocal.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioMultiClusterSearchView{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioMultiClusterSearchViewSpec{
+					ManagedClusterName: toCreateLocal.Name,
+					Name:               fmt.Sprintf("original-mcsview-allowed-%d", GinkgoRandomSeed()),
+					Description:        "test rename allowing",
+					Connections: []humiov1alpha1.HumioMultiClusterSearchViewConnection{
+						{
+							ClusterIdentity: keyLocal.Name,
+							Filter:          "*",
+							Type:            humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal,
+							ViewOrRepoName:  "humio",
+						},
+					},
+					AutomaticSearch: helpers.BoolPtr(true),
+				},
+			}
+
+			suite.UsingClusterBy(keyLocal.Name, "HumioMultiClusterSearchView: Creating multi-cluster search view")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioMultiClusterSearchView{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioMultiClusterSearchViewStateExists))
+
+			suite.UsingClusterBy(keyLocal.Name, "HumioMultiClusterSearchView: Adding allow-rename annotation and renaming")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, fetched); err != nil {
+					return err
+				}
+				if fetched.Annotations == nil {
+					fetched.Annotations = make(map[string]string)
+				}
+				fetched.Annotations["humio.com/allow-rename"] = "true"
+				fetched.Spec.Name = fmt.Sprintf("renamed-mcsview-allowed-%d", GinkgoRandomSeed())
+				return k8sClient.Update(ctx, fetched)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(keyLocal.Name, "HumioMultiClusterSearchView: Verifying multi-cluster search view was recreated")
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				return fetched.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioMultiClusterSearchViewStateExists))
+
+			suite.UsingClusterBy(keyLocal.Name, "HumioMultiClusterSearchView: Cleaning up")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})

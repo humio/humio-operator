@@ -23,6 +23,7 @@ import (
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/suite"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -74,6 +75,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 				Description:        "Shared test forwarder for event forwarding rule tests",
 				ForwarderType:      "kafka",
 				Enabled:            true,
+				AllowDataDeletion:  true, // Allow cleanup in AfterAll
 				KafkaConfig: &humiov1alpha1.KafkaEventForwarderConfig{
 					Topic:      "test-topic",
 					Properties: "bootstrap.servers=localhost:9092",
@@ -142,6 +144,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
 					EventForwarderID:   sharedForwarderID,
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -194,6 +197,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
 					EventForwarderID:   sharedForwarderID,
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -239,6 +243,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
 					EventForwarderID:   sharedForwarderID,
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -297,6 +302,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					Description:        "Second forwarder for drift testing",
 					ForwarderType:      "kafka",
 					Enabled:            true,
+					AllowDataDeletion:  true, // Allow test cleanup
 					KafkaConfig: &humiov1alpha1.KafkaEventForwarderConfig{
 						Topic:      "test-topic-2",
 						Properties: "bootstrap.servers=localhost:9092",
@@ -336,6 +342,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
 					EventForwarderID:   sharedForwarderID,
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -403,6 +410,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
 					EventForwarderID:   sharedForwarderID,
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -430,10 +438,10 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 		})
 	})
 
-	Context("Immutability Tests", func() {
-		It("should reject Name field changes", func() {
+	Context("Rename Tests", func() {
+		It("should block Name changes without annotation", func() {
 			key := types.NamespacedName{
-				Name:      fmt.Sprintf("eventforwarding-immutable-name-%d", GinkgoParallelProcess()),
+				Name:      fmt.Sprintf("eventforwarding-rename-blocked-%d", GinkgoParallelProcess()),
 				Namespace: clusterKey.Namespace,
 			}
 
@@ -444,10 +452,11 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 				},
 				Spec: humiov1alpha1.HumioEventForwardingRuleSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               fmt.Sprintf("test-forwarding-rule-immut-name-%d", GinkgoParallelProcess()),
+					Name:               fmt.Sprintf("test-forwarding-rule-original-%d", GinkgoParallelProcess()),
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
 					EventForwarderID:   sharedForwarderID,
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -464,15 +473,31 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Equal(string(metav1.ConditionTrue)))
 
-			// Try to change immutable Name field
-			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Attempting to change immutable Name field")
+			// Get the original rule ID annotation
 			Expect(k8sClient.Get(ctx, key, fetched)).Should(Succeed())
-			fetched.Spec.Name = "changed-name"
-			Eventually(func() error {
-				return k8sClient.Update(ctx, fetched)
-			}, testTimeout, suite.TestInterval).Should(MatchError(ContainSubstring("Value is immutable")))
+			oldRuleIDAnnotation := fetched.Annotations["core.humio.com/event-forwarding-rule-id"]
+			Expect(oldRuleIDAnnotation).ShouldNot(BeEmpty())
 
-			// Cleanup (need to refetch to avoid update conflict)
+			// Try to change Name field without annotation - should be blocked by controller
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Attempting Name change without annotation")
+			fetched.Spec.Name = "changed-name-blocked"
+			Expect(k8sClient.Update(ctx, fetched)).Should(Succeed())
+
+			// Controller should detect rename without annotation and set error condition
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				condition := findCondition(fetched.Status.Conditions, humiov1alpha1.EventForwardingRuleConditionTypeReady)
+				if condition != nil && condition.Reason == humiov1alpha1.EventForwardingRuleReasonConfigError {
+					return condition.Message
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(ContainSubstring("humio.com/allow-rename"))
+
+			// Verify rule ID hasn't changed in LogScale (still has same annotation)
+			Expect(k8sClient.Get(ctx, key, fetched)).Should(Succeed())
+			Expect(fetched.Annotations["core.humio.com/event-forwarding-rule-id"]).Should(Equal(oldRuleIDAnnotation))
+
+			// Cleanup
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Deleting")
 			freshFetch := &humiov1alpha1.HumioEventForwardingRule{}
 			Expect(k8sClient.Get(ctx, key, freshFetch)).Should(Succeed())
@@ -483,6 +508,81 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
+		It("should delete-recreate rule with annotation", func() {
+			key := types.NamespacedName{
+				Name:      fmt.Sprintf("eventforwarding-rename-allowed-%d", GinkgoParallelProcess()),
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioEventForwardingRule{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioEventForwardingRuleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               fmt.Sprintf("test-forwarding-rule-original-allowed-%d", GinkgoParallelProcess()),
+					RepositoryName:     testRepo.Spec.Name,
+					QueryString:        "#type=test",
+					EventForwarderID:   sharedForwarderID,
+					AllowDataDeletion:  true, // Allow test cleanup
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating event forwarding rule")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioEventForwardingRule{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				condition := findCondition(fetched.Status.Conditions, humiov1alpha1.EventForwardingRuleConditionTypeReady)
+				if condition != nil {
+					return string(condition.Status)
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal(string(metav1.ConditionTrue)))
+
+			// Get original rule ID before rename
+			Expect(k8sClient.Get(ctx, key, fetched)).Should(Succeed())
+			oldRuleIDAnnotation := fetched.Annotations["core.humio.com/event-forwarding-rule-id"]
+			Expect(oldRuleIDAnnotation).ShouldNot(BeEmpty())
+
+			// Add annotation and change Name
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Renaming with annotation")
+			if fetched.Annotations == nil {
+				fetched.Annotations = make(map[string]string)
+			}
+			fetched.Annotations["humio.com/allow-rename"] = controller.AllowRenameAnnotationValue
+			fetched.Spec.Name = fmt.Sprintf("test-forwarding-rule-renamed-allowed-%d", GinkgoParallelProcess())
+			Expect(k8sClient.Update(ctx, fetched)).Should(Succeed())
+
+			// Wait for delete-recreate to complete - rule ID annotation should change
+			Eventually(func() bool {
+				_ = k8sClient.Get(ctx, key, fetched)
+				newRuleIDAnnotation := fetched.Annotations["core.humio.com/event-forwarding-rule-id"]
+				return newRuleIDAnnotation != "" && newRuleIDAnnotation != oldRuleIDAnnotation
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify rule is ready with new name
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetched)
+				condition := findCondition(fetched.Status.Conditions, humiov1alpha1.EventForwardingRuleConditionTypeReady)
+				if condition != nil {
+					return string(condition.Status)
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal(string(metav1.ConditionTrue)))
+
+			// Cleanup
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Deleting")
+			freshFetch := &humiov1alpha1.HumioEventForwardingRule{}
+			Expect(k8sClient.Get(ctx, key, freshFetch)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, freshFetch)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, freshFetch)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
 	})
 
 	Context("GraphQL Integration", func() {
@@ -503,6 +603,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
 					EventForwarderID:   sharedForwarderID,
+					AllowDataDeletion:  true, // Allow test cleanup
 				},
 			}
 
@@ -535,6 +636,156 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 		})
 	})
 
+	Context("Force-Finalize", Label("envtest", "dummy", "real"), func() {
+		It("should force-finalize when annotation present", func() {
+			// Create a LOCAL forwarder for this test (not using shared forwarder)
+			// so we can properly clean up the orphaned LogScale resources after force-finalize
+			forwarderKey := types.NamespacedName{
+				Name:      fmt.Sprintf("forwarder-force-finalize-%d", GinkgoParallelProcess()),
+				Namespace: clusterKey.Namespace,
+			}
+
+			forwarder := &humiov1alpha1.HumioEventForwarder{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      forwarderKey.Name,
+					Namespace: forwarderKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioEventForwarderSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               fmt.Sprintf("test-forwarder-force-finalize-%d", GinkgoParallelProcess()),
+					Description:        "Forwarder for force-finalize test",
+					ForwarderType:      "kafka",
+					Enabled:            true,
+					AllowDataDeletion:  true, // Allow test cleanup
+					KafkaConfig: &humiov1alpha1.KafkaEventForwarderConfig{
+						Topic:      "test-topic",
+						Properties: "bootstrap.servers=localhost:9092",
+					},
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating forwarder for force-finalize test")
+			Expect(k8sClient.Create(ctx, forwarder)).Should(Succeed())
+
+			// Wait for forwarder to be ready
+			fetchedForwarder := &humiov1alpha1.HumioEventForwarder{}
+			Eventually(func() bool {
+				_ = k8sClient.Get(ctx, forwarderKey, fetchedForwarder)
+				condition := meta.FindStatusCondition(fetchedForwarder.Status.Conditions, humiov1alpha1.EventForwarderConditionTypeReady)
+				return condition != nil && condition.Status == metav1.ConditionTrue
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Get the forwarder ID
+			Expect(k8sClient.Get(ctx, forwarderKey, fetchedForwarder)).Should(Succeed())
+			Expect(fetchedForwarder.Status.EventForwarderID).ShouldNot(BeEmpty())
+			forwarderID := fetchedForwarder.Status.EventForwarderID
+
+			key := types.NamespacedName{
+				Name:      fmt.Sprintf("eventforwardingrule-force-finalize-%d", GinkgoParallelProcess()),
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreate := &humiov1alpha1.HumioEventForwardingRule{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioEventForwardingRuleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               fmt.Sprintf("rule-force-finalize-%d", GinkgoParallelProcess()),
+					RepositoryName:     testRepo.Spec.Name,
+					QueryString:        "#type=test",
+					EventForwarderID:   forwarderID,
+					AllowDataDeletion:  false, // Block deletion
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule Force-Finalize: Creating rule with allowDataDeletion=false")
+			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioEventForwardingRule{}
+			Eventually(func() string {
+				fresh := &humiov1alpha1.HumioEventForwardingRule{}
+				if err := k8sClient.Get(ctx, key, fresh); err != nil {
+					return ""
+				}
+				condition := meta.FindStatusCondition(fresh.Status.Conditions, humiov1alpha1.EventForwardingRuleConditionTypeReady)
+				if condition != nil {
+					return string(condition.Status)
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal(string(metav1.ConditionTrue)))
+
+			// Verify finalizer present
+			Expect(k8sClient.Get(ctx, key, fetched)).Should(Succeed())
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Capture the LogScale rule ID before force-finalize (we'll need it for cleanup)
+			ruleID := ""
+			Eventually(func() error {
+				ruleDetails, err := humioClient.GetEventForwardingRule(ctx, humioHttpClient, fetched)
+				if err != nil {
+					return err
+				}
+				ruleID = ruleDetails.GetId()
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(ruleID).ShouldNot(BeEmpty())
+
+			// Attempt deletion (will be blocked by allowDataDeletion=false)
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule Force-Finalize: Triggering deletion (should block)")
+			Expect(k8sClient.Delete(ctx, fetched)).Should(Succeed())
+
+			// Verify resource stuck in deletion
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule Force-Finalize: Verifying deletion is blocked")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return err == nil && fetched.GetDeletionTimestamp() != nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Verify finalizer still present (blocked)
+			Expect(k8sClient.Get(ctx, key, fetched)).Should(Succeed())
+			Expect(fetched.GetFinalizers()).To(ContainElement(controller.HumioFinalizer))
+
+			// Add force-finalize annotation
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule Force-Finalize: Adding force-finalize annotation")
+			Eventually(func() error {
+				fresh := &humiov1alpha1.HumioEventForwardingRule{}
+				if err := k8sClient.Get(ctx, key, fresh); err != nil {
+					return err
+				}
+				if fresh.Annotations == nil {
+					fresh.Annotations = make(map[string]string)
+				}
+				fresh.Annotations[controller.ForceFinalizerAnnotation] = controller.ForceFinalizerAnnotationValue
+				return k8sClient.Update(ctx, fresh)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify finalizer removed and resource deleted
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule Force-Finalize: Verifying force-finalize removes finalizer")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetched)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Resource should be deleted after force-finalize")
+
+			// Cleanup: Manually delete the orphaned LogScale rule since force-finalize skipped it
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule Force-Finalize: Manually deleting orphaned LogScale rule")
+			_, err := humiographql.DeleteEventForwardingRule(ctx, humioHttpClient, testRepo.Spec.Name, ruleID)
+			if err != nil {
+				// Log the error but don't fail the test - the rule might already be gone
+				suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Warning: Failed to delete orphaned rule: %v", err))
+			}
+
+			// Cleanup: Delete the forwarder
+			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Deleting forwarder for force-finalize test")
+			Expect(k8sClient.Delete(ctx, fetchedForwarder)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, forwarderKey, fetchedForwarder)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
 	Context("Forwarder Reference Resolution", Label("envtest", "dummy", "real"), func() {
 		It("should resolve eventForwarderRef from same namespace", func() {
 			forwarderKey := types.NamespacedName{
@@ -558,6 +809,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					Description:        "Test forwarder for reference resolution",
 					ForwarderType:      "kafka",
 					Enabled:            true,
+					AllowDataDeletion:  true, // Allow test cleanup
 					KafkaConfig: &humiov1alpha1.KafkaEventForwarderConfig{
 						Topic:      "test-topic",
 						Properties: "bootstrap.servers=localhost:9092",
@@ -592,6 +844,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					Name:               fmt.Sprintf("test-rule-ref-same-ns-%d", GinkgoParallelProcess()),
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
+					AllowDataDeletion:  true, // Allow test cleanup
 					EventForwarderRef: &humiov1alpha1.EventForwarderReference{
 						Name: forwarderKey.Name,
 						// Namespace is omitted, should default to same namespace
@@ -656,6 +909,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					Name:               fmt.Sprintf("test-rule-missing-ref-%d", GinkgoParallelProcess()),
 					RepositoryName:     testRepo.Spec.Name,
 					QueryString:        "#type=test",
+					AllowDataDeletion:  true, // Allow test cleanup
 					EventForwarderRef: &humiov1alpha1.EventForwarderReference{
 						Name: "non-existent-forwarder",
 					},
@@ -705,6 +959,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					Description:        "Forwarder for testing repository not found error",
 					ForwarderType:      "kafka",
 					Enabled:            true,
+					AllowDataDeletion:  true, // Allow test cleanup
 					KafkaConfig: &humiov1alpha1.KafkaEventForwarderConfig{
 						Topic:      "test-topic",
 						Properties: "bootstrap.servers=kafka:9092",
@@ -739,6 +994,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 					Name:               fmt.Sprintf("test-rule-missing-repo-%d", GinkgoParallelProcess()),
 					RepositoryName:     "nonexistent-repository", // DOES NOT EXIST
 					QueryString:        "#type=test",
+					AllowDataDeletion:  true, // Allow test cleanup
 					EventForwarderRef: &humiov1alpha1.EventForwarderReference{
 						Name: forwarderKey.Name,
 					},
