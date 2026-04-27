@@ -289,6 +289,13 @@ type HumioOperatorFeatureFlags struct {
 	// Preview: this feature is in a preview state
 	// +kubebuilder:default=false
 	EnableDownscalingFeature bool `json:"enableDownscalingFeature,omitempty"`
+	// EnableKarpenterIntegration enables dynamic management of temporary PodDisruptionBudgets to prevent
+	// Karpenter from disrupting Humio pods during upgrades and restarts. When enabled, the operator creates
+	// a restrictive PDB (maxUnavailable: 0) for each node pool whenever the cluster is not fully stable,
+	// and deletes it when all node pools are confirmed Running with no pending changes.
+	// Default: false
+	// +kubebuilder:default=false
+	EnableKarpenterIntegration bool `json:"enableKarpenterIntegration,omitempty"`
 }
 
 // HumioNodePoolFeatures is used to toggle certain features that are specific instance of HumioNodeSpec. This means
