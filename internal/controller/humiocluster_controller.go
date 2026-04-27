@@ -201,6 +201,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	// Phase 1: create restrictive PDBs to prevent Karpenter disruptions when cluster is not stable
+	if err := r.reconcileKarpenterPDBsAddOnly(ctx, hc, humioNodePools); err != nil {
+		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			withMessage(err.Error()))
+	}
+
 	// ensure pods that does not run the desired version or config gets deleted and update state accordingly
 	for _, pool := range humioNodePools.Items {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
@@ -209,6 +215,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				return result, err
 			}
 		}
+	}
+
+	// Phase 2: delete restrictive PDBs when cluster is stable and all pools confirmed clean
+	if err := r.reconcileKarpenterPDBsRemoveIfStable(ctx, hc, humioNodePools); err != nil {
+		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			withMessage(err.Error()))
 	}
 
 	// create various k8s objects, e.g. Issuer, Certificate, ConfigMap, Ingress, Service, ServiceAccount, ClusterRole, ClusterRoleBinding

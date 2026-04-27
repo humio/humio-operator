@@ -5834,6 +5834,15 @@ spec:
                       Default: false
                       Preview: this feature is in a preview state
                     type: boolean
+                  enableKarpenterIntegration:
+                    default: false
+                    description: |-
+                      EnableKarpenterIntegration enables dynamic management of temporary PodDisruptionBudgets to prevent
+                      Karpenter from disrupting Humio pods during upgrades and restarts. When enabled, the operator creates
+                      a restrictive PDB (maxUnavailable: 0) for each node pool whenever the cluster is not fully stable,
+                      and deletes it when all node pools are confirmed Running with no pending changes.
+                      Default: false
+                    type: boolean
                 type: object
               helperImage:
                 description: HelperImage is the desired helper container image, including
