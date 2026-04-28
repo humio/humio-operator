@@ -142,6 +142,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			TerminationGracePeriodSeconds:               hc.Spec.TerminationGracePeriodSeconds,
 			Affinity:                                    hc.Spec.Affinity,
 			SidecarContainers:                           hc.Spec.SidecarContainers,
+			ExtraInitContainers:                         hc.Spec.ExtraInitContainers,
 			ExtraKafkaConfigs:                           hc.Spec.ExtraKafkaConfigs,
 			ExtraHumioVolumeMounts:                      hc.Spec.ExtraHumioVolumeMounts,
 			ExtraVolumes:                                hc.Spec.ExtraVolumes,
@@ -228,6 +229,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			TerminationGracePeriodSeconds:  hnp.TerminationGracePeriodSeconds,
 			Affinity:                       hnp.Affinity,
 			SidecarContainers:              hnp.SidecarContainers,
+			ExtraInitContainers:            hnp.ExtraInitContainers,
 			ExtraKafkaConfigs:              hnp.ExtraKafkaConfigs,
 			ExtraHumioVolumeMounts:         hnp.ExtraHumioVolumeMounts,
 			ExtraVolumes:                   hnp.ExtraVolumes,
@@ -772,6 +774,10 @@ func (hnp *HumioNodePool) GetAffinity() *corev1.Affinity {
 
 func (hnp *HumioNodePool) GetSidecarContainers() []corev1.Container {
 	return hnp.humioNodeSpec.SidecarContainers
+}
+
+func (hnp *HumioNodePool) GetExtraInitContainers() []corev1.Container {
+	return hnp.humioNodeSpec.ExtraInitContainers
 }
 
 func (hnp *HumioNodePool) GetTolerations() []corev1.Toleration {

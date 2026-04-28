@@ -393,6 +393,15 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 		})
 	}
 
+	for _, extraInit := range hnp.GetExtraInitContainers() {
+		for _, existingInitContainer := range pod.Spec.InitContainers {
+			if extraInit.Name == existingInitContainer.Name {
+				return &corev1.Pod{}, fmt.Errorf("extraInitContainer conflicts with existing name: %s", extraInit.Name)
+			}
+		}
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, extraInit)
+	}
+
 	for _, sidecar := range hnp.GetSidecarContainers() {
 		for _, existingContainer := range pod.Spec.Containers {
 			if sidecar.Name == existingContainer.Name {

@@ -5327,6 +5327,136 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster with extra init containers", Label("envtest", "dummy", "real"), func() {
+		It("Should correctly add extra init containers to pods", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-extra-init",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.ExtraInitContainers = nil
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Confirming pods do not have extra init containers")
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				for _, initContainer := range pod.Spec.InitContainers {
+					Expect(initContainer.Name).ToNot(Equal("custom-init"))
+				}
+			}
+
+			suite.UsingClusterBy(key.Name, "Adding extra init containers")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+
+				updatedHumioCluster.Spec.ExtraInitContainers = []corev1.Container{
+					{
+						Name:    "custom-init",
+						Image:   versions.DefaultHumioImageVersion(),
+						Command: []string{"/bin/sh"},
+						Args:    []string{"-c", "echo custom-init-done"},
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{
+									"ALL",
+								},
+							},
+							Privileged:               helpers.BoolPtr(false),
+							RunAsUser:                helpers.Int64Ptr(65534),
+							RunAsNonRoot:             helpers.BoolPtr(true),
+							ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+							AllowPrivilegeEscalation: helpers.BoolPtr(false),
+						},
+					},
+				}
+
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Confirming pods contain the extra init container")
+			Eventually(func() string {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				for _, pod := range clusterPods {
+					for _, initContainer := range pod.Spec.InitContainers {
+						if initContainer.Name == "custom-init" {
+							return initContainer.Name
+						}
+					}
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal("custom-init"))
+		})
+	})
+
+	Context("Humio Cluster with extra init containers per node pool", Label("envtest", "dummy", "real"), func() {
+		It("Should correctly add extra init containers to node pool pods", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-np-extra-init",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := constructBasicMultiNodePoolHumioCluster(key, 1)
+			toCreate.Spec.NodePools[0].ExtraInitContainers = []corev1.Container{
+				{
+					Name:    "np-custom-init",
+					Image:   versions.DefaultHumioImageVersion(),
+					Command: []string{"/bin/sh"},
+					Args:    []string{"-c", "echo np-custom-init-done"},
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{
+								"ALL",
+							},
+						},
+						Privileged:               helpers.BoolPtr(false),
+						RunAsUser:                helpers.Int64Ptr(65534),
+						RunAsNonRoot:             helpers.BoolPtr(true),
+						ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+						AllowPrivilegeEscalation: helpers.BoolPtr(false),
+					},
+				},
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, testHumioClient, toCreate)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Confirming node pool pods contain the extra init container")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetPodLabels())
+				for _, pod := range clusterPods {
+					for _, initContainer := range pod.Spec.InitContainers {
+						if initContainer.Name == "np-custom-init" {
+							return initContainer.Name
+						}
+					}
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal("np-custom-init"))
+
+			suite.UsingClusterBy(key.Name, "Confirming main cluster pods do not contain the node pool extra init container")
+			Consistently(func() bool {
+				mainClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				for _, pod := range mainClusterPods {
+					for _, initContainer := range pod.Spec.InitContainers {
+						if initContainer.Name == "np-custom-init" {
+							return false
+						}
+					}
+				}
+				return true
+			}, 10*time.Second, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
 	Context("Humio Cluster pod termination grace period", Label("envtest", "dummy", "real"), func() {
 		It("Should validate default configuration", func() {
 			key := types.NamespacedName{

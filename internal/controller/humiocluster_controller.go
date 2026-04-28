@@ -83,6 +83,9 @@ const (
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=pods/exec,verbs=create;delete;get;list;patch;update;watch

@@ -100,6 +100,7 @@ rules:
   - humioalerts
   - humiobootstraptokens
   - humioclusters
+  - humiodependencychecks
   - humioeventforwarders
   - humioeventforwardingrules
   - humioexternalclusters
@@ -142,6 +143,7 @@ rules:
   - humioalerts/finalizers
   - humiobootstraptokens/finalizers
   - humioclusters/finalizers
+  - humiodependencychecks/finalizers
   - humioeventforwarders/finalizers
   - humioeventforwardingrules/finalizers
   - humioexternalclusters/finalizers
@@ -178,6 +180,7 @@ rules:
   - humioalerts/status
   - humiobootstraptokens/status
   - humioclusters/status
+  - humiodependencychecks/status
   - humioeventforwarders/status
   - humioeventforwardingrules/status
   - humioexternalclusters/status
