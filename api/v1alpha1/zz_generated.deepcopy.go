@@ -2406,6 +2406,13 @@ func (in *HumioNodeSpec) DeepCopyInto(out *HumioNodeSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ExtraInitContainers != nil {
+		in, out := &in.ExtraInitContainers, &out.ExtraInitContainers
+		*out = make([]v1.Container, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.ExtraHumioVolumeMounts != nil {
 		in, out := &in.ExtraHumioVolumeMounts, &out.ExtraHumioVolumeMounts
 		*out = make([]v1.VolumeMount, len(*in))

@@ -153,11 +153,6 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 							ContainerPort: ElasticPort,
 							Protocol:      "TCP",
 						},
-						{
-							Name:          PrometheusMetricsPortName,
-							ContainerPort: hnp.GetHumioPrometheusMetricsServicePort(),
-							Protocol:      "TCP",
-						},
 					},
 					Env: hnp.GetEnvironmentVariables(),
 					VolumeMounts: []corev1.VolumeMount{
@@ -200,6 +195,18 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 	humioIdx, err := kubernetes.GetContainerIndexByName(pod, HumioContainerName)
 	if err != nil {
 		return &corev1.Pod{}, err
+	}
+
+	if promPortStr := EnvVarValue(pod.Spec.Containers[humioIdx].Env, "PROMETHEUS_METRICS_PORT"); promPortStr != "" {
+		promPort, err := strconv.ParseInt(promPortStr, 10, 32)
+		if err != nil {
+			return &corev1.Pod{}, fmt.Errorf("invalid PROMETHEUS_METRICS_PORT value %q: %w", promPortStr, err)
+		}
+		pod.Spec.Containers[humioIdx].Ports = append(pod.Spec.Containers[humioIdx].Ports, corev1.ContainerPort{
+			Name:          PrometheusMetricsPortName,
+			ContainerPort: int32(promPort),
+			Protocol:      "TCP",
+		})
 	}
 
 	// If envFrom is set on the HumioCluster spec, add it to the pod spec. Add an annotation with the hash of the env
@@ -384,6 +391,15 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 				},
 			},
 		})
+	}
+
+	for _, extraInit := range hnp.GetExtraInitContainers() {
+		for _, existingInitContainer := range pod.Spec.InitContainers {
+			if extraInit.Name == existingInitContainer.Name {
+				return &corev1.Pod{}, fmt.Errorf("extraInitContainer conflicts with existing name: %s", extraInit.Name)
+			}
+		}
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, extraInit)
 	}
 
 	for _, sidecar := range hnp.GetSidecarContainers() {

@@ -247,6 +247,10 @@ type HumioNodeSpec struct {
 	// Humio pod to help out in debugging purposes.
 	SidecarContainers []corev1.Container `json:"sidecarContainer,omitempty"`
 
+	// ExtraInitContainers can be used to add additional init containers to the Humio pod.
+	// These are appended after the operator-managed init container.
+	ExtraInitContainers []corev1.Container `json:"extraInitContainers,omitempty"`
+
 	// NodeUUIDPrefix is the prefix for the Humio Node's UUID. By default this does not include the zone. If it's
 	// necessary to include zone, there is a special `Zone` variable that can be used. To use this, set `{{.Zone}}`. For
 	// compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
@@ -290,10 +294,6 @@ type HumioNodeSpec struct {
 	// HumioESServicePort is the port number of the Humio Service that is used to direct traffic to the ES interface of
 	// the Humio pods.
 	HumioESServicePort int32 `json:"humioESServicePort,omitempty"`
-
-	// HumioPrometheusMetricsServicePort is the port number of the Humio Service that is used to direct traffic to the
-	// Prometheus metrics interface of the Humio pods.
-	HumioPrometheusMetricsServicePort int32 `json:"humioPrometheusMetricsServicePort,omitempty"`
 
 	// HumioServiceAnnotations is the set of annotations added to the Kubernetes Service that is used to direct traffic
 	// to the Humio pods

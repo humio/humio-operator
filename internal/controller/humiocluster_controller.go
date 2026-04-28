@@ -83,6 +83,9 @@ const (
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=pods/exec,verbs=create;delete;get;list;patch;update;watch
@@ -2366,30 +2369,10 @@ func (r *HumioClusterReconciler) ensurePodsPatchedWithManagedFields(ctx context.
 
 func (r *HumioClusterReconciler) processDownscaling(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info(fmt.Sprintf("processing downscaling request for humio node pool %s", hnp.GetNodePoolName()))
-	clusterConfig, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not create a cluster config for the http client.")
-	}
-	humioHttpClient := r.HumioClient.GetHumioHttpClient(clusterConfig.Config(), req)
 
-	// handle possible unmarked evictions
-	r.Log.Info("Checking for unmarked evictions.")
 	podsNotMarkedForEviction, err := r.getPodsNotMarkedForEviction(ctx, hnp)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods not marked for eviction.")
-	}
-	err = r.handleUnmarkedEvictions(ctx, humioHttpClient, podsNotMarkedForEviction)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not process active evictions.")
-	}
-
-	// remove lingering nodes
-	r.Log.Info("Checking for lingering evicted nodes.")
-	for _, vhost := range hc.Status.EvictedNodeIds {
-		_, err = r.unregisterNode(ctx, hc, humioHttpClient, vhost)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 	}
 
 	labelsToMatch := hnp.GetNodePoolLabels()
@@ -2398,7 +2381,32 @@ func (r *HumioClusterReconciler) processDownscaling(ctx context.Context, hc *hum
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods marked for eviction.")
 	}
-	// If there are more pods than specified, evict pod
+
+	if len(podsNotMarkedForEviction) <= hnp.GetNodeCount() && len(podsMarkedForEviction) == 0 && len(hc.Status.EvictedNodeIds) == 0 {
+		r.Log.Info("no downscaling work needed, skipping GraphQL calls")
+		return reconcile.Result{}, nil
+	}
+
+	clusterConfig, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not create a cluster config for the http client.")
+	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(clusterConfig.Config(), req)
+
+	r.Log.Info("Checking for unmarked evictions.")
+	err = r.handleUnmarkedEvictions(ctx, humioHttpClient, podsNotMarkedForEviction)
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not process active evictions.")
+	}
+
+	r.Log.Info("Checking for lingering evicted nodes.")
+	for _, vhost := range hc.Status.EvictedNodeIds {
+		_, err = r.unregisterNode(ctx, hc, humioHttpClient, vhost)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	if len(podsNotMarkedForEviction) > hnp.GetNodeCount() && len(podsMarkedForEviction) == 0 { // mark a single pod, to slowly reduce the node count.
 		r.Log.Info("Desired pod count lower than the actual pod count. Marking for eviction.")
 		err := r.markPodForEviction(ctx, hc, req, podsNotMarkedForEviction, hnp.GetNodePoolName())

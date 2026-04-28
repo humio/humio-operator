@@ -778,11 +778,11 @@ func verifyInitContainers(ctx context.Context, k8sClient client.Client, key type
 	humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
 	if cluster.Spec.DisableInitContainer {
 		UsingClusterBy(key.Name, "Confirming pods do not use init container")
-		Expect(clusterPods[0].Spec.InitContainers).To(BeEmpty())
+		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(len(cluster.Spec.ExtraInitContainers)))
 		Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
 	} else {
 		UsingClusterBy(key.Name, "Confirming pods have an init container")
-		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1))
+		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1 + len(cluster.Spec.ExtraInitContainers)))
 		Expect(humioContainerArgs).To(ContainSubstring("export ZONE="))
 	}
 
@@ -793,11 +793,11 @@ func verifyInitContainers(ctx context.Context, k8sClient client.Client, key type
 		humioContainerArgs = strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
 		if cluster.Spec.DisableInitContainer {
 			UsingClusterBy(key.Name, "Confirming pods do not use init container")
-			Expect(clusterPods[0].Spec.InitContainers).To(BeEmpty())
+			Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(len(cluster.Spec.NodePools[idx].ExtraInitContainers)))
 			Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
 		} else {
 			UsingClusterBy(key.Name, "Confirming pods have an init container")
-			Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1))
+			Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1 + len(cluster.Spec.NodePools[idx].ExtraInitContainers)))
 			Expect(humioContainerArgs).To(ContainSubstring("export ZONE="))
 		}
 	}
