@@ -3021,7 +3021,6 @@ func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hn
 		MatchLabels: kubernetes.MatchingLabelsForHumioNodePool(hc.Name, hnp.GetNodePoolName()),
 	}
 
-	minAvailable := pdbSpec.MinAvailable
 	pdb := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pdbName,
@@ -3038,14 +3037,25 @@ func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hn
 		return nil, fmt.Errorf("failed to set controller reference: %w", err)
 	}
 
-	if minAvailable != nil {
-		pdb.Spec.MinAvailable = minAvailable
-	} else {
+	// minAvailable and maxUnavailable are mutually exclusive (enforced by
+	// XValidation on HumioPodDisruptionBudgetSpec). Default to
+	// minAvailable=1 only when neither was specified.
+	switch {
+	case pdbSpec.MinAvailable != nil:
+		pdb.Spec.MinAvailable = pdbSpec.MinAvailable
+	case pdbSpec.MaxUnavailable != nil:
+		pdb.Spec.MaxUnavailable = pdbSpec.MaxUnavailable
+	default:
 		defaultMinAvailable := intstr.IntOrString{
 			Type:   intstr.Int,
 			IntVal: 1,
 		}
 		pdb.Spec.MinAvailable = &defaultMinAvailable
+	}
+
+	if pdbSpec.UnhealthyPodEvictionPolicy != nil {
+		policy := policyv1.UnhealthyPodEvictionPolicyType(*pdbSpec.UnhealthyPodEvictionPolicy)
+		pdb.Spec.UnhealthyPodEvictionPolicy = &policy
 	}
 
 	return pdb, nil
