@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -208,6 +209,38 @@ func (r *HumioBootstrapTokenReconciler) execCommand(ctx context.Context, pod *co
 	return stdout.String(), nil
 }
 
+// waitForBootstrapPodRunning polls once per second up to timeoutSeconds for
+// the given pod to reach PodRunning. It honors ctx cancellation so operator
+// drain / leader-election handoff / pod eviction don't get held hostage by
+// this loop. Transient Get errors are logged but don't fail the poll, so a
+// briefly-missing pod (e.g. between Create returning and the API caching it)
+// is tolerated. Persistent errors (e.g. RBAC) surface in the operator log
+// stream rather than getting masked behind the generic poll timeout.
+func (r *HumioBootstrapTokenReconciler) waitForBootstrapPodRunning(ctx context.Context, pod *corev1.Pod, timeoutSeconds int) (*corev1.Pod, error) {
+	foundPod := &corev1.Pod{}
+	pollErr := wait.PollUntilContextTimeout(
+		ctx,
+		time.Second,
+		time.Duration(timeoutSeconds)*time.Second,
+		true, // immediate: do the first check before the first sleep
+		func(ctx context.Context) (bool, error) {
+			r.Log.Info("waiting for bootstrap token pod to start")
+			if err := r.Get(ctx, types.NamespacedName{
+				Namespace: pod.Namespace,
+				Name:      pod.Name,
+			}, foundPod); err != nil {
+				r.Log.Info("transient error fetching bootstrap token pod", "error", err.Error())
+				return false, nil
+			}
+			return foundPod.Status.Phase == corev1.PodRunning, nil
+		},
+	)
+	if pollErr != nil {
+		return nil, pollErr
+	}
+	return foundPod, nil
+}
+
 func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) (*corev1.Pod, error) {
 	existingPod := &corev1.Pod{}
 	humioCluster := &humiov1alpha1.HumioCluster{}
@@ -346,28 +379,14 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return err
 	}
 
-	var podRunning bool
-	var foundPod corev1.Pod
-	for i := 0; i < waitForPodTimeoutSeconds; i++ {
-		err := r.Get(ctx, types.NamespacedName{
-			Namespace: pod.Namespace,
-			Name:      pod.Name,
-		}, &foundPod)
-		if err == nil {
-			if foundPod.Status.Phase == corev1.PodRunning {
-				podRunning = true
-				break
-			}
-		}
-		r.Log.Info("waiting for bootstrap token pod to start")
-		time.Sleep(time.Second * 1)
-	}
-	if !podRunning {
-		return r.logErrorAndReturn(err, "failed to start bootstrap token pod")
+	// Wait for the one-shot bootstrap pod to enter Running. See issue #1055.
+	foundPod, pollErr := r.waitForBootstrapPodRunning(ctx, pod, waitForPodTimeoutSeconds)
+	if pollErr != nil {
+		return r.logErrorAndReturn(pollErr, "failed to start bootstrap token pod")
 	}
 
 	r.Log.Info("execing onetime pod")
-	output, err := r.execCommand(ctx, &foundPod, commandArgs)
+	output, err := r.execCommand(ctx, foundPod, commandArgs)
 	if err != nil {
 		return r.logErrorAndReturn(err, "failed to exec pod")
 	}
