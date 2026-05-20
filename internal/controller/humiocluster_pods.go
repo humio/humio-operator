@@ -35,6 +35,7 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -699,24 +700,32 @@ func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioN
 	// This will account for the newly created pods
 	expectedPodCount += len(expectedPods)
 
-	for i := 0; i < waitForPodTimeoutSeconds; i++ {
-		var podsMatchingRevisionCount int
-		latestPodList, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
-		if err != nil {
-			return err
-		}
-		for _, pod := range latestPodList {
-			if pod.Annotations[PodHashAnnotation] == expectedPods[0].Annotations[PodHashAnnotation] {
-				podsMatchingRevisionCount++
+	// See issue #1060: poll honors ctx so operator drain / leader-election
+	// handoff / pod eviction don't get held hostage by this loop.
+	pollErr := wait.PollUntilContextTimeout(
+		ctx,
+		time.Second,
+		time.Duration(waitForPodTimeoutSeconds)*time.Second,
+		true, // immediate: do the first check before the first sleep
+		func(ctx context.Context) (bool, error) {
+			latestPodList, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+			if err != nil {
+				return false, err
 			}
-		}
-		r.Log.Info(fmt.Sprintf("validating new pods were created. expected pod count %d, current pod count %d", expectedPodCount, podsMatchingRevisionCount))
-		if podsMatchingRevisionCount >= expectedPodCount {
-			return nil
-		}
-		time.Sleep(time.Second * 1)
+			var podsMatchingRevisionCount int
+			for _, pod := range latestPodList {
+				if pod.Annotations[PodHashAnnotation] == expectedPods[0].Annotations[PodHashAnnotation] {
+					podsMatchingRevisionCount++
+				}
+			}
+			r.Log.Info(fmt.Sprintf("validating new pods were created. expected pod count %d, current pod count %d", expectedPodCount, podsMatchingRevisionCount))
+			return podsMatchingRevisionCount >= expectedPodCount, nil
+		},
+	)
+	if pollErr != nil {
+		return fmt.Errorf("timed out waiting to validate new pods was created: %w", pollErr)
 	}
-	return fmt.Errorf("timed out waiting to validate new pods was created")
+	return nil
 }
 
 func (r *HumioClusterReconciler) getPodDesiredLifecycleState(ctx context.Context, hnp *HumioNodePool, foundPodList []corev1.Pod, attachments *podAttachments, podsWithErrorsFoundSoBypassZoneAwareness bool) (PodLifeCycleState, *corev1.Pod, error) {
