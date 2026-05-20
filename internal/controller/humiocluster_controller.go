@@ -44,6 +44,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -2485,27 +2486,47 @@ func (r *HumioClusterReconciler) checkEvictionStatusForPodUsingClusterRefresh(ct
 }
 
 func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, humioHttpClient *humioapi.Client, vhost int) (bool, error) {
-	for i := 0; i < waitForPodTimeoutSeconds; i++ {
-		nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient)
-		if err != nil {
-			return false, r.logErrorAndReturn(err, "could not get cluster nodes status.")
-		}
-		for _, node := range nodesStatus {
-			if node.GetId() == vhost {
-				reasonsNodeCannotBeSafelyUnregistered := node.GetReasonsNodeCannotBeSafelyUnregistered()
-				if !reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() &&
-					!reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() &&
-					!reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() {
-					// if cheap check is ok, run a cache refresh check
-					if ok, _ := r.checkEvictionStatusForPodUsingClusterRefresh(ctx, humioHttpClient, vhost); ok {
-						return true, nil
+	// See issue #1060: poll honors ctx so operator drain / leader-election
+	// handoff / pod eviction don't get held hostage by this loop.
+	pollErr := wait.PollUntilContextTimeout(
+		ctx,
+		time.Second,
+		time.Duration(waitForPodTimeoutSeconds)*time.Second,
+		true, // immediate: do the first check before the first sleep
+		func(ctx context.Context) (bool, error) {
+			nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient)
+			if err != nil {
+				return false, r.logErrorAndReturn(err, "could not get cluster nodes status.")
+			}
+			for _, node := range nodesStatus {
+				if node.GetId() == vhost {
+					reasonsNodeCannotBeSafelyUnregistered := node.GetReasonsNodeCannotBeSafelyUnregistered()
+					if !reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() &&
+						!reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() &&
+						!reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() {
+						// if cheap check is ok, run a cache refresh check
+						if ok, _ := r.checkEvictionStatusForPodUsingClusterRefresh(ctx, humioHttpClient, vhost); ok {
+							return true, nil
+						}
 					}
 				}
 			}
+			return false, nil
+		},
+	)
+	if pollErr != nil {
+		// Timeout / ctx cancellation → not safely evictable yet, but
+		// don't surface the error to callers (matches the pre-#1060
+		// behavior of "return false, nil" on timeout).
+		if errors.Is(pollErr, context.Canceled) || errors.Is(pollErr, context.DeadlineExceeded) {
+			return false, nil
 		}
+		return false, pollErr
 	}
-
-	return false, nil
+	// If pollErr is nil, the inner func returned (true, nil), which only
+	// happens via the `return true, nil` branch above. No need for a
+	// shadow boolean to track that.
+	return true, nil
 }
 
 // Gracefully removes a LogScale pod from the nodepool using the following steps:
@@ -2572,21 +2593,31 @@ func (r *HumioClusterReconciler) markPodForEviction(ctx context.Context, hc *hum
 }
 
 func (r *HumioClusterReconciler) updateEvictionStatus(ctx context.Context, nodesStatus []humiographql.GetEvictionStatusClusterNodesClusterNode, pod corev1.Pod, vhost int) (bool, error) {
-	// wait for eviction status to be updated
+	// wait for eviction status to be updated.
+	//
+	// See issue #1060: poll honors ctx so operator drain / leader-election
+	// handoff / pod eviction don't get held hostage by this loop.
+	//
+	// NOTE: nodesStatus is a parameter and is NOT refreshed inside the
+	// loop, so this poll re-checks the same data each iteration. Existing
+	// behavior preserved — the refresh-data-inside-the-loop fix is a
+	// separate semantic question for a maintainer.
 	isBeingEvicted := false
-	for i := 0; i < waitForPodTimeoutSeconds; i++ {
-		for _, node := range nodesStatus {
-			if node.GetId() == vhost && *node.GetIsBeingEvicted() {
-				isBeingEvicted = true
-				break
+	_ = wait.PollUntilContextTimeout(
+		ctx,
+		time.Second,
+		time.Duration(waitForPodTimeoutSeconds)*time.Second,
+		true, // immediate: do the first check before the first sleep
+		func(ctx context.Context) (bool, error) {
+			for _, node := range nodesStatus {
+				if node.GetId() == vhost && *node.GetIsBeingEvicted() {
+					isBeingEvicted = true
+					return true, nil
+				}
 			}
-		}
-
-		if isBeingEvicted { // skip the waiting if marked
-			break
-		}
-		time.Sleep(time.Second * 1)
-	}
+			return false, nil
+		},
+	)
 
 	if !isBeingEvicted {
 		return false, nil
