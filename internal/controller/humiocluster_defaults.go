@@ -724,13 +724,27 @@ func (hnp *HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
 	return hnp.humioNodeSpec.ContainerStartupProbe
 }
 
+// nonRootUserID and nonRootGroupID are the UID/GID used for the default
+// PodSecurityContext (and existing ContainerSecurityContext) when the cluster
+// spec doesn't override them. 65534 is the conventional unprivileged
+// nobody/nogroup ID across most distros — it matches the UID 65534 default
+// already in GetContainerSecurityContext above (see line 519). Replaces a
+// previous GID default of 0 (root group), which would group-own the pod's
+// volumes and processes as root and was flagged as a privilege seam (see
+// issue #1054). Operators whose Humio image expects a different UID/GID
+// can still override via humioNodeSpec.PodSecurityContext.
+const (
+	nonRootUserID  = int64(65534)
+	nonRootGroupID = int64(65534)
+)
+
 func (hnp *HumioNodePool) GetPodSecurityContext() *corev1.PodSecurityContext {
 	if hnp.humioNodeSpec.PodSecurityContext == nil {
 		return &corev1.PodSecurityContext{
-			RunAsUser:    helpers.Int64Ptr(65534),
+			RunAsUser:    helpers.Int64Ptr(nonRootUserID),
 			RunAsNonRoot: helpers.BoolPtr(true),
-			RunAsGroup:   helpers.Int64Ptr(0), // TODO: We probably want to move away from this.
-			FSGroup:      helpers.Int64Ptr(0), // TODO: We probably want to move away from this.
+			RunAsGroup:   helpers.Int64Ptr(nonRootGroupID),
+			FSGroup:      helpers.Int64Ptr(nonRootGroupID),
 		}
 	}
 	return hnp.humioNodeSpec.PodSecurityContext

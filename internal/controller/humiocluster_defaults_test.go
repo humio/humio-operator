@@ -621,3 +621,61 @@ func Test_constructContainerArgs(t *testing.T) {
 		})
 	}
 }
+
+// Pins the default PodSecurityContext values introduced in issue #1054.
+// If a future refactor silently regresses RunAsGroup or FSGroup back to 0
+// (the root group), this test fails — without it the regression would only
+// surface in e2e.
+func Test_GetPodSecurityContext_DefaultsAreNonRoot(t *testing.T) {
+	hc := &humiov1alpha1.HumioCluster{}
+	hnp := NewHumioNodeManagerFromHumioCluster(hc)
+
+	got := hnp.GetPodSecurityContext()
+
+	if got == nil {
+		t.Fatal("expected non-nil default PodSecurityContext")
+	}
+	if got.RunAsNonRoot == nil || *got.RunAsNonRoot != true {
+		t.Errorf("RunAsNonRoot: want true, got %v", got.RunAsNonRoot)
+	}
+	if got.RunAsUser == nil || *got.RunAsUser != nonRootUserID {
+		t.Errorf("RunAsUser: want %d, got %v", nonRootUserID, got.RunAsUser)
+	}
+	if got.RunAsGroup == nil || *got.RunAsGroup != nonRootGroupID {
+		t.Errorf("RunAsGroup: want %d (non-root), got %v", nonRootGroupID, got.RunAsGroup)
+	}
+	if got.FSGroup == nil || *got.FSGroup != nonRootGroupID {
+		t.Errorf("FSGroup: want %d (non-root), got %v", nonRootGroupID, got.FSGroup)
+	}
+	// Guard against either default regressing to 0 (root).
+	if got.RunAsGroup != nil && *got.RunAsGroup == 0 {
+		t.Error("RunAsGroup defaulted to 0 (root group) — regression of issue #1054")
+	}
+	if got.FSGroup != nil && *got.FSGroup == 0 {
+		t.Error("FSGroup defaulted to 0 (root group) — regression of issue #1054")
+	}
+}
+
+// User-provided PodSecurityContext must pass through unmodified — the
+// non-root defaults only apply when the cluster spec leaves it nil.
+func Test_GetPodSecurityContext_RespectsUserOverride(t *testing.T) {
+	custom := &corev1.PodSecurityContext{
+		RunAsUser:  helpers.Int64Ptr(1000),
+		RunAsGroup: helpers.Int64Ptr(2000),
+		FSGroup:    helpers.Int64Ptr(3000),
+	}
+	hc := &humiov1alpha1.HumioCluster{
+		Spec: humiov1alpha1.HumioClusterSpec{
+			HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+				PodSecurityContext: custom,
+			},
+		},
+	}
+	hnp := NewHumioNodeManagerFromHumioCluster(hc)
+
+	got := hnp.GetPodSecurityContext()
+
+	if got != custom {
+		t.Fatalf("user override should pass through by reference; got different pointer")
+	}
+}
