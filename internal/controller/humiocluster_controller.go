@@ -132,14 +132,29 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	humioNodePools := getHumioNodePoolManagers(hc)
 	emptyResult := reconcile.Result{}
 
-	// update status with observed generation
-	// TODO: Look into refactoring of the use of "defer func's" to update HumioCluster.Status.
-	//       Right now we use StatusWriter to update the status multiple times, and rely on RetryOnConflict to retry
-	//       on conflicts which they'll be on many of the status updates.
-	//       We should be able to bundle all the options together and do a single update using StatusWriter.
-	//       Bundling options in a single StatusWriter.Update() should help reduce the number of conflicts.
+	// Bundle the terminal Status update into a single Status().Update() call
+	// at the end of Reconcile, so we make one apiserver write rather than
+	// three racing updates each guarded by RetryOnConflict. The downstream
+	// defers (pods/nodeCount, version) mutate this shared builder instead
+	// of calling updateStatus directly; this defer is set up FIRST so it
+	// runs LAST in the LIFO defer chain and sees all the accumulated opts.
+	// See issue #1056 for the broader refactor — this PR is the deferred-
+	// path piece; inline early-return updates inside the reconcile body
+	// are left untouched to keep the diff reviewable.
+	//
+	// TODO(#1056): the inline r.updateStatus(...) calls scattered through
+	// this function still each issue their own Status().Update(). Those
+	// are the next chunk of the refactor — fold them into finalStatus too
+	// (or replace early returns with state transitions on finalStatus) so
+	// that a single reconcile pass emits exactly one status write.
+	//
+	// The closure-mutation pattern below relies on Go's defer execution
+	// being sequential (not goroutined), and on statusOptions/.withX
+	// returning the same builder pointer so the reassignments are
+	// effectively no-ops. Don't extract these defers into goroutines.
+	finalStatus := statusOptions()
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
-		_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
+		_, _ = r.updateStatus(ctx, r.Status(), hc, finalStatus.
 			withObservedGeneration(hc.GetGeneration()))
 	}(ctx, hc)
 
@@ -175,16 +190,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	// update status with pods and nodeCount based on podStatusList
+	// Mutate the shared finalStatus builder with pods/nodeCount; the
+	// terminal defer above will emit the single Status().Update().
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
-		opts := statusOptions()
 		podStatusList, err := r.getPodStatusList(ctx, hc, humioNodePools.Filter(NodePoolFilterHasNode))
 		if err != nil {
 			r.Log.Error(err, "unable to get pod status list")
 		}
-		_, _ = r.updateStatus(ctx, r.Status(), hc, opts.
-			withPods(podStatusList).
-			withNodeCount(len(podStatusList)))
+		finalStatus = finalStatus.withPods(podStatusList).withNodeCount(len(podStatusList))
 	}(ctx, hc)
 
 	// remove unused node pool status entries
@@ -332,17 +345,18 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	// update status with version
+	// Mutate the shared finalStatus builder with version when Running; the
+	// terminal defer above will emit the single Status().Update().
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-		opts := statusOptions()
-		if hc.Status.State == humiov1alpha1.HumioClusterStateRunning {
-			status, err := humioClient.Status(ctx, humioHttpClient)
-			if err != nil {
-				r.Log.Error(err, "unable to get cluster status")
-				return
-			}
-			_, _ = r.updateStatus(ctx, r.Status(), hc, opts.withVersion(status.Version))
+		if hc.Status.State != humiov1alpha1.HumioClusterStateRunning {
+			return
 		}
+		status, err := humioClient.Status(ctx, humioHttpClient)
+		if err != nil {
+			r.Log.Error(err, "unable to get cluster status")
+			return
+		}
+		finalStatus = finalStatus.withVersion(status.Version)
 	}(ctx, r.HumioClient, hc)
 
 	// downscale cluster if needed
