@@ -141,6 +141,17 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// See issue #1056 for the broader refactor — this PR is the deferred-
 	// path piece; inline early-return updates inside the reconcile body
 	// are left untouched to keep the diff reviewable.
+	//
+	// TODO(#1056): the inline r.updateStatus(...) calls scattered through
+	// this function still each issue their own Status().Update(). Those
+	// are the next chunk of the refactor — fold them into finalStatus too
+	// (or replace early returns with state transitions on finalStatus) so
+	// that a single reconcile pass emits exactly one status write.
+	//
+	// The closure-mutation pattern below relies on Go's defer execution
+	// being sequential (not goroutined), and on statusOptions/.withX
+	// returning the same builder pointer so the reassignments are
+	// effectively no-ops. Don't extract these defers into goroutines.
 	finalStatus := statusOptions()
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		_, _ = r.updateStatus(ctx, r.Status(), hc, finalStatus.
