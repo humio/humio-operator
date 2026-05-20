@@ -724,13 +724,20 @@ func (hnp *HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
 	return hnp.humioNodeSpec.ContainerStartupProbe
 }
 
+// nonRootGroupID is the GID used for default RunAsGroup and FSGroup. Matches
+// the `nogroup` GID on Debian/Alpine images and pairs with the existing
+// UID 65534 default. Replaces a previous default of 0 (root group), which
+// would group-own the pod's volumes and processes as root and was flagged
+// as a privilege seam (see issue #1054).
+const nonRootGroupID = int64(65534)
+
 func (hnp *HumioNodePool) GetPodSecurityContext() *corev1.PodSecurityContext {
 	if hnp.humioNodeSpec.PodSecurityContext == nil {
 		return &corev1.PodSecurityContext{
 			RunAsUser:    helpers.Int64Ptr(65534),
 			RunAsNonRoot: helpers.BoolPtr(true),
-			RunAsGroup:   helpers.Int64Ptr(0), // TODO: We probably want to move away from this.
-			FSGroup:      helpers.Int64Ptr(0), // TODO: We probably want to move away from this.
+			RunAsGroup:   helpers.Int64Ptr(nonRootGroupID),
+			FSGroup:      helpers.Int64Ptr(nonRootGroupID),
 		}
 	}
 	return hnp.humioNodeSpec.PodSecurityContext
