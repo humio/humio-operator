@@ -723,7 +723,14 @@ func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioN
 		},
 	)
 	if pollErr != nil {
-		return fmt.Errorf("timed out waiting to validate new pods was created: %w", pollErr)
+		// Distinguish timeout/cancel (canned message, preserves the old
+		// "timed out waiting" wording) from a propagated ListPods error
+		// (returned raw, matching the pre-#1060 behavior of surfacing
+		// the underlying API error to the caller without re-wrapping).
+		if errors.Is(pollErr, context.DeadlineExceeded) || errors.Is(pollErr, context.Canceled) {
+			return fmt.Errorf("timed out waiting to validate new pods was created: %w", pollErr)
+		}
+		return pollErr
 	}
 	return nil
 }

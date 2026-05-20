@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 // Tests for waitForNewPods — the loop converted in issue #1060 from a
@@ -116,5 +119,42 @@ func TestWaitForNewPods_RespectsContextCancellation(t *testing.T) {
 	// New behavior: returns promptly. Generous CI bound, well under 10s.
 	if elapsed > 3*time.Second {
 		t.Fatalf("ctx cancellation should return promptly, took %v", elapsed)
+	}
+}
+
+// Regression guard: if kubernetes.ListPods returns a non-timeout error (RBAC
+// denial, network failure, etc.), waitForNewPods must propagate that error
+// raw rather than wrapping it as "timed out waiting...". The pre-#1060 code
+// returned the ListPods error directly; the first cut of the #1060 refactor
+// wrapped every pollErr as a timeout, masking the actual cause. This test
+// pins the corrected behavior.
+func TestWaitForNewPods_PropagatesListErrorWithoutTimeoutWrap(t *testing.T) {
+	hnp := newHumioNodePoolForTest(t, "ns", "cluster-c")
+
+	sentinelErr := errors.New("forbidden: list pods rbac denied")
+
+	// Build a client whose List call always fails with our sentinel.
+	rawClient := fake.NewClientBuilder().Build()
+	c := interceptor.NewClient(rawClient, interceptor.Funcs{
+		List: func(_ context.Context, _ client.WithWatch, _ client.ObjectList, _ ...client.ListOption) error {
+			return sentinelErr
+		},
+	})
+	r := &HumioClusterReconciler{Client: c, Log: logr.Discard()}
+
+	expectedPods := []corev1.Pod{*podWithHash("ns", "p", hnp.GetNodePoolLabels(), testPodHash)}
+
+	err := r.waitForNewPods(context.Background(), hnp, nil, expectedPods)
+
+	if err == nil {
+		t.Fatal("expected error from ListPods, got nil")
+	}
+	// The underlying err must be reachable via errors.Is — not wrapped
+	// behind "timed out waiting".
+	if !errors.Is(err, sentinelErr) {
+		t.Errorf("expected errors.Is(err, sentinelErr) to be true, got err=%v", err)
+	}
+	if msg := err.Error(); strings.HasPrefix(msg, "timed out") {
+		t.Errorf("error message should NOT mention timeout for ListPods failure; got %q", msg)
 	}
 }
