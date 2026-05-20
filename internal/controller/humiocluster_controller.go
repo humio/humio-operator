@@ -2488,7 +2488,6 @@ func (r *HumioClusterReconciler) checkEvictionStatusForPodUsingClusterRefresh(ct
 func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, humioHttpClient *humioapi.Client, vhost int) (bool, error) {
 	// See issue #1060: poll honors ctx so operator drain / leader-election
 	// handoff / pod eviction don't get held hostage by this loop.
-	var safelyEvictable bool
 	pollErr := wait.PollUntilContextTimeout(
 		ctx,
 		time.Second,
@@ -2507,7 +2506,6 @@ func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, 
 						!reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() {
 						// if cheap check is ok, run a cache refresh check
 						if ok, _ := r.checkEvictionStatusForPodUsingClusterRefresh(ctx, humioHttpClient, vhost); ok {
-							safelyEvictable = true
 							return true, nil
 						}
 					}
@@ -2525,7 +2523,10 @@ func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, 
 		}
 		return false, pollErr
 	}
-	return safelyEvictable, nil
+	// If pollErr is nil, the inner func returned (true, nil), which only
+	// happens via the `return true, nil` branch above. No need for a
+	// shadow boolean to track that.
+	return true, nil
 }
 
 // Gracefully removes a LogScale pod from the nodepool using the following steps:
