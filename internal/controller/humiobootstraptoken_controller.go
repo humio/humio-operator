@@ -209,6 +209,38 @@ func (r *HumioBootstrapTokenReconciler) execCommand(ctx context.Context, pod *co
 	return stdout.String(), nil
 }
 
+// waitForBootstrapPodRunning polls once per second up to timeoutSeconds for
+// the given pod to reach PodRunning. It honors ctx cancellation so operator
+// drain / leader-election handoff / pod eviction don't get held hostage by
+// this loop. Transient Get errors are logged but don't fail the poll, so a
+// briefly-missing pod (e.g. between Create returning and the API caching it)
+// is tolerated. Persistent errors (e.g. RBAC) surface in the operator log
+// stream rather than getting masked behind the generic poll timeout.
+func (r *HumioBootstrapTokenReconciler) waitForBootstrapPodRunning(ctx context.Context, pod *corev1.Pod, timeoutSeconds int) (*corev1.Pod, error) {
+	foundPod := &corev1.Pod{}
+	pollErr := wait.PollUntilContextTimeout(
+		ctx,
+		time.Second,
+		time.Duration(timeoutSeconds)*time.Second,
+		true, // immediate: do the first check before the first sleep
+		func(ctx context.Context) (bool, error) {
+			r.Log.Info("waiting for bootstrap token pod to start")
+			if err := r.Get(ctx, types.NamespacedName{
+				Namespace: pod.Namespace,
+				Name:      pod.Name,
+			}, foundPod); err != nil {
+				r.Log.Info("transient error fetching bootstrap token pod", "error", err.Error())
+				return false, nil
+			}
+			return foundPod.Status.Phase == corev1.PodRunning, nil
+		},
+	)
+	if pollErr != nil {
+		return nil, pollErr
+	}
+	return foundPod, nil
+}
+
 func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) (*corev1.Pod, error) {
 	existingPod := &corev1.Pod{}
 	humioCluster := &humiov1alpha1.HumioCluster{}
@@ -347,33 +379,14 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return err
 	}
 
-	// Wait for the one-shot bootstrap pod to enter Running. We poll once
-	// per second up to waitForPodTimeoutSeconds and honor ctx cancellation
-	// so that operator drain / leader-election handoff / pod eviction
-	// don't get held hostage by this loop. See issue #1055.
-	var foundPod corev1.Pod
-	pollErr := wait.PollUntilContextTimeout(
-		ctx,
-		time.Second,
-		time.Duration(waitForPodTimeoutSeconds)*time.Second,
-		true, // immediate: do the first check before the first sleep
-		func(ctx context.Context) (bool, error) {
-			if err := r.Get(ctx, types.NamespacedName{
-				Namespace: pod.Namespace,
-				Name:      pod.Name,
-			}, &foundPod); err != nil {
-				r.Log.Info("waiting for bootstrap token pod to start")
-				return false, nil
-			}
-			return foundPod.Status.Phase == corev1.PodRunning, nil
-		},
-	)
+	// Wait for the one-shot bootstrap pod to enter Running. See issue #1055.
+	foundPod, pollErr := r.waitForBootstrapPodRunning(ctx, pod, waitForPodTimeoutSeconds)
 	if pollErr != nil {
 		return r.logErrorAndReturn(pollErr, "failed to start bootstrap token pod")
 	}
 
 	r.Log.Info("execing onetime pod")
-	output, err := r.execCommand(ctx, &foundPod, commandArgs)
+	output, err := r.execCommand(ctx, foundPod, commandArgs)
 	if err != nil {
 		return r.logErrorAndReturn(err, "failed to exec pod")
 	}
