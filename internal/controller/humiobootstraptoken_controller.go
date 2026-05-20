@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -346,24 +347,29 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return err
 	}
 
-	var podRunning bool
+	// Wait for the one-shot bootstrap pod to enter Running. We poll once
+	// per second up to waitForPodTimeoutSeconds and honor ctx cancellation
+	// so that operator drain / leader-election handoff / pod eviction
+	// don't get held hostage by this loop. See issue #1055.
 	var foundPod corev1.Pod
-	for i := 0; i < waitForPodTimeoutSeconds; i++ {
-		err := r.Get(ctx, types.NamespacedName{
-			Namespace: pod.Namespace,
-			Name:      pod.Name,
-		}, &foundPod)
-		if err == nil {
-			if foundPod.Status.Phase == corev1.PodRunning {
-				podRunning = true
-				break
+	pollErr := wait.PollUntilContextTimeout(
+		ctx,
+		time.Second,
+		time.Duration(waitForPodTimeoutSeconds)*time.Second,
+		true, // immediate: do the first check before the first sleep
+		func(ctx context.Context) (bool, error) {
+			if err := r.Get(ctx, types.NamespacedName{
+				Namespace: pod.Namespace,
+				Name:      pod.Name,
+			}, &foundPod); err != nil {
+				r.Log.Info("waiting for bootstrap token pod to start")
+				return false, nil
 			}
-		}
-		r.Log.Info("waiting for bootstrap token pod to start")
-		time.Sleep(time.Second * 1)
-	}
-	if !podRunning {
-		return r.logErrorAndReturn(err, "failed to start bootstrap token pod")
+			return foundPod.Status.Phase == corev1.PodRunning, nil
+		},
+	)
+	if pollErr != nil {
+		return r.logErrorAndReturn(pollErr, "failed to start bootstrap token pod")
 	}
 
 	r.Log.Info("execing onetime pod")
