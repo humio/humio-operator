@@ -2,22 +2,6 @@ apiVersion: v1
 entries:
   humio-operator:
   - apiVersion: v1
-    appVersion: 0.35.0
-    created: '2026-05-06T15:24:12.000410Z'
-    description: Kubernetes Operator for running Humio on top of Kubernetes. Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes
-    digest: d00e732c797d655f4a488e4d511ac8ad61780da0a4d082a39df80d718c810c54
-    home: https://github.com/humio/humio-operator
-    icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
-    maintainers:
-    - name: jswoods
-    - name: schofield
-    name: humio-operator
-    sources:
-    - https://github.com/humio/humio-operator
-    urls:
-    - https://github.com/humio/humio-operator/releases/download/humio-operator-0.35.0/humio-operator-0.35.0.tgz
-    version: 0.35.0
-  - apiVersion: v1
     appVersion: 0.34.1
     created: '2026-02-19T17:59:54.000007Z'
     description: Kubernetes Operator for running Humio on top of Kubernetes. Upgrade notes can be found at https://library.humio.com/falcon-logscale-self-hosted/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes
