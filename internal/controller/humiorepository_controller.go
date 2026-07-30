@@ -114,9 +114,9 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if isHumioRepositoryMarkedToBeDeleted {
 		r.Log.Info("Repository marked to be deleted")
 		if helpers.ContainsElement(hr.GetFinalizers(), HumioFinalizer) {
-			// Check for force finalize annotation
-			if ShouldForceFinalize(hr) {
-				r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+
+			if ShouldSkipFinalizer(r.CommonConfig, hr) {
+				r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 					"resource", hr.Name,
 					"namespace", hr.Namespace)
 				hr.SetFinalizers(helpers.RemoveElement(hr.GetFinalizers(), HumioFinalizer))
@@ -153,7 +153,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hr.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hr) && !helpers.ContainsElement(hr.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to repository")
 		if err := r.addFinalizer(ctx, hr); err != nil {
 			return reconcile.Result{}, err

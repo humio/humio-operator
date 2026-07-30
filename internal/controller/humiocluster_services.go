@@ -127,6 +127,61 @@ func internalServiceName(clusterName string) string {
 	return fmt.Sprintf("%s-internal", clusterName)
 }
 
+func workloadTypeServiceName(clusterName, name string) string {
+	return fmt.Sprintf("%s-%s", clusterName, name)
+}
+
+func constructWorkloadTypeService(hc *humiov1alpha1.HumioCluster, ws humiov1alpha1.WorkloadServiceSpec) *corev1.Service {
+	labels := kubernetes.LabelsForHumio(hc.Name)
+	for k, v := range ws.Labels {
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+
+	serviceType := corev1.ServiceTypeClusterIP
+	if ws.ServiceType != "" {
+		serviceType = ws.ServiceType
+	}
+
+	humioServicePort := int32(HumioPort)
+	if ws.HumioServicePort != 0 {
+		humioServicePort = ws.HumioServicePort
+	}
+
+	esServicePort := int32(ElasticPort)
+	if ws.HumioESServicePort != 0 {
+		esServicePort = ws.HumioESServicePort
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        workloadTypeServiceName(hc.Name, ws.Name),
+			Namespace:   hc.Namespace,
+			Labels:      labels,
+			Annotations: ws.Annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Type: serviceType,
+			Selector: mergeHumioServiceLabels(hc.Name, map[string]string{
+				kubernetes.WorkloadTypeLabelPrefix + ws.WorkloadType: "true",
+			}),
+			Ports: []corev1.ServicePort{
+				{
+					Name:       HumioPortName,
+					Port:       humioServicePort,
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
+				},
+				{
+					Name:       ElasticPortName,
+					Port:       esServicePort,
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
+				},
+			},
+		},
+	}
+}
+
 func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bool, error) {
 	existingLabels := helpers.MapToSortedString(existingService.GetLabels())
 	labels := helpers.MapToSortedString(service.GetLabels())

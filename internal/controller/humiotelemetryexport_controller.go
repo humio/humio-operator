@@ -84,7 +84,7 @@ func (r *HumioTelemetryExportReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Add finalizer if not present
-	if !helpers.ContainsElement(hte.Finalizers, HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hte) && !helpers.ContainsElement(hte.Finalizers, HumioFinalizer) {
 		r.Log.Info("Adding finalizer to HumioTelemetryExport")
 		hte.Finalizers = append(hte.Finalizers, HumioFinalizer)
 
@@ -321,6 +321,17 @@ func (r *HumioTelemetryExportReconciler) updateStatusWithCollections(ctx context
 // cleanupTelemetryExport handles cleanup when the resource is being deleted
 func (r *HumioTelemetryExportReconciler) cleanupTelemetryExport(ctx context.Context, hte *humiov1alpha1.HumioTelemetryExport) (reconcile.Result, error) {
 	r.Log.Info("Cleaning up HumioTelemetryExport")
+
+	if helpers.ContainsElement(hte.Finalizers, HumioFinalizer) {
+		if ShouldSkipFinalizer(r.CommonConfig, hte) {
+			r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup")
+			hte.SetFinalizers(helpers.RemoveElement(hte.GetFinalizers(), HumioFinalizer))
+			if err := r.Update(ctx, hte); err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
 
 	// Remove finalizer
 	hte.Finalizers = helpers.RemoveElement(hte.Finalizers, HumioFinalizer)

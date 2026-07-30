@@ -206,6 +206,10 @@ rules:
   - humiodependencychecks
   - humiodependencychecks/finalizers
   - humiodependencychecks/status
+  - humionodepools
+  - humionodepools/finalizers
+  - humionodepools/status
+  - humionodepools/scale
   - humiosavedqueries
   - humiosavedqueries/finalizers
   - humiosavedqueries/status

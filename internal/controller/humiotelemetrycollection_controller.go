@@ -86,7 +86,7 @@ func (r *HumioTelemetryCollectionReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	// Add finalizer if not present
-	if !helpers.ContainsElement(htc.Finalizers, HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, htc) && !helpers.ContainsElement(htc.Finalizers, HumioFinalizer) {
 		r.Log.Info("Adding finalizer to HumioTelemetryCollection")
 		htc.Finalizers = append(htc.Finalizers, HumioFinalizer)
 
@@ -841,6 +841,17 @@ func (r *HumioTelemetryCollectionReconciler) updateStatusWithConfigError(ctx con
 // cleanupTelemetryCollection handles cleanup when the resource is being deleted
 func (r *HumioTelemetryCollectionReconciler) cleanupTelemetryCollection(ctx context.Context, htc *humiov1alpha1.HumioTelemetryCollection) (reconcile.Result, error) {
 	r.Log.Info("Cleaning up HumioTelemetryCollection")
+
+	if helpers.ContainsElement(htc.Finalizers, HumioFinalizer) {
+		if ShouldSkipFinalizer(r.CommonConfig, htc) {
+			r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup")
+			htc.SetFinalizers(helpers.RemoveElement(htc.GetFinalizers(), HumioFinalizer))
+			if err := r.Update(ctx, htc); err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
 
 	// Remove finalizer
 	htc.Finalizers = helpers.RemoveElement(htc.Finalizers, HumioFinalizer)

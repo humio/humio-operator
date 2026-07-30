@@ -10,6 +10,7 @@ import (
 	"github.com/humio/humio-operator/internal/api"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -498,7 +499,7 @@ func TestQuerySettings(t *testing.T) {
 func TestDiscoverQueryCapableServices(t *testing.T) {
 	tests := []struct {
 		name               string
-		mainNodeCount      int
+		mainNodeCount      *int32
 		mainClusterEnvVars []corev1.EnvVar
 		nodePools          []humiov1alpha1.HumioNodePoolSpec
 		expectedCount      int
@@ -507,34 +508,34 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 	}{
 		{
 			name:               "mixed node roles - filters correctly",
-			mainNodeCount:      0,
+			mainNodeCount:      ptr.To(int32(0)),
 			mainClusterEnvVars: nil,
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "all-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            2,
+						NodeCount:            ptr.To(int32(2)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
 					},
 				},
 				{
 					Name: "httponly-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
 					},
 				},
 				{
 					Name: "ingestonly-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            2,
+						NodeCount:            ptr.To(int32(2)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
 				{
 					Name: "default-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount: 1, // No NODE_ROLES should be included (query-capable)
+						NodeCount: ptr.To(int32(1)), // No NODE_ROLES should be included (query-capable)
 					},
 				},
 			},
@@ -544,20 +545,20 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 		},
 		{
 			name:               "only ingest-only node pools",
-			mainNodeCount:      0,
+			mainNodeCount:      ptr.To(int32(0)),
 			mainClusterEnvVars: nil,
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "ingest-pool-1",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            2,
+						NodeCount:            ptr.To(int32(2)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
 				{
 					Name: "ingest-pool-2",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -572,14 +573,14 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 				{
 					Name: "all-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
 					},
 				},
 				{
 					Name: "httponly-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            2,
+						NodeCount:            ptr.To(int32(2)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
 					},
 				},
@@ -590,7 +591,7 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 		},
 		{
 			name:               "no node pools defined - uses main cluster service",
-			mainNodeCount:      6, // Main cluster has nodes
+			mainNodeCount:      ptr.To(int32(6)), // Main cluster has nodes
 			mainClusterEnvVars: nil,
 			nodePools:          []humiov1alpha1.HumioNodePoolSpec{},
 			expectedCount:      1,
@@ -599,13 +600,13 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 		},
 		{
 			name:               "main cluster nodes with ingest-only node pools - includes main service",
-			mainNodeCount:      6, // Main cluster has nodes like your staging-1 cluster
+			mainNodeCount:      ptr.To(int32(6)), // Main cluster has nodes like your staging-1 cluster
 			mainClusterEnvVars: nil,
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "ingest-only",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            3,
+						NodeCount:            ptr.To(int32(3)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -616,13 +617,13 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 		},
 		{
 			name:               "main cluster with NODE_ROLES=ingestonly - skipped",
-			mainNodeCount:      6,
+			mainNodeCount:      ptr.To(int32(6)),
 			mainClusterEnvVars: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "query-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            2,
+						NodeCount:            ptr.To(int32(2)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
 					},
 				},
@@ -633,13 +634,13 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 		},
 		{
 			name:               "main cluster with NODE_ROLES=all - included",
-			mainNodeCount:      6,
+			mainNodeCount:      ptr.To(int32(6)),
 			mainClusterEnvVars: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "ingest-only",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            3,
+						NodeCount:            ptr.To(int32(3)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -650,20 +651,20 @@ func TestDiscoverQueryCapableServices(t *testing.T) {
 		},
 		{
 			name:               "zero node count pools are skipped",
-			mainNodeCount:      0,
+			mainNodeCount:      ptr.To(int32(0)),
 			mainClusterEnvVars: nil,
 			nodePools: []humiov1alpha1.HumioNodePoolSpec{
 				{
 					Name: "active-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
 					},
 				},
 				{
 					Name: "zero-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            0,
+						NodeCount:            ptr.To(int32(0)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
 					},
 				},
@@ -746,14 +747,14 @@ func TestCollectTelemetryDataWithNodeRoles(t *testing.T) {
 				{
 					Name: "all-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
 					},
 				},
 				{
 					Name: "ingest-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -768,14 +769,14 @@ func TestCollectTelemetryDataWithNodeRoles(t *testing.T) {
 				{
 					Name: "ingest-pool-1",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
 				{
 					Name: "ingest-pool-2",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -790,14 +791,14 @@ func TestCollectTelemetryDataWithNodeRoles(t *testing.T) {
 				{
 					Name: "httponly-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
 					},
 				},
 				{
 					Name: "ingest-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -812,13 +813,13 @@ func TestCollectTelemetryDataWithNodeRoles(t *testing.T) {
 				{
 					Name: "default-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount: 1, // No NODE_ROLES
+						NodeCount: ptr.To(int32(1)), // No NODE_ROLES
 					},
 				},
 				{
 					Name: "ingest-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -886,14 +887,14 @@ func TestSupportsSearchExecutionWithNodeRoles(t *testing.T) {
 				{
 					Name: "all-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleAll}},
 					},
 				},
 				{
 					Name: "ingest-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -907,14 +908,14 @@ func TestSupportsSearchExecutionWithNodeRoles(t *testing.T) {
 				{
 					Name: "ingest-pool-1",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
 				{
 					Name: "ingest-pool-2",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleIngestOnly}},
 					},
 				},
@@ -928,7 +929,7 @@ func TestSupportsSearchExecutionWithNodeRoles(t *testing.T) {
 				{
 					Name: "httponly-pool",
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-						NodeCount:            1,
+						NodeCount:            ptr.To(int32(1)),
 						EnvironmentVariables: []corev1.EnvVar{{Name: EnvNodeRoles, Value: NodeRoleHTTPOnly}},
 					},
 				},

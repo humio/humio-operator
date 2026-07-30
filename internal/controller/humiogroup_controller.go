@@ -92,6 +92,14 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if isMarkedForDeletion {
 		r.Log.Info("group marked to be deleted")
 		if helpers.ContainsElement(hg.GetFinalizers(), HumioFinalizer) {
+			if ShouldSkipFinalizer(r.CommonConfig, hg) {
+				r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup")
+				hg.SetFinalizers(helpers.RemoveElement(hg.GetFinalizers(), HumioFinalizer))
+				if err := r.Update(ctx, hg); err != nil {
+					return reconcile.Result{}, err
+				}
+				return reconcile.Result{Requeue: true}, nil
+			}
 			_, err := r.HumioClient.GetGroup(ctx, humioHttpClient, hg)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hg.SetFinalizers(helpers.RemoveElement(hg.GetFinalizers(), HumioFinalizer))
@@ -117,7 +125,7 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hg.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hg) && !helpers.ContainsElement(hg.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to group")
 		hg.SetFinalizers(append(hg.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hg)

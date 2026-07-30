@@ -26,6 +26,7 @@ import (
 const (
 	NodePoolLabelName        = "humio.com/node-pool"
 	FeatureLabelName         = "humio.com/feature"
+	WorkloadTypeLabelPrefix  = "humio.com/workload-type-"
 	PodMarkedForDataEviction = "humio.com/marked-for-data-eviction"
 	LogScaleClusterVhost     = "humio.com/cluster-vhost"
 	ManagedByLabelKey        = "app.kubernetes.io/managed-by"

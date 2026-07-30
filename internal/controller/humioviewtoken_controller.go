@@ -140,9 +140,8 @@ func (r *HumioViewTokenReconciler) handleViewTokenDeletion(ctx context.Context, 
 		return reconcile.Result{}, nil
 	}
 
-	// Check for force finalize annotation
-	if ShouldForceFinalize(hvt) {
-		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+	if ShouldSkipFinalizer(r.CommonConfig, hvt) {
+		r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 			"resource", hvt.Name,
 			"namespace", hvt.Namespace)
 		hvt.SetFinalizers(helpers.RemoveElement(hvt.GetFinalizers(), HumioFinalizer))

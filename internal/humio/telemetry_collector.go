@@ -879,7 +879,7 @@ func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioClust
 	var queryCapableServices []QueryCapableService
 
 	// Always check if main cluster has nodes and add main service if it does
-	if hc.Spec.NodeCount > 0 {
+	if hc.Spec.NodeCount != nil && *hc.Spec.NodeCount > 0 {
 		if isQueryCapable(hc.Spec.EnvironmentVariables, hc.Name, "cluster") {
 			protocol := "https"
 			if !h.getTLSEnabledForCluster(hc) {
@@ -907,7 +907,7 @@ func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioClust
 	// Check each node pool to see if it's query-capable
 	for _, nodePool := range hc.Spec.NodePools {
 		// Skip node pools with no nodes
-		if nodePool.NodeCount == 0 {
+		if nodePool.HumioNodeSpec.NodeCount != nil && *nodePool.HumioNodeSpec.NodeCount == 0 {
 			ctrl.Log.V(1).Info("Skipping node pool with zero nodes",
 				"nodePool", nodePool.Name)
 			continue

@@ -38,6 +38,10 @@ spec:
             values:
             - humio-core
         topologyKey: kubernetes.io/hostname
+  dependencyCheck:
+    enforcement: advisory
+    timeoutSeconds: 300
+    retryIntervalSeconds: 10
   dataVolumeSource:
     hostPath:
       path: "/mnt/disks/vol1"

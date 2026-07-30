@@ -110,6 +110,7 @@ rules:
   - humioingesttokens
   - humioipfilters
   - humiomulticlustersearchviews
+  - humionodepools
   - humioorganizationpermissionroles
   - humioorganizationtokens
   - humiopackageregistries
@@ -190,6 +191,8 @@ rules:
   - humioingesttokens/status
   - humioipfilters/status
   - humiomulticlustersearchviews/status
+  - humionodepools/scale
+  - humionodepools/status
   - humioorganizationpermissionroles/status
   - humioorganizationtokens/status
   - humiopackageregistries/status

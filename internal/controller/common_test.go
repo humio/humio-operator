@@ -138,3 +138,114 @@ var _ = Describe("ShouldForceFinalize", func() {
 		})
 	})
 })
+
+var _ = Describe("ShouldSkipFinalizer", func() {
+	Context("Global EnableFinalizers flag", func() {
+		It("should return true when EnableFinalizers is false regardless of annotation", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(false)}
+			obj := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-action",
+					Namespace: "default",
+				},
+			}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeTrue())
+		})
+
+		It("should return true when EnableFinalizers is false even with annotation false", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(false)}
+			obj := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-action",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ForceFinalizerAnnotation: "false",
+					},
+				},
+			}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeTrue())
+		})
+	})
+
+	Context("Per-resource annotation fallback", func() {
+		It("should return true when force-finalize annotation is set", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(true)}
+			obj := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-action",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ForceFinalizerAnnotation: "true",
+					},
+				},
+			}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeTrue())
+		})
+
+		It("should return false when neither flag nor annotation is set", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(true)}
+			obj := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-action",
+					Namespace: "default",
+				},
+			}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeFalse())
+		})
+
+		It("should return false when annotation value is not 'true'", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(true)}
+			obj := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-action",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ForceFinalizerAnnotation: "yes",
+					},
+				},
+			}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeFalse())
+		})
+	})
+
+	Context("Nil safety", func() {
+		It("should handle nil annotations safely with EnableFinalizers true", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(true)}
+			obj := &humiov1alpha1.HumioRepository{}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeFalse())
+		})
+
+		It("should handle nil annotations safely with EnableFinalizers false", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(false)}
+			obj := &humiov1alpha1.HumioRepository{}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeTrue())
+		})
+	})
+
+	Context("Different resource types", func() {
+		It("should work with HumioParser", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(false)}
+			obj := &humiov1alpha1.HumioParser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-parser",
+					Namespace: "default",
+				},
+			}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeTrue())
+		})
+
+		It("should work with HumioView", func() {
+			config := CommonConfig{EnableFinalizers: boolPtr(true)}
+			obj := &humiov1alpha1.HumioView{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-view",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ForceFinalizerAnnotation: "true",
+					},
+				},
+			}
+			Expect(ShouldSkipFinalizer(config, obj)).To(BeTrue())
+		})
+	})
+})

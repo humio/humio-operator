@@ -328,9 +328,9 @@ func (r *HumioSavedQueryReconciler) ensureFinalizer(
 	hsq *humiov1alpha1.HumioSavedQuery,
 ) (reconcile.Result, error, bool) {
 	if helpers.ContainsElement(hsq.GetFinalizers(), HumioFinalizer) {
-		// Check for force finalize annotation
-		if ShouldForceFinalize(hsq) {
-			r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+
+		if ShouldSkipFinalizer(r.CommonConfig, hsq) {
+			r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 				"resource", hsq.Name,
 				"namespace", hsq.Namespace)
 			hsq.SetFinalizers(helpers.RemoveElement(hsq.GetFinalizers(), HumioFinalizer))
@@ -407,9 +407,8 @@ func (r *HumioSavedQueryReconciler) handleResourceDeletion(
 		return reconcile.Result{}, nil, true
 	}
 
-	// Check for force finalize annotation
-	if ShouldForceFinalize(hsq) {
-		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+	if ShouldSkipFinalizer(r.CommonConfig, hsq) {
+		r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 			"resource", hsq.Name,
 			"namespace", hsq.Namespace)
 		hsq.SetFinalizers(helpers.RemoveElement(hsq.GetFinalizers(), HumioFinalizer))

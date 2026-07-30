@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7-labs
-FROM golang:1.24.9-alpine
+FROM golang:1.25.3-alpine
 
 RUN apk add bash
 

@@ -109,9 +109,9 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if isHumioUserMarkedToBeDeleted {
 		r.Log.Info("User marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
-			// Check for force finalize annotation
-			if ShouldForceFinalize(hp) {
-				r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+
+			if ShouldSkipFinalizer(r.CommonConfig, hp) {
+				r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 					"resource", hp.Name,
 					"namespace", hp.Namespace)
 				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))
@@ -154,7 +154,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hp) && !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to user")
 		if err := r.addFinalizer(ctx, hp); err != nil {
 			return reconcile.Result{}, err

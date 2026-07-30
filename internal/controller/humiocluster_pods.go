@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,12 +53,20 @@ const (
 
 var (
 	environmentVariablesRequiringSimultaneousRestartRestart = []string{"EXTERNAL_URL"}
+
+	// Init container resource limits; increased when dependency checks are active
+	// (Kafka/S3/GCS clients need more memory and CPU).
+	initContainerCPUBase   = resource.NewMilliQuantity(100, resource.DecimalSI)
+	initContainerMemBase   = resource.NewQuantity(50*1024*1024, resource.BinarySI)
+	initContainerCPUChecks = resource.NewMilliQuantity(200, resource.DecimalSI)
+	initContainerMemChecks = resource.NewQuantity(128*1024*1024, resource.BinarySI)
 )
 
 type podAttachments struct {
 	dataVolumeSource              corev1.VolumeSource
 	initServiceAccountSecretName  string
 	envVarSourceData              *map[string]string
+	secretKeyIndex                map[string]string // envVarName -> secretName, for secret-sourced keys only
 	bootstrapTokenSecretReference bootstrapTokenSecret
 }
 
@@ -113,6 +122,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	return pod, nil
 }
 
+// nolint:gocyclo
 func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
@@ -136,6 +146,8 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 			ImagePullSecrets:      hnp.GetImagePullSecrets(),
 			Subdomain:             headlessServiceName(hnp.GetClusterName()),
 			Hostname:              humioNodeName,
+			DNSPolicy:             hnp.DNSPolicy(),
+			DNSConfig:             hnp.DNSConfig(),
 			Containers: []corev1.Container{
 				{
 					Name:            HumioContainerName,
@@ -171,6 +183,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 					StartupProbe:    hnp.GetContainerStartupProbe(),
 					Resources:       hnp.GetResources(),
 					SecurityContext: hnp.GetContainerSecurityContext(),
+					Lifecycle:       hnp.GetContainerLifecycle(),
 				},
 			},
 			Volumes: []corev1.Volume{
@@ -244,30 +257,58 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 	}
 
 	if !hnp.InitContainerDisabled() {
+		depCheckEnabled := hnp.DependencyCheckEnabled()
+
+		// Determine MODE based on dependency check configuration
+		initMode := "init"
+		if depCheckEnabled {
+			initMode = "init-with-checks"
+		}
+
+		// Start with base environment for zone detection
+		initEnv := []corev1.EnvVar{
+			{
+				Name:  "MODE",
+				Value: initMode,
+			},
+			{
+				Name:  "TARGET_FILE",
+				Value: fmt.Sprintf("%s/availability-zone", sharedPath),
+			},
+			{
+				Name: "NODE_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						APIVersion: "v1",
+						FieldPath:  "spec.nodeName",
+					},
+				},
+			},
+		}
+
+		// Add dependency check configuration if enabled
+		if depCheckEnabled {
+			depConfig := hnp.GetDependencyCheckConfig()
+
+			// Configure all dependency check environment variables via auto-discovery
+			depCheckEnv := configureDependencyCheckEnv(depConfig, hnp.GetEnvironmentVariables(), attachments.secretKeyIndex, attachments.envVarSourceData)
+			initEnv = append(initEnv, depCheckEnv...)
+		}
+
+		// Base resource limits; increased when dependency checks are active (Kafka/S3/GCS clients need more).
+		cpuLimit := initContainerCPUBase
+		memoryLimit := initContainerMemBase
+		if depCheckEnabled {
+			cpuLimit = initContainerCPUChecks
+			memoryLimit = initContainerMemChecks
+		}
+
 		pod.Spec.InitContainers = []corev1.Container{
 			{
 				Name:            InitContainerName,
 				Image:           hnp.GetHelperImage(),
 				ImagePullPolicy: hnp.GetImagePullPolicy(),
-				Env: []corev1.EnvVar{
-					{
-						Name:  "MODE",
-						Value: "init",
-					},
-					{
-						Name:  "TARGET_FILE",
-						Value: fmt.Sprintf("%s/availability-zone", sharedPath),
-					},
-					{
-						Name: "NODE_NAME",
-						ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{
-								APIVersion: "v1",
-								FieldPath:  "spec.nodeName",
-							},
-						},
-					},
-				},
+				Env:             initEnv, // Use enhanced environment
 				VolumeMounts: []corev1.VolumeMount{
 					{
 						Name:      "shared",
@@ -281,12 +322,12 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 				},
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
-						corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+						corev1.ResourceCPU:    *cpuLimit,
+						corev1.ResourceMemory: *memoryLimit,
 					},
 					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
-						corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+						corev1.ResourceCPU:    *cpuLimit,
+						corev1.ResourceMemory: *memoryLimit,
 					},
 				},
 				SecurityContext: &corev1.SecurityContext{
@@ -510,6 +551,194 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 	return &pod, nil
 }
 
+// discoveredCheck holds information about an auto-discovered dependency check
+type discoveredCheck struct {
+	checkType    string
+	checkEnvName string   // env var name to enable this check (e.g. CHECK_KAFKA)
+	envVars      []string // env var names that were forwarded
+}
+
+// dependencyCheckDiscoveryRule defines how a dependency check is auto-discovered from env vars
+type dependencyCheckDiscoveryRule struct {
+	triggerEnvVar    string
+	checkType        string
+	checkEnvName     string // env var name to enable this check in the init container (e.g. CHECK_KAFKA)
+	forwardedEnvVars []string
+}
+
+var dependencyCheckRules = []dependencyCheckDiscoveryRule{
+	{
+		triggerEnvVar: "KAFKA_SERVERS",
+		checkType:     "kafka",
+		checkEnvName:  "CHECK_KAFKA",
+		forwardedEnvVars: []string{
+			"KAFKA_SERVERS",
+		},
+	},
+	{
+		triggerEnvVar: "S3_STORAGE_BUCKET",
+		checkType:     "s3",
+		checkEnvName:  "CHECK_S3",
+		forwardedEnvVars: []string{
+			"S3_STORAGE_BUCKET",
+			"S3_STORAGE_REGION",
+			"S3_STORAGE_ENDPOINT",
+			"S3_STORAGE_PATH_STYLE_ACCESS",
+			"S3_ACCESS_KEY_ID",
+			"S3_SECRET_ACCESS_KEY",
+		},
+	},
+	{
+		triggerEnvVar: "GCP_STORAGE_BUCKET",
+		checkType:     "gcs",
+		checkEnvName:  "CHECK_GCS",
+		forwardedEnvVars: []string{
+			"GCP_STORAGE_BUCKET",
+			"GCP_STORAGE_ENDPOINT_BASE",
+			"GOOGLE_APPLICATION_CREDENTIALS",
+		},
+	},
+}
+
+// validDependencyCheckTypes is derived from dependencyCheckRules — single source of truth.
+var validDependencyCheckTypes = func() map[string]bool {
+	m := make(map[string]bool, len(dependencyCheckRules))
+	for _, r := range dependencyCheckRules {
+		m[r.checkType] = true
+	}
+	return m
+}()
+
+// envVarExists checks if an env var name is present in mainEnv or envVarSourceData
+func envVarExists(name string, mainEnv []corev1.EnvVar, envVarSourceData *map[string]string) bool {
+	if EnvVarHasKey(mainEnv, name) {
+		return true
+	}
+	if envVarSourceData != nil {
+		if _, ok := (*envVarSourceData)[name]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateExcludeList returns any invalid entries in the exclude list
+func ValidateExcludeList(exclude []humiov1alpha1.DependencyCheckType) []humiov1alpha1.DependencyCheckType {
+	var invalid []humiov1alpha1.DependencyCheckType
+	for _, ex := range exclude {
+		if !validDependencyCheckTypes[string(ex)] {
+			invalid = append(invalid, ex)
+		}
+	}
+	return invalid
+}
+
+// discoverDependencyChecks auto-discovers which dependency checks should be enabled
+// based on the presence of trigger env vars in mainEnv or envVarSourceData
+func discoverDependencyChecks(mainEnv []corev1.EnvVar, envVarSourceData *map[string]string, exclude []humiov1alpha1.DependencyCheckType) []discoveredCheck {
+	var discovered []discoveredCheck
+	for _, rule := range dependencyCheckRules {
+		if slices.Contains(exclude, humiov1alpha1.DependencyCheckType(rule.checkType)) {
+			continue
+		}
+		if envVarExists(rule.triggerEnvVar, mainEnv, envVarSourceData) {
+			// Collect which forwarded env vars actually exist
+			var foundVars []string
+			for _, envName := range rule.forwardedEnvVars {
+				if envVarExists(envName, mainEnv, envVarSourceData) {
+					foundVars = append(foundVars, envName)
+				}
+			}
+			discovered = append(discovered, discoveredCheck{
+				checkType:    rule.checkType,
+				checkEnvName: rule.checkEnvName,
+				envVars:      foundVars,
+			})
+		}
+	}
+	return discovered
+}
+
+// configureDependencyCheckEnv configures environment variables for dependency checks in the init container.
+// It auto-discovers checks from env vars, forwards them to the init container, and returns
+// the discovered checks for CRD management.
+func configureDependencyCheckEnv(depConfig *humiov1alpha1.DependencyCheckConfig, mainEnv []corev1.EnvVar, secretKeyIndex map[string]string, envVarSourceData *map[string]string) []corev1.EnvVar {
+	initEnv := make([]corev1.EnvVar, 0)
+
+	initEnv = append(initEnv, corev1.EnvVar{
+		Name:  "DEPENDENCY_CHECK_ENABLED",
+		Value: "true",
+	})
+
+	enforcement := depConfig.Enforcement
+	if enforcement == "" {
+		enforcement = "required"
+	}
+	initEnv = append(initEnv, corev1.EnvVar{
+		Name:  "DEPENDENCY_CHECK_ENFORCEMENT",
+		Value: enforcement,
+	})
+
+	discovered := discoverDependencyChecks(mainEnv, envVarSourceData, depConfig.Exclude)
+
+	for _, check := range discovered {
+		initEnv = append(initEnv, corev1.EnvVar{
+			Name:  check.checkEnvName,
+			Value: "true",
+		})
+
+		for _, envName := range check.envVars {
+			// Prefer secret reference (from environmentVariablesSource) to avoid plaintext credentials.
+			if secretName, fromSecret := secretKeyIndex[envName]; fromSecret {
+				initEnv = append(initEnv, corev1.EnvVar{
+					Name: envName,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+							Key:                  envName,
+						},
+					},
+				})
+				continue
+			}
+			// Forward the env var as-is from the main container, preserving ValueFrom entries
+			// (e.g. secretKeyRef set directly in environmentVariables).
+			found := false
+			for _, env := range mainEnv {
+				if env.Name == envName {
+					initEnv = append(initEnv, env)
+					found = true
+					break
+				}
+			}
+			// Fall back to ConfigMap-sourced value from envVarSourceData
+			if !found && envVarSourceData != nil {
+				if val, ok := (*envVarSourceData)[envName]; ok {
+					initEnv = append(initEnv, corev1.EnvVar{
+						Name:  envName,
+						Value: val,
+					})
+				}
+			}
+		}
+	}
+
+	if depConfig.TimeoutSeconds > 0 {
+		initEnv = append(initEnv, corev1.EnvVar{
+			Name:  "DEPENDENCY_CHECK_TIMEOUT",
+			Value: strconv.Itoa(depConfig.TimeoutSeconds),
+		})
+	}
+	if depConfig.RetryIntervalSeconds > 0 {
+		initEnv = append(initEnv, corev1.EnvVar{
+			Name:  "DEPENDENCY_CHECK_RETRY_INTERVAL",
+			Value: strconv.Itoa(depConfig.RetryIntervalSeconds),
+		})
+	}
+
+	return initEnv
+}
+
 func findAvailableVolumeSourceForPod(hnp *HumioNodePool, podList []corev1.Pod, pvcList []corev1.PersistentVolumeClaim, pvcClaimNamesInUse map[string]struct{}) (corev1.VolumeSource, error) {
 	if hnp.PVCsEnabled() && hnp.GetDataVolumeSource() != (corev1.VolumeSource{}) {
 		return corev1.VolumeSource{}, fmt.Errorf("cannot have both dataVolumePersistentVolumeClaimSpecTemplate and dataVolumeSource defined")
@@ -524,8 +753,9 @@ func findAvailableVolumeSourceForPod(hnp *HumioNodePool, podList []corev1.Pod, p
 	return hnp.GetDataVolumeSource(), nil
 }
 
-// EnvVarValue returns the value of the given environment variable
-// if the environment variable is not preset, return empty string
+// EnvVarValue returns the raw Value field of the named environment variable,
+// including empty string. Entries with a ValueFrom source have an empty Value field
+// and will return empty string.
 func EnvVarValue(envVars []corev1.EnvVar, key string) string {
 	for _, envVar := range envVars {
 		if envVar.Name == key {
@@ -630,7 +860,8 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 	// To get a cleaner diff we can set these values to their zero values,
 	// or to the values as obtained by our functions returning our own defaults.
 	pod.Spec.RestartPolicy = ""
-	pod.Spec.DNSPolicy = ""
+	pod.Spec.DNSPolicy = hnp.DNSPolicy()
+	pod.Spec.DNSConfig = hnp.DNSConfig()
 	pod.Spec.SchedulerName = ""
 	pod.Spec.Priority = nil
 	pod.Spec.EnableServiceLinks = nil
@@ -941,7 +1172,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 		pvcClaimNamesInUse[volumeSource.PersistentVolumeClaim.ClaimName] = struct{}{}
 	}
 
-	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
+	envVarSourceData, secretKeyIndex, err := r.getEnvVarSource(ctx, hnp)
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", err)
 	}
@@ -964,6 +1195,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 		return &podAttachments{
 			dataVolumeSource: volumeSource,
 			envVarSourceData: envVarSourceData,
+			secretKeyIndex:   secretKeyIndex,
 			bootstrapTokenSecretReference: bootstrapTokenSecret{
 				secretReference: hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef,
 			},
@@ -982,6 +1214,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 		dataVolumeSource:             volumeSource,
 		initServiceAccountSecretName: initSASecretName,
 		envVarSourceData:             envVarSourceData,
+		secretKeyIndex:               secretKeyIndex,
 		bootstrapTokenSecretReference: bootstrapTokenSecret{
 			secretReference: hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef,
 		},

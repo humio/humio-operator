@@ -115,9 +115,9 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if isHumioIngestTokenMarkedToBeDeleted {
 		r.Log.Info("Ingest token marked to be deleted")
 		if helpers.ContainsElement(hit.GetFinalizers(), HumioFinalizer) {
-			// Check for force finalize annotation
-			if ShouldForceFinalize(hit) {
-				r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+
+			if ShouldSkipFinalizer(r.CommonConfig, hit) {
+				r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 					"resource", hit.Name,
 					"namespace", hit.Namespace)
 				hit.SetFinalizers(helpers.RemoveElement(hit.GetFinalizers(), HumioFinalizer))
@@ -160,7 +160,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hit.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hit) && !helpers.ContainsElement(hit.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to ingest token")
 		if err := r.addFinalizer(ctx, hit); err != nil {
 			return reconcile.Result{}, err

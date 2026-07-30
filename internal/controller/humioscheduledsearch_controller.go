@@ -126,6 +126,14 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 	if isMarkedForDeletion {
 		r.Log.Info("ScheduledSearch marked to be deleted")
 		if helpers.ContainsElement(hss.GetFinalizers(), HumioFinalizer) {
+			if ShouldSkipFinalizer(r.CommonConfig, hss) {
+				r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup")
+				hss.SetFinalizers(helpers.RemoveElement(hss.GetFinalizers(), HumioFinalizer))
+				if err := r.Update(ctx, hss); err != nil {
+					return reconcile.Result{}, err
+				}
+				return reconcile.Result{Requeue: true}, nil
+			}
 			// If the resource is in ConfigError state (rename blocked), we need to use LastSyncedName
 			// to check if it exists in LogScale, since Spec.Name may contain an attempted new name
 			// that was never synced to LogScale
@@ -187,7 +195,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 
 	r.Log.Info("Checking if scheduled search requires finalizer")
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hss.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hss) && !helpers.ContainsElement(hss.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to scheduled search")
 		hss.SetFinalizers(append(hss.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hss)

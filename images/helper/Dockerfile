@@ -1,4 +1,4 @@
-FROM golang:1.24.9-alpine AS builder
+FROM golang:1.25.3-alpine AS builder
 
 ARG RELEASE_VERSION=master
 ARG RELEASE_COMMIT=none

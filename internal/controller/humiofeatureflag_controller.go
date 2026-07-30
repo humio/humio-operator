@@ -109,6 +109,15 @@ func (r *HumioFeatureFlagReconciler) handleFeatureFlagDeletion(ctx context.Conte
 		return reconcile.Result{}, nil
 	}
 
+	if ShouldSkipFinalizer(r.CommonConfig, featureFlag) {
+		r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup")
+		featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), HumioFinalizer))
+		if err := r.Update(ctx, featureFlag); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	// Check if resource is in ConfigError state - if so, skip LogScale cleanup
 	condition := meta.FindStatusCondition(featureFlag.Status.Conditions, humiov1alpha1.FeatureFlagConditionTypeReady)
 	inConfigError := condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == humiov1alpha1.FeatureFlagReasonConfigError
@@ -218,7 +227,7 @@ func (r *HumioFeatureFlagReconciler) ensureFeatureFlagEnabled(ctx context.Contex
 // ensureFinalizer adds the finalizer if it's not present
 func (r *HumioFeatureFlagReconciler) ensureFinalizer(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
 	r.Log.Info("Checking if feature flag requires finalizer")
-	if !helpers.ContainsElement(featureFlag.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, featureFlag) && !helpers.ContainsElement(featureFlag.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to feature flag")
 		featureFlag.SetFinalizers(append(featureFlag.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, featureFlag)

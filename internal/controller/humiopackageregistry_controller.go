@@ -86,9 +86,9 @@ func (r *HumioPackageRegistryReconciler) Reconcile(ctx context.Context, req ctrl
 	if isMarkedToBeDeleted {
 		r.Log.Info("HumioPackageRegistry marked to be deleted")
 		if helpers.ContainsElement(hpr.GetFinalizers(), HumioFinalizer) {
-			// Check for force finalize annotation
-			if ShouldForceFinalize(hpr) {
-				r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+
+			if ShouldSkipFinalizer(r.CommonConfig, hpr) {
+				r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 					"resource", hpr.Name,
 					"namespace", hpr.Namespace)
 				hpr.SetFinalizers(helpers.RemoveElement(hpr.GetFinalizers(), HumioFinalizer))
@@ -123,7 +123,7 @@ func (r *HumioPackageRegistryReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Add finalizer so we can run cleanup on delete
-	if !helpers.ContainsElement(hpr.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hpr) && !helpers.ContainsElement(hpr.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to HumioPackageRegistry")
 		if err := r.addFinalizer(ctx, hpr); err != nil {
 			return reconcile.Result{}, err

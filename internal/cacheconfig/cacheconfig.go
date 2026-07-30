@@ -123,6 +123,7 @@ func nativeTypesUnfiltered() map[client.Object]cache.ByObject {
 
 		// Humio CRDs created internally by this operator
 		&humiov1alpha1.HumioBootstrapToken{}:      managedByOperator,
+		&humiov1alpha1.HumioDependencyCheck{}:     managedByOperator,
 		&humiov1alpha1.HumioTelemetryCollection{}: managedByOperator,
 		&humiov1alpha1.HumioTelemetryExport{}:     managedByOperator,
 	}

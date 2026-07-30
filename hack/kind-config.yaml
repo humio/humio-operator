@@ -11,9 +11,27 @@ nodes:
   - role: worker
     labels:
       "topology.kubernetes.io/zone": "us-west-2a"
+    kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          authorization-mode: "AlwaysAllow"
   - role: worker
     labels:
       "topology.kubernetes.io/zone": "us-west-2b"
+    kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          authorization-mode: "AlwaysAllow"
   - role: worker
     labels:
       "topology.kubernetes.io/zone": "us-west-2c"
+    kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          authorization-mode: "AlwaysAllow"

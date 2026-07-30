@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -81,6 +82,7 @@ func main() {
 	var logLevel string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableFinalizers bool
 	var tlsOpts []func(*tls.Config)
 	var requeuePeriod time.Duration
 
@@ -102,7 +104,16 @@ func main() {
 		"The default reconciliation requeue period for all Humio* resources.")
 	flag.StringVar(&logLevel, "loglevel", "INFO", "The level at which to log output. "+
 		"Possible values: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL.")
+	flag.BoolVar(&enableFinalizers, "enable-finalizers", true,
+		"Enable adding finalizers to Humio CRs for cleanup on deletion. "+
+			"Can also be overridden via HUMIO_ENABLE_FINALIZERS env var (true/false).")
 	flag.Parse()
+
+	if envVal := os.Getenv("HUMIO_ENABLE_FINALIZERS"); envVal != "" {
+		if parsed, err := strconv.ParseBool(envVal); err == nil {
+			enableFinalizers = parsed
+		}
+	}
 
 	logLevel = strings.Trim(logLevel, "\" ")
 
@@ -113,6 +124,10 @@ func main() {
 	}(zapLog)
 	log = zapr.NewLogger(zapLog).WithValues("Operator.Commit", commit, "Operator.Date", date, "Operator.Version", version)
 	ctrl.SetLogger(log)
+
+	if !enableFinalizers {
+		log.Info("WARNING: Finalizers are disabled — manual cleanup of LogScale resources on CR deletion is required")
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -227,7 +242,7 @@ func main() {
 		log.Info("Watching all namespaces")
 	}
 
-	setupControllers(mgr, log, requeuePeriod)
+	setupControllers(mgr, log, requeuePeriod, &enableFinalizers)
 
 	if metricsCertWatcher != nil {
 		ctrl.Log.Info("Adding metrics certificate watcher to manager")
@@ -268,14 +283,15 @@ func setupControllerNoExit(name string, setupFunc func() error) {
 	}
 }
 
-func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Duration) {
+func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Duration, enableFinalizers *bool) {
 	userAgent := fmt.Sprintf("humio-operator/%s (%s on %s)", version, commit, date)
 
 	setupController("HumioAction", func() error {
 		return (&controller.HumioActionReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -285,7 +301,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioAggregateAlertReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -295,7 +312,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioAlertReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -305,7 +323,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioBootstrapTokenReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			BaseLogger: log,
 		}).SetupWithManager(mgr)
@@ -314,7 +333,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioClusterReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -324,7 +344,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioExternalClusterReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -334,7 +355,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioEventForwardingRuleReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -344,7 +366,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioEventForwarderReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -354,7 +377,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioFilterAlertReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -364,7 +388,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioFeatureFlagReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -374,7 +399,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioIngestTokenReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -384,7 +410,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioParserReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -394,7 +421,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioRepositoryReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -404,7 +432,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioScheduledSearchReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -414,7 +443,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioSavedQueryReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -424,7 +454,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioViewReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -434,7 +465,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioUserReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -444,7 +476,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioGroupReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -454,7 +487,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioViewPermissionRoleReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -464,7 +498,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioSystemPermissionRoleReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -474,7 +509,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioOrganizationPermissionRoleReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -484,7 +520,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioMultiClusterSearchViewReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -494,7 +531,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioIPFilterReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -504,7 +542,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioViewTokenReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -514,7 +553,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioSystemTokenReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -524,7 +564,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioOrganizationTokenReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -536,7 +577,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 			Scheme:     mgr.GetScheme(),
 			BaseLogger: log,
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 		}).SetupWithManager(mgr)
 	})
@@ -544,7 +586,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioTelemetryCollectionReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			BaseLogger:  log,
@@ -554,7 +597,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioTelemetryExportReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			BaseLogger: log,
 		}).SetupWithManager(mgr)
@@ -564,7 +608,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioPackageRegistryReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HTTPClient: httpClient,
 			BaseLogger: log,
@@ -575,7 +620,8 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		return (&controller.HumioPackageReconciler{
 			Client: mgr.GetClient(),
 			CommonConfig: controller.CommonConfig{
-				RequeuePeriod: requeuePeriod,
+				RequeuePeriod:    requeuePeriod,
+				EnableFinalizers: enableFinalizers,
 			},
 			HumioClient: humio.NewClient(log, userAgent),
 			HTTPClient:  httpClient,

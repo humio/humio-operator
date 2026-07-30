@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -64,11 +65,11 @@ var _ = Describe("HumioMultiClusterSearchView Controller", func() {
 
 			toCreateLocal := suite.ConstructBasicSingleNodeHumioCluster(keyLocal, true)
 			toCreateLocal.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}
-			toCreateLocal.Spec.NodeCount = 1
+			toCreateLocal.Spec.NodeCount = ptr.To(int32(1))
 			toCreateLocal.Spec.EnvironmentVariables = append(toCreateLocal.Spec.EnvironmentVariables, featureFlagEnvVar)
 			toCreateRemote := suite.ConstructBasicSingleNodeHumioCluster(keyRemote, true)
 			toCreateRemote.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}
-			toCreateRemote.Spec.NodeCount = 1
+			toCreateRemote.Spec.NodeCount = ptr.To(int32(1))
 			toCreateRemote.Spec.EnvironmentVariables = append(toCreateRemote.Spec.EnvironmentVariables, featureFlagEnvVar)
 
 			toCreateMCSView := &humiov1alpha1.HumioMultiClusterSearchView{
@@ -289,7 +290,7 @@ var _ = Describe("HumioMultiClusterSearchView Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(keyLocal, true)
 			toCreate.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}
-			toCreate.Spec.NodeCount = 1
+			toCreate.Spec.NodeCount = ptr.To(int32(1))
 			toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "INITIAL_FEATURE_FLAGS", Value: "-MultiClusterSearch"})
 
 			toCreateMCSView := &humiov1alpha1.HumioMultiClusterSearchView{
@@ -353,7 +354,7 @@ var _ = Describe("HumioMultiClusterSearchView Controller", func() {
 
 			toCreateLocal := suite.ConstructBasicSingleNodeHumioCluster(keyLocal, true)
 			toCreateLocal.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}
-			toCreateLocal.Spec.NodeCount = 1
+			toCreateLocal.Spec.NodeCount = ptr.To(int32(1))
 			toCreateLocal.Spec.EnvironmentVariables = append(toCreateLocal.Spec.EnvironmentVariables, featureFlagEnvVar)
 
 			suite.UsingClusterBy(keyLocal.Name, "Creating cluster for rename test")
@@ -428,7 +429,7 @@ var _ = Describe("HumioMultiClusterSearchView Controller", func() {
 
 			toCreateLocal := suite.ConstructBasicSingleNodeHumioCluster(keyLocal, true)
 			toCreateLocal.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}
-			toCreateLocal.Spec.NodeCount = 1
+			toCreateLocal.Spec.NodeCount = ptr.To(int32(1))
 			toCreateLocal.Spec.EnvironmentVariables = append(toCreateLocal.Spec.EnvironmentVariables, featureFlagEnvVar)
 
 			suite.UsingClusterBy(keyLocal.Name, "Creating cluster for rename test")

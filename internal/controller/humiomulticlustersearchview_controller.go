@@ -115,33 +115,12 @@ func (r *HumioMultiClusterSearchViewReconciler) Reconcile(ctx context.Context, r
 	isMarkedForDeletion := hv.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("View marked to be deleted")
-		if helpers.ContainsElement(hv.GetFinalizers(), HumioFinalizer) {
-			_, err := r.HumioClient.GetMultiClusterSearchView(ctx, humioHttpClient, hv)
-			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), HumioFinalizer))
-				err := r.Update(ctx, hv)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
-			}
-
-			// Run finalization logic for HumioFinalizer. If the
-			// finalization logic fails, don't remove the finalizer so
-			// that we can retry during the next reconciliation.
-			r.Log.Info("Deleting View")
-			if err := r.HumioClient.DeleteMultiClusterSearchView(ctx, humioHttpClient, hv); err != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete view returned error")
-			}
-			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
-		}
-		return reconcile.Result{}, nil
+		result, err := r.handleDeletion(ctx, humioHttpClient, hv)
+		return result, err
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hv.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hv) && !helpers.ContainsElement(hv.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to view")
 		hv.SetFinalizers(append(hv.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hv)
@@ -228,6 +207,36 @@ func (r *HumioMultiClusterSearchViewReconciler) SetupWithManager(mgr ctrl.Manage
 		For(&humiov1alpha1.HumioMultiClusterSearchView{}).
 		Named("humiomulticlustersearchview").
 		Complete(r)
+}
+
+func (r *HumioMultiClusterSearchViewReconciler) handleDeletion(ctx context.Context, humioHttpClient *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView) (reconcile.Result, error) {
+	if helpers.ContainsElement(hv.GetFinalizers(), HumioFinalizer) {
+		if ShouldSkipFinalizer(r.CommonConfig, hv) {
+			r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup")
+			hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), HumioFinalizer))
+			if err := r.Update(ctx, hv); err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+		_, err := r.HumioClient.GetMultiClusterSearchView(ctx, humioHttpClient, hv)
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), HumioFinalizer))
+			err := r.Update(ctx, hv)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			r.Log.Info("Finalizer removed successfully")
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		r.Log.Info("Deleting View")
+		if err := r.HumioClient.DeleteMultiClusterSearchView(ctx, humioHttpClient, hv); err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "Delete view returned error")
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+	return reconcile.Result{}, nil
 }
 
 // setCondition sets a condition on the HumioMultiClusterSearchView resource and maintains backward compatibility with the State field

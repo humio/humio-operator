@@ -110,7 +110,7 @@ var _ = Describe("HumioViewTokenCRD", Label("envtest", "dummy", "real"), func() 
 				ViewNames: []string{"test-view"},
 			},
 		}),
-		Entry("Permissions entry is empty", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioViewToken{
+		Entry("Permissions entry is empty", "permissions: each item must be 1-253", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -122,7 +122,7 @@ var _ = Describe("HumioViewTokenCRD", Label("envtest", "dummy", "real"), func() 
 				ViewNames: []string{"test-view"},
 			},
 		}),
-		Entry("Permissions entry too long", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioViewToken{
+		Entry("Permissions entry too long", "permissions: each item must be 1-253", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -207,7 +207,7 @@ var _ = Describe("HumioViewTokenCRD", Label("envtest", "dummy", "real"), func() 
 				ViewNames: []string{"test-view"},
 			},
 		}),
-		Entry("TokenSecretLabel key too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioViewToken{
+		Entry("TokenSecretLabel key too long", "tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -220,7 +220,7 @@ var _ = Describe("HumioViewTokenCRD", Label("envtest", "dummy", "real"), func() 
 				ViewNames: []string{"test-view"},
 			},
 		}),
-		Entry("TokenSecretLabel value too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioViewToken{
+		Entry("TokenSecretLabel value too long", "tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -252,7 +252,7 @@ var _ = Describe("HumioViewTokenCRD", Label("envtest", "dummy", "real"), func() 
 				ViewNames: []string{"test-view"},
 			},
 		}),
-		Entry("TokenSecretAnnotations key too long", "spec.tokenSecretAnnotations: Invalid value: \"object\": tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioViewToken{
+		Entry("TokenSecretAnnotations key too long", "tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioViewToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioViewTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -341,7 +341,7 @@ var _ = Describe("HumioSystemTokenCRD", Label("envtest", "dummy", "real"), func(
 				},
 			},
 		}),
-		Entry("Permissions entry is empty", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioSystemToken{
+		Entry("Permissions entry is empty", "permissions: each item must be 1-253", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -352,7 +352,7 @@ var _ = Describe("HumioSystemTokenCRD", Label("envtest", "dummy", "real"), func(
 				},
 			},
 		}),
-		Entry("Permissions entry too long", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioSystemToken{
+		Entry("Permissions entry too long", "permissions: each item must be 1-253", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -430,7 +430,7 @@ var _ = Describe("HumioSystemTokenCRD", Label("envtest", "dummy", "real"), func(
 				},
 			},
 		}),
-		Entry("TokenSecretLabel key too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioSystemToken{
+		Entry("TokenSecretLabel key too long", "tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -442,7 +442,7 @@ var _ = Describe("HumioSystemTokenCRD", Label("envtest", "dummy", "real"), func(
 				},
 			},
 		}),
-		Entry("TokenSecretLabel value too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioSystemToken{
+		Entry("TokenSecretLabel value too long", "tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -472,7 +472,7 @@ var _ = Describe("HumioSystemTokenCRD", Label("envtest", "dummy", "real"), func(
 				},
 			},
 		}),
-		Entry("TokenSecretAnnotations key too long", "spec.tokenSecretAnnotations: Invalid value: \"object\": tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioSystemToken{
+		Entry("TokenSecretAnnotations key too long", "tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioSystemToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "view-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioSystemTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -559,7 +559,7 @@ var _ = Describe("HumioOrganizationTokenCRD", Label("envtest", "dummy", "real"),
 				},
 			},
 		}),
-		Entry("Permissions entry is empty", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioOrganizationToken{
+		Entry("Permissions entry is empty", "permissions: each item must be 1-253", humiov1alpha1.HumioOrganizationToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -570,7 +570,7 @@ var _ = Describe("HumioOrganizationTokenCRD", Label("envtest", "dummy", "real"),
 				},
 			},
 		}),
-		Entry("Permissions entry too long", "spec.permissions: Invalid value: \"array\": permissions: each item must be 1-253", humiov1alpha1.HumioOrganizationToken{
+		Entry("Permissions entry too long", "permissions: each item must be 1-253", humiov1alpha1.HumioOrganizationToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -648,7 +648,7 @@ var _ = Describe("HumioOrganizationTokenCRD", Label("envtest", "dummy", "real"),
 				},
 			},
 		}),
-		Entry("TokenSecretLabel key too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
+		Entry("TokenSecretLabel key too long", "tokenSecretLabels keys must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -660,7 +660,7 @@ var _ = Describe("HumioOrganizationTokenCRD", Label("envtest", "dummy", "real"),
 				},
 			},
 		}),
-		Entry("TokenSecretLabel value too long", "spec.tokenSecretLabels: Invalid value: \"object\": tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
+		Entry("TokenSecretLabel value too long", "tokenSecretLabels values must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -690,7 +690,7 @@ var _ = Describe("HumioOrganizationTokenCRD", Label("envtest", "dummy", "real"),
 				},
 			},
 		}),
-		Entry("TokenSecretAnnotations key too long", "spec.tokenSecretAnnotations: Invalid value: \"object\": tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
+		Entry("TokenSecretAnnotations key too long", "tokenSecretAnnotations keys must be 1-63 characters", humiov1alpha1.HumioOrganizationToken{
 			ObjectMeta: metav1.ObjectMeta{Name: "organization-token", Namespace: defaultNamespace},
 			Spec: humiov1alpha1.HumioOrganizationTokenSpec{
 				HumioTokenSpec: humiov1alpha1.HumioTokenSpec{
@@ -1285,7 +1285,7 @@ var _ = Describe("HumioPackageRegistry", Label("envtest", "dummy", "real"), func
 				},
 			},
 		}),
-		Entry("type marketplace but no config", "Invalid value: \"object\": marketplace is required when registryType is 'marketplace'", humiov1alpha1.HumioPackageRegistry{
+		Entry("type marketplace but no config", "marketplace is required when registryType is 'marketplace'", humiov1alpha1.HumioPackageRegistry{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-packageregistry", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageRegistrySpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -1334,7 +1334,7 @@ var _ = Describe("HumioPackageRegistry", Label("envtest", "dummy", "real"), func
 			},
 		}),
 		// GitLab tests
-		Entry("type gitlab but no config", "Invalid value: \"object\": gitlab is required when registryType is 'gitlab'", humiov1alpha1.HumioPackageRegistry{
+		Entry("type gitlab but no config", "gitlab is required when registryType is 'gitlab'", humiov1alpha1.HumioPackageRegistry{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-packageregistry", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageRegistrySpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -1402,7 +1402,7 @@ var _ = Describe("HumioPackageRegistry", Label("envtest", "dummy", "real"), func
 		}),
 
 		// GitHub tests
-		Entry("type github but no config", "Invalid value: \"object\": github is required when registryType is 'github'", humiov1alpha1.HumioPackageRegistry{
+		Entry("type github but no config", "github is required when registryType is 'github'", humiov1alpha1.HumioPackageRegistry{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-packageregistry", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageRegistrySpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -1530,7 +1530,7 @@ var _ = Describe("HumioPackageRegistry", Label("envtest", "dummy", "real"), func
 			},
 		}),
 		// Artifactory tests
-		Entry("type artifactory but no config", "Invalid value: \"object\": artifactory is required when registryType is 'artifactory'", humiov1alpha1.HumioPackageRegistry{
+		Entry("type artifactory but no config", "artifactory is required when registryType is 'artifactory'", humiov1alpha1.HumioPackageRegistry{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-packageregistry", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageRegistrySpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -1597,7 +1597,7 @@ var _ = Describe("HumioPackageRegistry", Label("envtest", "dummy", "real"), func
 		}),
 
 		// AWS tests
-		Entry("type aws but no config", "Invalid value: \"object\": aws is required when registryType is 'aws'", humiov1alpha1.HumioPackageRegistry{
+		Entry("type aws but no config", "aws is required when registryType is 'aws'", humiov1alpha1.HumioPackageRegistry{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-packageregistry", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageRegistrySpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -1700,7 +1700,7 @@ var _ = Describe("HumioPackageRegistry", Label("envtest", "dummy", "real"), func
 		}),
 
 		// GCloud tests
-		Entry("type gcloud but no config", "Invalid value: \"object\": gcloud is required when registryType is 'gcloud'", humiov1alpha1.HumioPackageRegistry{
+		Entry("type gcloud but no config", "gcloud is required when registryType is 'gcloud'", humiov1alpha1.HumioPackageRegistry{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-packageregistry", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageRegistrySpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -1918,7 +1918,7 @@ var _ = Describe("HumioPackage", Label("envtest", "dummy", "real"), func() {
 			},
 		}),
 		// Cluster name validation (exactly one required)
-		Entry("neither managedClusterName nor externalClusterName specified", "Invalid value: \"object\": Must specify exactly one of managedClusterName or externalClusterName", humiov1alpha1.HumioPackage{
+		Entry("neither managedClusterName nor externalClusterName specified", "Must specify exactly one of managedClusterName or externalClusterName", humiov1alpha1.HumioPackage{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-package", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageSpec{
 				//ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -1938,7 +1938,7 @@ var _ = Describe("HumioPackage", Label("envtest", "dummy", "real"), func() {
 				},
 			},
 		}),
-		Entry("both managedClusterName and externalClusterName specified", "Invalid value: \"object\": Must specify exactly one of managedClusterName or externalClusterName", humiov1alpha1.HumioPackage{
+		Entry("both managedClusterName and externalClusterName specified", "Must specify exactly one of managedClusterName or externalClusterName", humiov1alpha1.HumioPackage{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-package", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageSpec{
 				ManagedClusterName:  fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -1959,7 +1959,7 @@ var _ = Describe("HumioPackage", Label("envtest", "dummy", "real"), func() {
 			},
 		}),
 		// Registry configuration validation (exactly one required)
-		Entry("no registry configuration specified", "Invalid value: \"object\": Must specify exactly one of marketplace, gitlab, github, aws, artifactory, or gcloud configuration", humiov1alpha1.HumioPackage{
+		Entry("no registry configuration specified", "Must specify exactly one of marketplace, gitlab, github, aws, artifactory, or gcloud configuration", humiov1alpha1.HumioPackage{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-package", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageSpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -2188,7 +2188,7 @@ var _ = Describe("HumioPackage", Label("envtest", "dummy", "real"), func() {
 				},
 			},
 		}),
-		Entry("packageInstallTarget with both viewNames and viewRef", "Invalid value: \"object\": Must specify exactly one of viewNames or viewRef", humiov1alpha1.HumioPackage{
+		Entry("packageInstallTarget with both viewNames and viewRef", "Must specify exactly one of viewNames or viewRef", humiov1alpha1.HumioPackage{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-package", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageSpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),
@@ -2208,7 +2208,7 @@ var _ = Describe("HumioPackage", Label("envtest", "dummy", "real"), func() {
 				},
 			},
 		}),
-		Entry("packageInstallTarget with neither viewNames nor viewRef", "Invalid value: \"object\": Must specify exactly one of viewNames or viewRef", humiov1alpha1.HumioPackage{
+		Entry("packageInstallTarget with neither viewNames nor viewRef", "Must specify exactly one of viewNames or viewRef", humiov1alpha1.HumioPackage{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-package", Namespace: fmt.Sprintf("e2e-resources-%d", processID)},
 			Spec: humiov1alpha1.HumioPackageSpec{
 				ManagedClusterName: fmt.Sprintf("humiocluster-shared-%d", processID),

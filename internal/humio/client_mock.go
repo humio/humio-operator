@@ -3558,7 +3558,7 @@ func (h *MockClientConfig) supportsSearchExecution(_ context.Context, _ *humioap
 	// Check if we have any query-capable node pools
 	hasQueryCapable := false
 	for _, nodePool := range hc.Spec.NodePools {
-		if nodePool.NodeCount == 0 {
+		if nodePool.HumioNodeSpec.NodeCount != nil && *nodePool.HumioNodeSpec.NodeCount == 0 {
 			continue // Skip pools with no nodes
 		}
 

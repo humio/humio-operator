@@ -88,7 +88,7 @@ func (p *HumioPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(p.CommonConfig, hp) && !helpers.ContainsElement(hp.GetFinalizers(), HumioFinalizer) {
 		p.Log.Info("Finalizer not present, adding finalizer to HumioPackage")
 		hp.SetFinalizers(append(hp.GetFinalizers(), HumioFinalizer))
 		err := p.Update(ctx, hp)
@@ -147,9 +147,8 @@ func (p *HumioPackageReconciler) handlePackageDeletion(ctx context.Context, humi
 		return reconcile.Result{}, nil
 	}
 
-	// Check for force finalize annotation
-	if ShouldForceFinalize(hp) {
-		p.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+	if ShouldSkipFinalizer(p.CommonConfig, hp) {
+		p.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 			"resource", hp.Name,
 			"namespace", hp.Namespace)
 		hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), HumioFinalizer))

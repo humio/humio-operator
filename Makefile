@@ -116,6 +116,10 @@ deadcode: ## Run deadcode analysis to find unused code
 	}
 	PATH=$$PATH:$(GOBIN) deadcode ./...
 
+.PHONY: test-monitor
+test-monitor: ## Launch the Ginkgo test monitor dashboard
+	@cd hack/test-monitor && go build -o ../../bin/test-monitor . && cd ../.. && ./bin/test-monitor $(ARGS)
+
 .PHONY: security
 security: ## Run gosec security scanner
 	@command -v gosec >/dev/null 2>&1 || { \
@@ -277,24 +281,38 @@ update-schema:
 test: manifests generate fmt vet setup-envtest ginkgo ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest $(if $(FOCUS),--focus="$(FOCUS)") -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 20m ./...
+	$(GINKGO) run --label-filter=envtest $(if $(FOCUS),--focus="$(FOCUS)") -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 30m ./...
 
 # run e2e tests
 .PHONY: run-e2e-tests
 run-e2e-tests: manifests generate fmt vet setup-envtest ginkgo
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 20m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 30m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
 
 .PHONY: run-e2e-tests-local-kind
 run-e2e-tests-local-kind: manifests generate fmt vet ## Run tests.
 	hack/run-e2e-using-kind.sh
 
+.PHONY: local-kind
+local-kind: manifests generate fmt vet ## Spin up a local kind cluster with operator deployed for interactive use.
+	hack/run-local-kind.sh
+
+.PHONY: local-kind-redeploy
+local-kind-redeploy: ## Rebuild and redeploy the operator into a running local kind cluster.
+	docker build -f Dockerfile.operator -t $${IMG:-controller:local} .
+	tmp/kind load docker-image $${IMG:-controller:local} --name kind
+	tmp/kubectl rollout restart deployment -n humio-operator-system -l app.kubernetes.io/name=humio-operator
+
+.PHONY: local-kind-hpa
+local-kind-hpa: manifests generate fmt vet ## Spin up a local kind cluster with operator, metrics-server, and HPA configured.
+	SAMPLE=core_v1alpha1_humiocluster-hpa-kind-local.yaml hack/run-local-kind.sh && hack/setup-hpa.sh
+
 .PHONY: run-telemetry-tests
 run-telemetry-tests: manifests generate fmt vet setup-envtest ginkgo ## Run telemetry controller tests with envtest.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -timeout 20m ./internal/controller/suite/telemetry/...
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -timeout 30m ./internal/controller/suite/telemetry/...
 
 .PHONY: run-telemetry-integration-tests
 run-telemetry-integration-tests: manifests generate fmt vet ## Run telemetry integration tests using Kind cluster.

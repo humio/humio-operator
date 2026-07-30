@@ -457,13 +457,14 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 			// The controller may recreate it too quickly, causing test flakiness.
 			// The real test is whether a NEW secret gets created (checked below).
 
-			// check new secret was created
+			// check new secret was created with a rotated token ID
 			newSecret := &corev1.Secret{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, secretKey, newSecret)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-			// secret field for HumioID should be different now
-			Expect(string(newSecret.Data[controller.ResourceFieldID])).ToNot(Equal(oldTokenId))
+			Eventually(func() string {
+				if err := k8sClient.Get(ctx, secretKey, newSecret); err != nil {
+					return oldTokenId // return old value while secret doesn't exist yet
+				}
+				return string(newSecret.Data[controller.ResourceFieldID])
+			}, testTimeout, suite.TestInterval).ShouldNot(Equal(oldTokenId))
 			// refetch HumioViewToken check new HumioID
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, localk8sViewToken)
@@ -1327,13 +1328,14 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 			// The controller may recreate it too quickly, causing test flakiness.
 			// The real test is whether a NEW secret gets created (checked below).
 
-			// check new secret was created
+			// check new secret was created with a rotated token ID
 			newSecret := &corev1.Secret{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, secretKey, newSecret)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-			// secret field for HumioID should be different now
-			Expect(string(newSecret.Data[controller.ResourceFieldID])).ToNot(Equal(oldTokenId))
+			Eventually(func() string {
+				if err := k8sClient.Get(ctx, secretKey, newSecret); err != nil {
+					return oldTokenId // return old value while secret doesn't exist yet
+				}
+				return string(newSecret.Data[controller.ResourceFieldID])
+			}, testTimeout, suite.TestInterval).ShouldNot(Equal(oldTokenId))
 			// refetch HumioOrganizationToken check new HumioID
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyOrgToken, localk8sOrgToken)

@@ -142,9 +142,8 @@ func (r *HumioOrganizationTokenReconciler) handleOrganizationTokenDeletion(ctx c
 		return reconcile.Result{}, nil
 	}
 
-	// Check for force finalize annotation
-	if ShouldForceFinalize(hot) {
-		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+	if ShouldSkipFinalizer(r.CommonConfig, hot) {
+		r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 			"resource", hot.Name,
 			"namespace", hot.Namespace)
 		hot.SetFinalizers(helpers.RemoveElement(hot.GetFinalizers(), HumioFinalizer))

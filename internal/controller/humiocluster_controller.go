@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -44,6 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -62,6 +64,10 @@ type HumioClusterReconciler struct {
 	Log         logr.Logger
 	HumioClient humio.Client
 	Namespace   string
+	Recorder    record.EventRecorder
+
+	// stalenessCounters tracks consecutive shadow read failures
+	stalenessCounters *stalenessCounter
 }
 
 type ctxHumioClusterPoolFunc func(context.Context, *humiov1alpha1.HumioCluster, *HumioNodePool) error
@@ -83,6 +89,9 @@ const (
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.humio.com,resources=humionodepools,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.humio.com,resources=humionodepools/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.humio.com,resources=humionodepools/scale,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiodependencychecks/finalizers,verbs=update
@@ -221,11 +230,20 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// create various k8s objects, e.g. Issuer, Certificate, ConfigMap, Ingress, Service, ServiceAccount, ClusterRole, ClusterRoleBinding
 	for _, fun := range []ctxHumioClusterFunc{
+		r.ensureValidCASecret,
 		r.ensureValidCAIssuer,
 		r.ensureHumioClusterCACertBundle,
 		r.ensureHumioClusterKeystoreSecret,
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
+		func(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+			defer func() {
+				if rec := recover(); rec != nil {
+					r.Log.Error(fmt.Errorf("panic in shadow node pool sync: %v", rec), "recovered from panic in ensureNodePoolResources", "component", "shadow-node-pool-sync")
+				}
+			}()
+			return r.ensureNodePoolResources(ctx, hc)
+		},
 	} {
 		if err := fun(ctx, hc); err != nil {
 			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
@@ -243,6 +261,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.ensureViewGroupPermissionsConfigMap,
 			r.ensureRolePermissionsConfigMap,
 			r.reconcileSinglePDB,
+			r.ensureDependencyCheckResources,
 		} {
 			if err := fun(ctx, hc, pool); err != nil {
 				return r.updateStatus(ctx, r.Status(), hc, statusOptions().
@@ -401,6 +420,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Initialize staleness counter
+	r.stalenessCounters = &stalenessCounter{counts: make(map[string]int)}
+	r.Recorder = mgr.GetEventRecorderFor("humiocluster-controller")
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioCluster{}).
 		Named("humiocluster").
@@ -412,6 +435,8 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&policyv1.PodDisruptionBudget{}).
 		Owns(&networkingv1.Ingress{}).
+		Owns(&humiov1alpha1.HumioDependencyCheck{}).
+		Owns(&humiov1alpha1.HumioNodePool{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(
 			r.findClustersReferencingConfigMap,
 		), builder.WithPredicates(configMapDataChangedPredicate())).
@@ -484,6 +509,117 @@ func configMapDataChangedPredicate() predicate.Predicate {
 			return !equality.Semantic.DeepEqual(oldCM.Data, newCM.Data)
 		},
 	}
+}
+
+// ensureDependencyCheckResources creates, updates, and garbage-collects HumioDependencyCheck CRs for a node pool.
+func (r *HumioClusterReconciler) ensureDependencyCheckResources(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	clusterName := hc.Name
+	namespace := hc.Namespace
+	poolName := hnp.GetRawNodePoolName()
+
+	matchingLabels := kubernetes.LabelsForHumioDependencyCheck(clusterName)
+
+	existingChecks, err := kubernetes.ListHumioDependencyChecks(ctx, r, namespace, matchingLabels)
+	if err != nil {
+		return fmt.Errorf("failed to list HumioDependencyChecks: %w", err)
+	}
+
+	// Filter existing checks to only this pool
+	var poolChecks []humiov1alpha1.HumioDependencyCheck
+	for _, hdc := range existingChecks {
+		if hdc.Spec.NodePoolName == poolName {
+			poolChecks = append(poolChecks, hdc)
+		}
+	}
+
+	// If dependency checking is disabled, delete all owned CRs for this pool
+	if !hnp.DependencyCheckEnabled() {
+		for idx := range poolChecks {
+			r.Log.Info(fmt.Sprintf("Deleting stale HumioDependencyCheck %s (dependency checking disabled)", poolChecks[idx].Name))
+			if err := r.Delete(ctx, &poolChecks[idx]); err != nil && !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete HumioDependencyCheck %s: %w", poolChecks[idx].Name, err)
+			}
+		}
+		return nil
+	}
+
+	depConfig := hnp.GetDependencyCheckConfig()
+
+	// Warn about invalid exclude entries
+	if invalidExcludes := ValidateExcludeList(depConfig.Exclude); len(invalidExcludes) > 0 {
+		r.Log.Info(fmt.Sprintf("DependencyCheck config contains invalid exclude values %v (valid: kafka, s3, gcs)", invalidExcludes))
+	}
+
+	// Resolve envVarSourceData so discovery sees env vars from Secrets/ConfigMaps
+	envVarSourceData, _, err := r.getEnvVarSource(ctx, hnp)
+	if err != nil {
+		return fmt.Errorf("failed to get envVarSource for dependency check discovery: %w", err)
+	}
+
+	// Auto-discover checks using the same logic as env var builder
+	discovered := discoverDependencyChecks(hnp.GetEnvironmentVariables(), envVarSourceData, depConfig.Exclude)
+
+	// Build set of desired check types
+	desiredTypes := make(map[string]discoveredCheck)
+	for _, d := range discovered {
+		desiredTypes[d.checkType] = d
+	}
+
+	// Build set of existing check types
+	existingTypes := make(map[string]*humiov1alpha1.HumioDependencyCheck)
+	for idx := range poolChecks {
+		existingTypes[poolChecks[idx].Spec.CheckType] = &poolChecks[idx]
+	}
+
+	// Create missing CRs
+	for checkType, dc := range desiredTypes {
+		if _, exists := existingTypes[checkType]; exists {
+			continue
+		}
+
+		hdcName := kubernetes.DependencyCheckName(clusterName, poolName, checkType)
+		hdc := kubernetes.ConstructHumioDependencyCheck(clusterName, namespace, poolName, checkType)
+
+		if err := controllerutil.SetControllerReference(hc, hdc, r.Scheme()); err != nil {
+			return fmt.Errorf("failed to set controller reference on HumioDependencyCheck %s: %w", hdcName, err)
+		}
+
+		r.Log.Info(fmt.Sprintf("Creating HumioDependencyCheck %s (type=%s, pool=%s)", hdcName, checkType, poolName))
+		if err := r.Create(ctx, hdc); err != nil {
+			if k8serrors.IsAlreadyExists(err) {
+				continue
+			}
+			return fmt.Errorf("failed to create HumioDependencyCheck %s: %w", hdcName, err)
+		}
+
+		// Update status
+		hdc.Status.DiscoverySource = "auto"
+		hdc.Status.ConfiguredEnvVars = dc.envVars
+		hdc.Status.Conditions = []metav1.Condition{
+			{
+				Type:               humiov1alpha1.DependencyCheckConditionTypeConfigured,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             humiov1alpha1.DependencyCheckReasonConfigured,
+				Message:            fmt.Sprintf("Auto-discovered %s dependency check", checkType),
+			},
+		}
+		if err := r.Status().Update(ctx, hdc); err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to update status for HumioDependencyCheck %s", hdcName))
+		}
+	}
+
+	// Delete stale CRs (check type no longer discovered or now excluded)
+	for checkType, hdc := range existingTypes {
+		if _, desired := desiredTypes[checkType]; !desired {
+			r.Log.Info(fmt.Sprintf("Deleting stale HumioDependencyCheck %s (check type %s no longer discovered)", hdc.Name, checkType))
+			if err := r.Delete(ctx, hdc); err != nil && !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete HumioDependencyCheck %s: %w", hdc.Name, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (r *HumioClusterReconciler) nodePoolPodsReady(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (bool, error) {
@@ -678,23 +814,27 @@ func (r *HumioClusterReconciler) logExtraKafkaConfigsDeprecationInfo(ctx context
 	return nil
 }
 
-// getEnvVarSource returns the environment variables from either the configMap or secret that is referenced by envVarSource
-func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hnp *HumioNodePool) (*map[string]string, error) {
+// getEnvVarSource returns the environment variables from the configMaps and secrets referenced by envVarSource.
+// It also returns a secretKeyIndex mapping each env var key to the name of the secret it came from,
+// which is used to generate valueFrom.secretKeyRef entries instead of inlining secret values.
+func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hnp *HumioNodePool) (*map[string]string, map[string]string, error) {
 	var envVarConfigMapName string
 	var envVarSecretName string
 	fullEnvVarKeyValues := map[string]string{}
+	secretKeyIndex := map[string]string{} // envVarName -> secretName
 	for _, envVarSource := range hnp.GetEnvironmentVariablesSource() {
 		if envVarSource.ConfigMapRef != nil {
 			envVarConfigMapName = envVarSource.ConfigMapRef.Name
 			configMap, err := kubernetes.GetConfigMap(ctx, r, envVarConfigMapName, hnp.GetNamespace())
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
-					return nil, fmt.Errorf("environmentVariablesSource was set but no configMap exists by name %s in namespace %s", envVarConfigMapName, hnp.GetNamespace())
+					return nil, nil, fmt.Errorf("environmentVariablesSource was set but no configMap exists by name %s in namespace %s", envVarConfigMapName, hnp.GetNamespace())
 				}
-				return nil, fmt.Errorf("unable to get configMap with name %s in namespace %s", envVarConfigMapName, hnp.GetNamespace())
+				return nil, nil, fmt.Errorf("unable to get configMap with name %s in namespace %s", envVarConfigMapName, hnp.GetNamespace())
 			}
 			for k, v := range configMap.Data {
 				fullEnvVarKeyValues[k] = v
+				delete(secretKeyIndex, k) // ConfigMap wins: remove stale Secret reference
 			}
 		}
 		if envVarSource.SecretRef != nil {
@@ -702,19 +842,20 @@ func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hnp *Humio
 			secret, err := kubernetes.GetSecret(ctx, r, envVarSecretName, hnp.GetNamespace())
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
-					return nil, fmt.Errorf("environmentVariablesSource was set but no secret exists by name %s in namespace %s", envVarSecretName, hnp.GetNamespace())
+					return nil, nil, fmt.Errorf("environmentVariablesSource was set but no secret exists by name %s in namespace %s", envVarSecretName, hnp.GetNamespace())
 				}
-				return nil, fmt.Errorf("unable to get secret with name %s in namespace %s", envVarSecretName, hnp.GetNamespace())
+				return nil, nil, fmt.Errorf("unable to get secret with name %s in namespace %s", envVarSecretName, hnp.GetNamespace())
 			}
 			for k, v := range secret.Data {
 				fullEnvVarKeyValues[k] = string(v)
+				secretKeyIndex[k] = envVarSecretName
 			}
 		}
 	}
 	if len(fullEnvVarKeyValues) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
-	return &fullEnvVarKeyValues, nil
+	return &fullEnvVarKeyValues, secretKeyIndex, nil
 }
 
 // setImageFromSource will check if imageSource is defined and if it is, it will update spec.Image with the image value
@@ -1209,12 +1350,99 @@ func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Cont
 	if err != nil {
 		return r.logErrorAndReturn(err, "could not get certificate")
 	}
+
+	// Verify that the issued secret's CA matches the current CA keypair.
+	// A pre-existing secret (e.g. from a previous HumioCluster deployment in the same namespace)
+	// may contain a CA that differs from the current CA keypair. If so, delete the stale secret
+	// so cert-manager re-issues it with the correct CA.
+	if err := r.ensureClusterCertSecretMatchesCA(ctx, hc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *HumioClusterReconciler) ensureClusterCertSecretMatchesCA(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	caSecret, err := kubernetes.GetSecret(ctx, r, getCASecretName(hc), hc.Namespace)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return r.logErrorAndReturn(err, "could not get CA keypair secret")
+	}
+
+	issuedSecret, err := kubernetes.GetSecret(ctx, r, hc.Name, hc.Namespace)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return r.logErrorAndReturn(err, "could not get cluster cert secret")
+	}
+
+	return r.deleteSecretIfCAMismatch(ctx, caSecret, issuedSecret)
+}
+
+// deleteSecretIfCAMismatch compares the CA in a cert-manager issued secret against the current
+// CA keypair. If they don't match, the issued secret is deleted so cert-manager re-issues it.
+func (r *HumioClusterReconciler) deleteSecretIfCAMismatch(ctx context.Context, caSecret *corev1.Secret, issuedSecret *corev1.Secret) error {
+	expectedCA := caSecret.Data["tls.crt"]
+	actualCA := issuedSecret.Data["ca.crt"]
+
+	if len(expectedCA) == 0 || len(actualCA) == 0 {
+		return nil
+	}
+
+	if !bytes.Equal(expectedCA, actualCA) {
+		r.Log.Info(fmt.Sprintf("cert secret %s has a CA that does not match the current CA keypair, deleting stale secret so cert-manager re-issues it", issuedSecret.Name))
+		if err := r.Delete(ctx, issuedSecret); err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("could not delete stale cert secret %s", issuedSecret.Name))
+		}
+	}
+
+	return nil
+}
+
+func (r *HumioClusterReconciler) ensureNodeCertSecretsMatchCA(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	caSecret, err := kubernetes.GetSecret(ctx, r, getCASecretName(hc), hc.Namespace)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return r.logErrorAndReturn(err, "could not get CA keypair secret")
+	}
+
+	certificates, err := kubernetes.ListCertificates(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+	if err != nil {
+		return r.logErrorAndReturn(err, "could not list node certificates")
+	}
+
+	for _, cert := range certificates {
+		if !strings.HasPrefix(cert.Name, fmt.Sprintf("%s-core", hnp.GetNodePoolName())) {
+			continue
+		}
+		issuedSecret, err := kubernetes.GetSecret(ctx, r, cert.Spec.SecretName, hnp.GetNamespace())
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			return r.logErrorAndReturn(err, fmt.Sprintf("could not get node cert secret %s", cert.Spec.SecretName))
+		}
+		if err := r.deleteSecretIfCAMismatch(ctx, caSecret, issuedSecret); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	if !hnp.TLSEnabled() {
 		return nil
+	}
+
+	// Verify existing pod cert secrets have a CA matching the current CA keypair.
+	if err := r.ensureNodeCertSecretsMatchCA(ctx, hc, hnp); err != nil {
+		return err
 	}
 
 	existingNodeCertCount, err := r.updateNodeCertificates(ctx, hc, hnp)
@@ -1576,11 +1804,31 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 }
 
 func (r *HumioClusterReconciler) ensurePersonalAPITokenForAdminUser(ctx context.Context, client *humioapi.Client, req reconcile.Request, hc *humiov1alpha1.HumioCluster) error {
-	r.Log.Info("ensuring permission tokens")
-	return r.createPersonalAPIToken(ctx, client, req, hc, "admin")
+	username := "admin"
+	if v := EnvVarValue(mergeEnvVars(hc.Spec.CommonEnvironmentVariables, hc.Spec.EnvironmentVariables), "SINGLE_USER_USERNAME"); v != "" {
+		username = v
+	}
+	r.Log.Info("ensuring permission tokens", "username", username)
+	return r.createPersonalAPIToken(ctx, client, req, hc, username)
 }
 
 func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	if !hnp.NodePoolServiceEnabled() {
+		existingService, err := kubernetes.GetService(ctx, r, hnp.GetNodePoolName(), hnp.GetNamespace())
+		if err == nil {
+			for _, ws := range hc.Spec.WorkloadServices {
+				if workloadTypeServiceName(hc.Name, ws.Name) == existingService.Name {
+					return nil
+				}
+			}
+			r.Log.Info(fmt.Sprintf("deleting per-pool service %s (enableNodePoolService=false)", existingService.Name))
+			if err = r.Delete(ctx, existingService); err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not delete per-pool service %s", existingService.Name))
+			}
+		}
+		return nil
+	}
+
 	r.Log.Info("ensuring service")
 	existingService, err := kubernetes.GetService(ctx, r, hnp.GetNodePoolName(), hnp.GetNamespace())
 	service := ConstructService(hnp)
@@ -1651,6 +1899,82 @@ func (r *HumioClusterReconciler) ensureInternalServiceExists(ctx context.Context
 		}
 	}
 	return nil
+}
+
+func (r *HumioClusterReconciler) ensureWorkloadTypeServices(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	for _, ws := range hc.Spec.WorkloadServices {
+		serviceName := workloadTypeServiceName(hc.Name, ws.Name)
+		r.Log.Info(fmt.Sprintf("ensuring workload-type service %s", serviceName))
+		existingService, err := kubernetes.GetService(ctx, r, serviceName, hc.Namespace)
+		service := constructWorkloadTypeService(hc, ws)
+		if k8serrors.IsNotFound(err) {
+			if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
+				return r.logErrorAndReturn(err, "could not set controller reference")
+			}
+			if err = r.Create(ctx, service); err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("unable to create workload-type service %s", serviceName))
+			}
+			continue
+		}
+		if err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("failed to get workload-type service %s", serviceName))
+		}
+		if existingService.Spec.Type != service.Spec.Type {
+			r.Log.Info(fmt.Sprintf("workload-type service %s requires delete/recreate due to type change: %s -> %s", serviceName, existingService.Spec.Type, service.Spec.Type))
+			if err = r.Delete(ctx, existingService); err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not delete workload-type service %s for type change", serviceName))
+			}
+			if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
+				return r.logErrorAndReturn(err, "could not set controller reference")
+			}
+			if err = r.Create(ctx, service); err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("unable to recreate workload-type service %s", serviceName))
+			}
+		} else if servicesMatchTest, matchErr := servicesMatch(existingService, service); !servicesMatchTest || matchErr != nil {
+			r.Log.Info(fmt.Sprintf("workload-type service %s requires update: %s", serviceName, matchErr))
+			updateService(existingService, service)
+			if err = r.Update(ctx, existingService); err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not update workload-type service %s", serviceName))
+			}
+		}
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) cleanupUnusedWorkloadTypeServices(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	configuredNames := make(map[string]bool)
+	for _, ws := range hc.Spec.WorkloadServices {
+		configuredNames[workloadTypeServiceName(hc.Name, ws.Name)] = true
+	}
+
+	serviceList := &corev1.ServiceList{}
+	if err := r.List(ctx, serviceList, client.InNamespace(hc.Namespace), client.MatchingLabels(kubernetes.LabelsForHumio(hc.Name))); err != nil {
+		return r.logErrorAndReturn(err, "unable to list services for workload-type cleanup")
+	}
+
+	for idx := range serviceList.Items {
+		svc := &serviceList.Items[idx]
+		if !hasWorkloadTypeSelector(svc) {
+			continue
+		}
+		if configuredNames[svc.Name] {
+			continue
+		}
+		r.Log.Info(fmt.Sprintf("deleting unused workload-type service %s", svc.Name))
+		if err := r.Delete(ctx, svc); err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("could not delete unused workload-type service %s", svc.Name))
+		}
+	}
+	return nil
+}
+
+func hasWorkloadTypeSelector(svc *corev1.Service) bool {
+	for key := range svc.Spec.Selector {
+		if len(key) > len(kubernetes.WorkloadTypeLabelPrefix) && key[:len(kubernetes.WorkloadTypeLabelPrefix)] == kubernetes.WorkloadTypeLabelPrefix {
+			return true
+		}
+	}
+	return false
 }
 
 type resourceConfig struct {
@@ -2089,6 +2413,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				withNodePoolState(humiov1alpha1.HumioClusterStateUpgrading, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), "")); err != nil {
 				return result, err
 			}
+
 			return reconcile.Result{Requeue: true}, nil
 		}
 		if !desiredLifecycleState.FoundVersionDifference() && desiredLifecycleState.FoundConfigurationDifference() {
@@ -2097,6 +2422,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				withNodePoolState(humiov1alpha1.HumioClusterStateRestarting, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), "")); err != nil {
 				return result, err
 			}
+
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
@@ -2910,9 +3236,10 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 
 	for _, fun := range []ctxHumioClusterFunc{
 		r.ensureLicenseIsValid,
-		r.ensureValidCASecret,
 		r.ensureHeadlessServiceExists,
 		r.ensureInternalServiceExists,
+		r.ensureWorkloadTypeServices,
+		r.cleanupUnusedWorkloadTypeServices,
 		r.validateUserDefinedServiceAccountsExists,
 	} {
 		if err := fun(ctx, hc); err != nil {
@@ -3022,7 +3349,7 @@ func (r *HumioClusterReconciler) constructPodAttachments(ctx context.Context, hc
 		attachments.dataVolumeSource = hnp.GetDataVolumePersistentVolumeClaimSpecTemplate("")
 	}
 
-	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
+	envVarSourceData, secretKeyIndex, err := r.getEnvVarSource(ctx, hnp)
 	if err != nil {
 		result, _ := r.updateStatus(ctx, r.Status(), hc, statusOptions().
 			withMessage(r.logErrorAndReturn(err, "got error when getting pod envVarSource").Error()).
@@ -3032,6 +3359,7 @@ func (r *HumioClusterReconciler) constructPodAttachments(ctx context.Context, hc
 	if envVarSourceData != nil {
 		attachments.envVarSourceData = envVarSourceData
 	}
+	attachments.secretKeyIndex = secretKeyIndex
 
 	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
 	if err != nil {
@@ -3117,24 +3445,54 @@ func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *hum
 		return nil
 	}
 
-	desiredPDB, err := r.constructPDB(hc, hnp, pdbSpec)
+	desiredPDB := r.constructPDB(hc, hnp, pdbSpec)
+
+	freezeEnabled := pdbSpec.FreezeDuringUpdate != nil && *pdbSpec.FreezeDuringUpdate
+
+	op, err := r.createOrUpdatePDB(ctx, hc, desiredPDB)
 	if err != nil {
-		r.Log.Error(err, "failed to construct PDB", "pdbName", pdbName)
-		return fmt.Errorf("failed to construct PDB: %w", err)
+		return err
 	}
 
-	return r.createOrUpdatePDB(ctx, hc, desiredPDB)
+	if freezeEnabled && isFreezeState(hnp.GetState()) &&
+		(op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated) {
+		r.Log.Info("PDB freeze activated",
+			"nodePool", hnp.GetNodePoolName(),
+			"minAvailable", desiredPDB.Spec.MinAvailable)
+	}
+
+	if freezeEnabled && !isFreezeState(hnp.GetState()) &&
+		op == controllerutil.OperationResultUpdated {
+		r.Log.Info("PDB freeze released",
+			"nodePool", hnp.GetNodePoolName(),
+			"minAvailable", desiredPDB.Spec.MinAvailable,
+			"maxUnavailable", desiredPDB.Spec.MaxUnavailable)
+	}
+
+	return nil
 }
 
-// constructPDB creates a PodDisruptionBudget object for a given HumioCluster and HumioNodePool
-func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, pdbSpec *humiov1alpha1.HumioPodDisruptionBudgetSpec) (*policyv1.PodDisruptionBudget, error) {
-	pdbName := hnp.GetPodDisruptionBudgetName() // Use GetPodDisruptionBudgetName from HumioNodePool
+// constructPDB creates a PodDisruptionBudget object for a given HumioCluster and HumioNodePool.
+func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, pdbSpec *humiov1alpha1.HumioPodDisruptionBudgetSpec) *policyv1.PodDisruptionBudget {
+	pdbName := hnp.GetPodDisruptionBudgetName()
 
 	selector := &metav1.LabelSelector{
 		MatchLabels: kubernetes.MatchingLabelsForHumioNodePool(hc.Name, hnp.GetNodePoolName()),
 	}
 
-	minAvailable := pdbSpec.MinAvailable
+	minAvail, maxUnavail := effectiveMinAvailable(
+		hnp.GetState(),
+		pdbSpec.MinAvailable,
+		pdbSpec.MaxUnavailable,
+		hnp.GetNodeCount(),
+		pdbSpec.FreezeDuringUpdate,
+	)
+
+	if minAvail == nil && maxUnavail == nil {
+		defaultMin := intstr.FromInt32(1)
+		minAvail = &defaultMin
+	}
+
 	pdb := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pdbName,
@@ -3142,44 +3500,49 @@ func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hn
 			Labels:    hnp.GetNodePoolLabels(),
 		},
 		Spec: policyv1.PodDisruptionBudgetSpec{
-			Selector: selector,
+			Selector:       selector,
+			MinAvailable:   minAvail,
+			MaxUnavailable: maxUnavail,
 		},
 	}
 
-	// Set controller reference using controller-runtime utility
-	if err := controllerutil.SetControllerReference(hc, pdb, r.Scheme()); err != nil {
-		return nil, fmt.Errorf("failed to set controller reference: %w", err)
-	}
-
-	if minAvailable != nil {
-		pdb.Spec.MinAvailable = minAvailable
-	} else {
-		defaultMinAvailable := intstr.IntOrString{
-			Type:   intstr.Int,
-			IntVal: 1,
-		}
-		pdb.Spec.MinAvailable = &defaultMinAvailable
-	}
-
-	return pdb, nil
+	return pdb
 }
 
-// createOrUpdatePDB creates or updates a PodDisruptionBudget object
-func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, desiredPDB *policyv1.PodDisruptionBudget) error {
-	// Set owner reference so that the PDB is deleted when hc is deleted.
-	if err := controllerutil.SetControllerReference(hc, desiredPDB, r.Scheme()); err != nil {
-		return fmt.Errorf("failed to set owner reference on PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err)
+// createOrUpdatePDB creates or updates a PodDisruptionBudget using the
+// two-variable pattern. The bare lookup key receives live state from
+// CreateOrUpdate; the mutate closure copies desired fields onto it.
+func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, desired *policyv1.PodDisruptionBudget) (controllerutil.OperationResult, error) {
+	existing := &policyv1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      desired.Name,
+			Namespace: desired.Namespace,
+		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, desiredPDB, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, existing, func() error {
+		if err := controllerutil.SetControllerReference(hc, existing, r.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference on PDB %s/%s: %w", existing.Namespace, existing.Name, err)
+		}
+		existing.Labels = desired.Labels
+		existing.Annotations = desired.Annotations
+		existing.Spec.Selector = desired.Spec.Selector
+		existing.Spec.MinAvailable = desired.Spec.MinAvailable
+		existing.Spec.MaxUnavailable = desired.Spec.MaxUnavailable
 		return nil
 	})
 	if err != nil {
-		r.Log.Error(err, "failed to create or update PDB", "pdb", desiredPDB.Name)
-		return fmt.Errorf("failed to create or update PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err)
+		r.Log.Error(err, "failed to create or update PDB", "pdb", desired.Name)
+		return controllerutil.OperationResultNone, fmt.Errorf("failed to create or update PDB %s/%s: %w", desired.Namespace, desired.Name, err)
 	}
-	r.Log.Info("PDB operation completed", "operation", op, "pdb", desiredPDB.Name)
-	return nil
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		r.Log.Info("PDB reconciled",
+			"pdb", desired.Name,
+			"operation", string(op),
+			"minAvailable", desired.Spec.MinAvailable,
+			"maxUnavailable", desired.Spec.MaxUnavailable)
+	}
+	return op, nil
 }
 
 // findDuplicateEnvVars checks if there are duplicate environment variables in the provided list

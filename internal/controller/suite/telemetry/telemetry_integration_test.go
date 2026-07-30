@@ -38,6 +38,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 )
 
@@ -355,7 +356,7 @@ var _ = Describe("Telemetry Integration Validation", Label("envtest", "dummy", "
 				Spec: humiov1alpha1.HumioClusterSpec{
 					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
 						Image:     "humio/humio-core:1.70.0",
-						NodeCount: 1,
+						NodeCount: ptr.To(int32(1)),
 					},
 					TargetReplicationFactor: 1,
 					StoragePartitionsCount:  24,
@@ -500,7 +501,7 @@ var _ = Describe("Telemetry Integration Validation", Label("envtest", "dummy", "
 					Spec: humiov1alpha1.HumioClusterSpec{
 						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
 							Image:     "humio/humio-core:1.70.0",
-							NodeCount: 1,
+							NodeCount: ptr.To(int32(1)),
 						},
 						TargetReplicationFactor: 1,
 						StoragePartitionsCount:  24,

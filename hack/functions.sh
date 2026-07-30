@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-declare -r kindest_node_image_multiplatform_amd64_arm64=${E2E_KIND_K8S_VERSION:-kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f}
-declare -r kind_version=0.30.0
+declare -r kindest_node_image_multiplatform_amd64_arm64=${E2E_KIND_K8S_VERSION:-kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95}
+declare -r kind_version=0.32.0
 declare -r go_version=1.24.9
 declare -r helm_version=3.14.4
 declare -r kubectl_version=1.34.0
@@ -89,6 +89,7 @@ install_kubectl() {
     [ $(uname -m) = aarch64 ] && curl -Lo $kubectl https://dl.k8s.io/release/v${kubectl_version}/bin/linux/arm64/kubectl
   fi
   chmod +x $kubectl
+  [ "$(uname -o)" = Darwin ] && xattr -cr $kubectl 2>/dev/null || true
   $kubectl version --client
 }
 
@@ -176,14 +177,28 @@ preload_container_images() {
     grep --only-matching --extended-regexp "humio/humio-operator-helper:[^\"]+" internal/controller/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} kind load docker-image {}
   else
     # Extract container image tags used by tests from go source
-    TEST_CONTAINER_IMAGES=$(grep 'Version\s*=\s*"' internal/controller/versions/versions.go | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
+    BASE_IMAGE_PIPELINE="grep 'Version\s*=\s*\"' internal/controller/versions/versions.go | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x"
+    if [[ ${local_helper_build:-true} == "true" ]]; then
+      # Exclude helper images since we build those locally
+      TEST_CONTAINER_IMAGES=$(eval "$BASE_IMAGE_PIPELINE | grep -v humio-operator-helper" | cut -d '"' -f 2 | sort -u)
+    else
+      # Include all images
+      TEST_CONTAINER_IMAGES=$(eval "$BASE_IMAGE_PIPELINE" | cut -d '"' -f 2 | sort -u)
+    fi
 
-    # Preload image used by e2e tests
+    # Pull all images in parallel first
     for image in $TEST_CONTAINER_IMAGES
     do
-      $docker pull $image
-      $kind load docker-image --name kind $image &
+      $docker pull $image &
     done
+    wait
+
+    # Then load them into Kind in parallel
+    for image in $TEST_CONTAINER_IMAGES
+    do
+      $kind load docker-image --name kind $image || echo "Warning: Failed to load $image, continuing..." &
+    done
+    wait
   fi
 
   # Preload image we will run e2e tests from within
@@ -314,4 +329,28 @@ kubectl_create_dockerhub_secret() {
   if [[ $docker_username != "none" ]] && [[ $docker_password != "none" ]]; then
     $kubectl create secret docker-registry regcred --docker-server="https://index.docker.io/v1/" --docker-username=$docker_username --docker-password=$docker_password
   fi
+}
+
+build_and_load_local_helper_image() {
+  echo "Building local helper image with latest code changes..."
+  
+  # Copy LICENSE into build context (Dockerfile expects it but it lives at repo root)
+  cp LICENSE images/helper/LICENSE
+
+  # Build helper image from local code
+  $docker build -t humio/humio-operator-helper:local -f images/helper/Dockerfile images/helper/
+  
+  # Tag with the versions expected by tests
+  local helper_versions=$(grep --only-matching --extended-regexp "humio/humio-operator-helper:[^\"]+" internal/controller/versions/versions.go | cut -d: -f2 | tr -d '"')
+  
+  for version in $helper_versions; do
+    echo "Tagging and loading helper image as humio/humio-operator-helper:$version"
+    $docker tag humio/humio-operator-helper:local humio/humio-operator-helper:$version
+    $kind load docker-image --name kind humio/humio-operator-helper:$version
+  done
+  
+  # Also load the 'local' tag
+  $kind load docker-image --name kind humio/humio-operator-helper:local
+  
+  echo "Local helper image built and loaded into Kind cluster"
 }

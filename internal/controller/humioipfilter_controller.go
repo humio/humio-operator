@@ -107,7 +107,7 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Add finalizer for IPFilter so we can run cleanup on delete
-	if !helpers.ContainsElement(hi.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hi) && !helpers.ContainsElement(hi.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to IPFilter")
 		if err := r.addFinalizer(ctx, hi); err != nil {
 			return reconcile.Result{}, err
@@ -139,9 +139,8 @@ func (r *HumioIPFilterReconciler) handleIPFilterDeletion(ctx context.Context, hu
 		return reconcile.Result{}, nil
 	}
 
-	// Check for force finalize annotation
-	if ShouldForceFinalize(hi) {
-		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+	if ShouldSkipFinalizer(r.CommonConfig, hi) {
+		r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 			"resource", hi.Name,
 			"namespace", hi.Namespace)
 		hi.SetFinalizers(helpers.RemoveElement(hi.GetFinalizers(), HumioFinalizer))

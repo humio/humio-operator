@@ -88,7 +88,7 @@ func ensureTokenSecretExists(ctx context.Context, controller TokenController, to
 	}
 
 	// ensure finalizer is added to secret to prevent accidental deletion
-	if !helpers.ContainsElement(desiredSecret.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(controller.GetCommonConfig(), tokenResource) && !helpers.ContainsElement(desiredSecret.GetFinalizers(), HumioFinalizer) {
 		controllerutil.AddFinalizer(desiredSecret, HumioFinalizer)
 	}
 
@@ -189,7 +189,7 @@ func handleCriticalError(ctx context.Context, controller TokenController, tokenR
 
 // addFinalizer adds a finalizer to the CR to ensure cleanup function runs before deletion
 func addFinalizer(ctx context.Context, controller TokenController, tokenResource TokenResource) error {
-	if !helpers.ContainsElement(tokenResource.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(controller.GetCommonConfig(), tokenResource) && !helpers.ContainsElement(tokenResource.GetFinalizers(), HumioFinalizer) {
 		controller.Logger().Info(fmt.Sprintf("adding Finalizer to Humio Token %s", tokenResource.GetSpec().Name))
 		tokenResource.SetFinalizers(append(tokenResource.GetFinalizers(), HumioFinalizer))
 		err := controller.Update(ctx, tokenResource)

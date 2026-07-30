@@ -63,6 +63,15 @@ const (
 
 	// nodepool internal
 	NodePoolFeatureAllowedAPIRequestType = "OperatorInternal"
+
+	// NodeRoleIngestOnly is the NODE_ROLES value for ingest-only nodes.
+	NodeRoleIngestOnly = "ingestonly"
+	// NodeRoleLightweightIngestOnly is the NODE_ROLES value for lightweight-ingest-only nodes.
+	NodeRoleLightweightIngestOnly = "lightweightingestonly"
+	// NodeRoleHTTPOnly is the NODE_ROLES value for HTTP-only nodes (UI, query coord, ingest).
+	NodeRoleHTTPOnly = "httponly"
+	// EnvVarNodeRoles is the environment variable key for node role configuration.
+	EnvVarNodeRoles = "NODE_ROLES"
 )
 
 type HumioNodePool struct {
@@ -91,6 +100,15 @@ type HumioNodePool struct {
 	desiredBootstrapTokenHash string
 	podDisruptionBudget       *humiov1alpha1.HumioPodDisruptionBudgetSpec
 	managedFieldsTracker      corev1.Pod
+	statusDesiredReplicas     int32
+	workloadServicesEnabled   bool
+}
+
+func nodePoolImage(poolImage, clusterImage string) string {
+	if poolImage != "" {
+		return poolImage
+	}
+	return clusterImage
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
@@ -99,6 +117,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 	desiredPodRevision := 0
 	desiredPodHash := ""
 	desiredBootstrapTokenHash := ""
+	var desiredReplicas int32
 	for _, status := range hc.Status.NodePoolStatus {
 		if status.Name == hc.Name {
 			state = status.State
@@ -106,6 +125,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			desiredPodRevision = status.DesiredPodRevision
 			desiredPodHash = status.DesiredPodHash
 			desiredBootstrapTokenHash = status.DesiredBootstrapTokenHash
+			desiredReplicas = status.DesiredReplicas
 			break
 		}
 	}
@@ -119,8 +139,9 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 		esHostnameSource:    hc.Spec.ESHostnameSource,
 		podDisruptionBudget: hc.Spec.PodDisruptionBudget,
 		humioNodeSpec: humiov1alpha1.HumioNodeSpec{
-			Image:     hc.Spec.Image,
-			NodeCount: hc.Spec.NodeCount,
+			Image:       hc.Spec.Image,
+			NodeCount:   hc.Spec.NodeCount,
+			Autoscaling: hc.Spec.Autoscaling,
 			DataVolumePersistentVolumeClaimSpecTemplate: hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate,
 			DataVolumePersistentVolumeClaimPolicy:       hc.Spec.DataVolumePersistentVolumeClaimPolicy,
 			DataVolumeSource:                            hc.Spec.DataVolumeSource,
@@ -142,6 +163,8 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			TopologySpreadConstraints:                   hc.Spec.TopologySpreadConstraints,
 			TerminationGracePeriodSeconds:               hc.Spec.TerminationGracePeriodSeconds,
 			Affinity:                                    hc.Spec.Affinity,
+			DNSPolicy:                                   hc.Spec.DNSPolicy,
+			DNSConfig:                                   hc.Spec.DNSConfig,
 			SidecarContainers:                           hc.Spec.SidecarContainers,
 			ExtraInitContainers:                         hc.Spec.ExtraInitContainers,
 			ExtraKafkaConfigs:                           hc.Spec.ExtraKafkaConfigs,
@@ -160,7 +183,11 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			UpdateStrategy:                              hc.Spec.UpdateStrategy,
 			PriorityClassName:                           hc.Spec.PriorityClassName,
 			NodePoolFeatures:                            hc.Spec.NodePoolFeatures,
+			DependencyCheck:                             hc.Spec.DependencyCheck,
 			PodDisruptionBudget:                         hc.Spec.PodDisruptionBudget,
+			ContainerLifecycle:                          hc.Spec.ContainerLifecycle,
+			WorkloadTypes:                               hc.Spec.WorkloadTypes,
+			EnableNodePoolService:                       hc.Spec.EnableNodePoolService,
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -177,6 +204,8 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 		desiredPodRevision:        desiredPodRevision,
 		desiredPodHash:            desiredPodHash,
 		desiredBootstrapTokenHash: desiredBootstrapTokenHash,
+		statusDesiredReplicas:     desiredReplicas,
+		workloadServicesEnabled:   len(hc.Spec.WorkloadServices) > 0,
 	}
 }
 
@@ -186,6 +215,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 	desiredPodRevision := 0
 	desiredPodHash := ""
 	desiredBootstrapTokenHash := ""
+	var desiredReplicas int32
 	for _, status := range hc.Status.NodePoolStatus {
 		if status.Name == strings.Join([]string{hc.Name, hnp.Name}, "-") {
 			state = status.State
@@ -193,6 +223,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			desiredPodRevision = status.DesiredPodRevision
 			desiredPodHash = status.DesiredPodHash
 			desiredBootstrapTokenHash = status.DesiredBootstrapTokenHash
+			desiredReplicas = status.DesiredReplicas
 			break
 		}
 	}
@@ -207,8 +238,9 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 		esHostnameSource:    hc.Spec.ESHostnameSource,
 		podDisruptionBudget: hc.Spec.PodDisruptionBudget,
 		humioNodeSpec: humiov1alpha1.HumioNodeSpec{
-			Image:     hnp.Image,
-			NodeCount: hnp.NodeCount,
+			Image:       nodePoolImage(hnp.Image, hc.Spec.Image),
+			NodeCount:   hnp.HumioNodeSpec.NodeCount,
+			Autoscaling: hnp.Autoscaling,
 			DataVolumePersistentVolumeClaimSpecTemplate: hnp.DataVolumePersistentVolumeClaimSpecTemplate,
 			DataVolumeSource:               hnp.DataVolumeSource,
 			DisableInitContainer:           hnp.DisableInitContainer,
@@ -229,6 +261,8 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			TopologySpreadConstraints:      hnp.TopologySpreadConstraints,
 			TerminationGracePeriodSeconds:  hnp.TerminationGracePeriodSeconds,
 			Affinity:                       hnp.Affinity,
+			DNSPolicy:                      hnp.DNSPolicy,
+			DNSConfig:                      hnp.DNSConfig,
 			SidecarContainers:              hnp.SidecarContainers,
 			ExtraInitContainers:            hnp.ExtraInitContainers,
 			ExtraKafkaConfigs:              hnp.ExtraKafkaConfigs,
@@ -247,7 +281,11 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			UpdateStrategy:                 hnp.UpdateStrategy,
 			PriorityClassName:              hnp.PriorityClassName,
 			NodePoolFeatures:               hnp.NodePoolFeatures,
+			DependencyCheck:                hnp.DependencyCheck,
 			PodDisruptionBudget:            hnp.PodDisruptionBudget,
+			ContainerLifecycle:             hnp.ContainerLifecycle,
+			WorkloadTypes:                  hnp.WorkloadTypes,
+			EnableNodePoolService:          hnp.EnableNodePoolService,
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -264,6 +302,8 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 		desiredPodRevision:        desiredPodRevision,
 		desiredPodHash:            desiredPodHash,
 		desiredBootstrapTokenHash: desiredBootstrapTokenHash,
+		statusDesiredReplicas:     desiredReplicas,
+		workloadServicesEnabled:   len(hc.Spec.WorkloadServices) > 0,
 	}
 }
 
@@ -276,6 +316,12 @@ func (hnp *HumioNodePool) GetNodePoolName() string {
 		return hnp.GetClusterName()
 	}
 	return strings.Join([]string{hnp.GetClusterName(), hnp.nodePoolName}, "-")
+}
+
+// GetRawNodePoolName returns the node pool suffix name without the cluster name prefix.
+// Returns empty string for the default (cluster-level) node pool.
+func (hnp *HumioNodePool) GetRawNodePoolName() string {
+	return hnp.nodePoolName
 }
 
 func (hnp *HumioNodePool) GetNamespace() string {
@@ -558,7 +604,31 @@ func (hnp *HumioNodePool) GetPodLabels() map[string]string {
 			labels[kubernetes.FeatureLabelName] = NodePoolFeatureAllowedAPIRequestType
 		}
 	}
+	if hnp.workloadServicesEnabled {
+		for _, wt := range hnp.GetWorkloadTypes() {
+			labels[kubernetes.WorkloadTypeLabelPrefix+wt] = "true"
+		}
+	}
 	return labels
+}
+
+// GetWorkloadTypes returns the workload types for this node pool.
+// If WorkloadTypes is explicitly set, it returns that value.
+// Otherwise, it auto-derives from NODE_ROLES:
+//
+//	all / "" / unset → ["digest", "ingest"]
+//	httponly / ingestonly / lightweightingestonly → ["ingest"]
+func (hnp *HumioNodePool) GetWorkloadTypes() []string {
+	if hnp.humioNodeSpec.WorkloadTypes != nil {
+		return *hnp.humioNodeSpec.WorkloadTypes
+	}
+	nodeRoles := EnvVarValue(hnp.GetEnvironmentVariables(), EnvVarNodeRoles)
+	switch nodeRoles {
+	case NodeRoleIngestOnly, NodeRoleLightweightIngestOnly, NodeRoleHTTPOnly:
+		return []string{"ingest"}
+	default:
+		return []string{"digest", "ingest"}
+	}
 }
 
 func (hnp *HumioNodePool) GetCommonClusterLabels() map[string]string {
@@ -572,7 +642,7 @@ func (hnp *HumioNodePool) GetLabelsForSecret(secretName string) map[string]strin
 }
 
 func (hnp *HumioNodePool) GetNodeCount() int {
-	return hnp.humioNodeSpec.NodeCount
+	return int(resolveEffectiveNodeCount(hnp.humioNodeSpec.NodeCount, hnp.statusDesiredReplicas, hnp.humioNodeSpec.Autoscaling))
 }
 
 func (hnp *HumioNodePool) GetDataVolumePersistentVolumeClaimSpecTemplate(pvcName string) corev1.VolumeSource {
@@ -785,6 +855,18 @@ func (hnp *HumioNodePool) GetTolerations() []corev1.Toleration {
 	return hnp.humioNodeSpec.Tolerations
 }
 
+// DNSPolicy returns the DNS policy for pods in this node pool.
+// Returns empty string when unset, delegating DNS policy to Kubernetes defaults.
+func (hnp *HumioNodePool) DNSPolicy() corev1.DNSPolicy {
+	return hnp.humioNodeSpec.DNSPolicy
+}
+
+// DNSConfig returns the custom DNS configuration for pods in this node pool.
+// Returns nil when unset.
+func (hnp *HumioNodePool) DNSConfig() *corev1.PodDNSConfig {
+	return hnp.humioNodeSpec.DNSConfig
+}
+
 func (hnp *HumioNodePool) GetTopologySpreadConstraints() []corev1.TopologySpreadConstraint {
 	return hnp.humioNodeSpec.TopologySpreadConstraints
 }
@@ -992,6 +1074,10 @@ func (hnp *HumioNodePool) GetTerminationGracePeriodSeconds() *int64 {
 	return hnp.humioNodeSpec.TerminationGracePeriodSeconds
 }
 
+func (hnp *HumioNodePool) GetContainerLifecycle() *corev1.Lifecycle {
+	return hnp.humioNodeSpec.ContainerLifecycle
+}
+
 func (hnp *HumioNodePool) GetIDPCertificateSecretName() string {
 	if hnp.idpCertificateSecretName != "" {
 		return hnp.idpCertificateSecretName
@@ -1037,6 +1123,13 @@ func (hnp *HumioNodePool) GetServiceName() string {
 		return hnp.clusterName
 	}
 	return fmt.Sprintf("%s-%s", hnp.clusterName, hnp.nodePoolName)
+}
+
+func (hnp *HumioNodePool) NodePoolServiceEnabled() bool {
+	if hnp.humioNodeSpec.EnableNodePoolService == nil {
+		return true
+	}
+	return *hnp.humioNodeSpec.EnableNodePoolService
 }
 
 func (hnp *HumioNodePool) InitContainerDisabled() bool {
@@ -1104,11 +1197,38 @@ func (hnp *HumioNodePool) OkToDeletePvc() bool {
 	return hnp.GetDataVolumePersistentVolumeClaimPolicy().ReclaimType == humiov1alpha1.HumioPersistentVolumeReclaimTypeOnNodeDelete
 }
 
+// GetNodePoolFeatureAllowedAPIRequestTypes returns the list of allowed API
+// request type features for this node pool. When AllowedAPIRequestTypes is nil,
+// ingest-only roles (ingestonly, lightweightingestonly) return an empty slice;
+// all other roles return the default OperatorInternal feature.
 func (hnp *HumioNodePool) GetNodePoolFeatureAllowedAPIRequestTypes() []string {
 	if hnp.humioNodeSpec.NodePoolFeatures.AllowedAPIRequestTypes != nil {
 		return *hnp.humioNodeSpec.NodePoolFeatures.AllowedAPIRequestTypes
 	}
+
+	nodeRoles := EnvVarValue(hnp.GetEnvironmentVariables(), EnvVarNodeRoles)
+	if nodeRoles == NodeRoleIngestOnly || nodeRoles == NodeRoleLightweightIngestOnly {
+		return []string{}
+	}
+
 	return []string{NodePoolFeatureAllowedAPIRequestType}
+}
+
+// GetDependencyCheckConfig returns the dependency check configuration
+func (hnp *HumioNodePool) GetDependencyCheckConfig() *humiov1alpha1.DependencyCheckConfig {
+	return hnp.humioNodeSpec.DependencyCheck
+}
+
+// DependencyCheckEnabled returns true if dependency checking is enabled
+func (hnp *HumioNodePool) DependencyCheckEnabled() bool {
+	if hnp.humioNodeSpec.DependencyCheck == nil {
+		return false
+	}
+	enforcement := hnp.humioNodeSpec.DependencyCheck.Enforcement
+	if enforcement == "" {
+		enforcement = "required"
+	}
+	return enforcement != "disabled"
 }
 
 // AppendHumioContainerEnvVarToManagedFields merges the container into the managed fields for the node pool. for
@@ -1297,5 +1417,3 @@ func mergeEnvironmentVariables(src, dest *corev1.Container) {
 		}
 	}
 }
-
-// Note: Use EnvVarHasKey from this package to avoid duplicating helpers

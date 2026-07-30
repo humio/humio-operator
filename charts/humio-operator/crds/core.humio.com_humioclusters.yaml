@@ -985,6 +985,27 @@ spec:
                   If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
                   Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.
                 type: boolean
+              autoscaling:
+                description: |-
+                  Autoscaling defines bounds for HPA-driven scaling.
+                  When configured with EnableIndependentHumioNodePools, allows external autoscalers
+                  (HPA, KEDA) to manage replica counts within specified bounds.
+                properties:
+                  maxReplicas:
+                    description: MaxReplicas is the upper bound for autoscaling. Must
+                      be >= 1.
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  minReplicas:
+                    description: MinReplicas is the lower bound for autoscaling. Must
+                      be >= 1.
+                    format: int32
+                    minimum: 1
+                    type: integer
+                required:
+                - maxReplicas
+                type: object
               bootstrapToken:
                 description: BootstrapToken controls bootstrap token creation behavior
                 properties:
@@ -1116,6 +1137,233 @@ spec:
                   - name
                   type: object
                 type: array
+              containerLifecycle:
+                description: |-
+                  ContainerLifecycle defines lifecycle actions for the main Humio container.
+                  This can be used to configure preStop hooks for graceful shutdown.
+                properties:
+                  postStart:
+                    description: |-
+                      PostStart is called immediately after a container is created. If the handler fails,
+                      the container is terminated and restarted according to its restart policy.
+                      Other management of the container blocks until the hook completes.
+                      More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
+                    properties:
+                      exec:
+                        description: Exec specifies a command to execute in the container.
+                        properties:
+                          command:
+                            description: |-
+                              Command is the command line to execute inside the container, the working directory for the
+                              command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                              not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                              a shell, you need to explicitly call out to that shell.
+                              Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        type: object
+                      httpGet:
+                        description: HTTPGet specifies an HTTP GET request to perform.
+                        properties:
+                          host:
+                            description: |-
+                              Host name to connect to, defaults to the pod IP. You probably want to set
+                              "Host" in httpHeaders instead.
+                            type: string
+                          httpHeaders:
+                            description: Custom headers to set in the request. HTTP
+                              allows repeated headers.
+                            items:
+                              description: HTTPHeader describes a custom header to
+                                be used in HTTP probes
+                              properties:
+                                name:
+                                  description: |-
+                                    The header field name.
+                                    This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                  type: string
+                                value:
+                                  description: The header field value
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          path:
+                            description: Path to access on the HTTP server.
+                            type: string
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              Name or number of the port to access on the container.
+                              Number must be in the range 1 to 65535.
+                              Name must be an IANA_SVC_NAME.
+                            x-kubernetes-int-or-string: true
+                          scheme:
+                            description: |-
+                              Scheme to use for connecting to the host.
+                              Defaults to HTTP.
+                            type: string
+                        required:
+                        - port
+                        type: object
+                      sleep:
+                        description: Sleep represents a duration that the container
+                          should sleep.
+                        properties:
+                          seconds:
+                            description: Seconds is the number of seconds to sleep.
+                            format: int64
+                            type: integer
+                        required:
+                        - seconds
+                        type: object
+                      tcpSocket:
+                        description: |-
+                          Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
+                          for backward compatibility. There is no validation of this field and
+                          lifecycle hooks will fail at runtime when it is specified.
+                        properties:
+                          host:
+                            description: 'Optional: Host name to connect to, defaults
+                              to the pod IP.'
+                            type: string
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              Number or name of the port to access on the container.
+                              Number must be in the range 1 to 65535.
+                              Name must be an IANA_SVC_NAME.
+                            x-kubernetes-int-or-string: true
+                        required:
+                        - port
+                        type: object
+                    type: object
+                  preStop:
+                    description: |-
+                      PreStop is called immediately before a container is terminated due to an
+                      API request or management event such as liveness/startup probe failure,
+                      preemption, resource contention, etc. The handler is not called if the
+                      container crashes or exits. The Pod's termination grace period countdown begins before the
+                      PreStop hook is executed. Regardless of the outcome of the handler, the
+                      container will eventually terminate within the Pod's termination grace
+                      period (unless delayed by finalizers). Other management of the container blocks until the hook completes
+                      or until the termination grace period is reached.
+                      More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
+                    properties:
+                      exec:
+                        description: Exec specifies a command to execute in the container.
+                        properties:
+                          command:
+                            description: |-
+                              Command is the command line to execute inside the container, the working directory for the
+                              command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                              not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                              a shell, you need to explicitly call out to that shell.
+                              Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        type: object
+                      httpGet:
+                        description: HTTPGet specifies an HTTP GET request to perform.
+                        properties:
+                          host:
+                            description: |-
+                              Host name to connect to, defaults to the pod IP. You probably want to set
+                              "Host" in httpHeaders instead.
+                            type: string
+                          httpHeaders:
+                            description: Custom headers to set in the request. HTTP
+                              allows repeated headers.
+                            items:
+                              description: HTTPHeader describes a custom header to
+                                be used in HTTP probes
+                              properties:
+                                name:
+                                  description: |-
+                                    The header field name.
+                                    This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                  type: string
+                                value:
+                                  description: The header field value
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          path:
+                            description: Path to access on the HTTP server.
+                            type: string
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              Name or number of the port to access on the container.
+                              Number must be in the range 1 to 65535.
+                              Name must be an IANA_SVC_NAME.
+                            x-kubernetes-int-or-string: true
+                          scheme:
+                            description: |-
+                              Scheme to use for connecting to the host.
+                              Defaults to HTTP.
+                            type: string
+                        required:
+                        - port
+                        type: object
+                      sleep:
+                        description: Sleep represents a duration that the container
+                          should sleep.
+                        properties:
+                          seconds:
+                            description: Seconds is the number of seconds to sleep.
+                            format: int64
+                            type: integer
+                        required:
+                        - seconds
+                        type: object
+                      tcpSocket:
+                        description: |-
+                          Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
+                          for backward compatibility. There is no validation of this field and
+                          lifecycle hooks will fail at runtime when it is specified.
+                        properties:
+                          host:
+                            description: 'Optional: Host name to connect to, defaults
+                              to the pod IP.'
+                            type: string
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              Number or name of the port to access on the container.
+                              Number must be in the range 1 to 65535.
+                              Name must be an IANA_SVC_NAME.
+                            x-kubernetes-int-or-string: true
+                        required:
+                        - port
+                        type: object
+                    type: object
+                  stopSignal:
+                    description: |-
+                      StopSignal defines which signal will be sent to a container when it is being stopped.
+                      If not specified, the default is defined by the container runtime in use.
+                      StopSignal can only be set for Pods with a non-empty .spec.os.name
+                    type: string
+                type: object
               containerLivenessProbe:
                 description: |-
                   ContainerLivenessProbe is the liveness probe applied to the Humio container
@@ -3756,6 +4004,50 @@ spec:
                     - volumePath
                     type: object
                 type: object
+              dependencyCheck:
+                description: |-
+                  DependencyCheck configures startup dependency checking
+                  When configured, the init container will check dependency availability
+                  before allowing the main Humio container to start
+                  If not specified, dependency checks are disabled (backwards compatible)
+                properties:
+                  enforcement:
+                    default: required
+                    description: |-
+                      Enforcement controls how dependency check failures are handled:
+                        required  - (default) pod startup is blocked until all checks pass
+                        advisory  - failures are logged but pod startup is not blocked
+                        disabled  - dependency checking is completely disabled
+                    enum:
+                    - required
+                    - advisory
+                    - disabled
+                    type: string
+                  exclude:
+                    description: |-
+                      Exclude lists check types to skip even if auto-discovered from environment variables.
+                      Valid values are: kafka, s3, gcs
+                    items:
+                      description: DependencyCheckType represents the type of dependency
+                        check to perform.
+                      enum:
+                      - kafka
+                      - s3
+                      - gcs
+                      type: string
+                    type: array
+                  retryIntervalSeconds:
+                    default: 5
+                    description: RetryIntervalSeconds is the time between retry attempts
+                    minimum: 1
+                    type: integer
+                  timeoutSeconds:
+                    default: 600
+                    description: TimeoutSeconds is the maximum time for the entire
+                      dependency check process
+                    minimum: 60
+                    type: integer
+                type: object
               digestPartitionsCount:
                 description: DigestPartitionsCount is the desired number of digest
                   partitions
@@ -3765,6 +4057,68 @@ spec:
                 description: |-
                   DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
                   This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
+                type: boolean
+              dnsConfig:
+                description: |-
+                  DNSConfig defines the DNS configuration for the pod.
+                  This field is required when DNSPolicy is set to None.
+                properties:
+                  nameservers:
+                    description: |-
+                      A list of DNS name server IP addresses.
+                      This will be appended to the base nameservers generated from DNSPolicy.
+                      Duplicated nameservers will be removed.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  options:
+                    description: |-
+                      A list of DNS resolver options.
+                      This will be merged with the base options generated from DNSPolicy.
+                      Duplicated entries will be removed. Resolution options given in Options
+                      will override those that appear in the base DNSPolicy.
+                    items:
+                      description: PodDNSConfigOption defines DNS resolver options
+                        of a pod.
+                      properties:
+                        name:
+                          description: |-
+                            Name is this DNS resolver option's name.
+                            Required.
+                          type: string
+                        value:
+                          description: Value is this DNS resolver option's value.
+                          type: string
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  searches:
+                    description: |-
+                      A list of DNS search domains for host-name lookup.
+                      This will be appended to the base search paths generated from DNSPolicy.
+                      Duplicated search paths will be removed.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
+              dnsPolicy:
+                description: |-
+                  DNSPolicy sets the DNS policy for the pod.
+                  Valid values: ClusterFirst, ClusterFirstWithHostNet, Default, None.
+                  When unset, Kubernetes applies ClusterFirst default.
+                enum:
+                - ClusterFirst
+                - ClusterFirstWithHostNet
+                - Default
+                - None
+                type: string
+              enableNodePoolService:
+                description: |-
+                  EnableNodePoolService controls whether the per-node-pool service is created for this pool.
+                  When nil or true, the per-pool service is created as normal (backwards compatible default).
+                  Set to false to opt out of per-pool service creation once workload-type aggregate services are in place.
                 type: boolean
               environmentVariables:
                 description: |-
@@ -7271,6 +7625,15 @@ spec:
                       Default: false
                       Preview: this feature is in a preview state
                     type: boolean
+                  enableIndependentHumioNodePools:
+                    default: false
+                    description: |-
+                      EnableIndependentHumioNodePools enables independent HumioNodePool resource creation for embedded node pools.
+                      This creates shadow HumioNodePool CRD resources that mirror embedded node pool specs,
+                      enabling advanced features like HPA autoscaling and individual node pool management.
+                      When disabled, the operator works as before without creating HumioNodePool resources.
+                      Default: false
+                    type: boolean
                 type: object
               helperImage:
                 description: HelperImage is the desired helper container image, including
@@ -7501,8 +7864,8 @@ spec:
                     x-kubernetes-map-type: atomic
                 type: object
               nodeCount:
-                default: 0
                 description: NodeCount is the desired number of humio cluster nodes
+                format: int32
                 type: integer
               nodePoolFeatures:
                 description: NodePoolFeatures defines the features that are allowed
@@ -7523,12 +7886,71 @@ spec:
                   description: HumioNodePoolSpec is used to attach a name to an instance
                     of HumioNodeSpec
                   properties:
+                    clusterName:
+                      description: |-
+                        ClusterName is the name of the HumioCluster this node pool belongs to.
+                        Required for standalone HumioNodePool resources, optional for embedded node pools.
+                      type: string
                     name:
                       description: |-
                         Name holds a name for this specific group of cluster pods. This name is used when constructing pod names, so it
                         is useful to use a name that reflects what the pods are configured to do.
                       minLength: 1
                       type: string
+                    nodeCount:
+                      description: |-
+                        NodeCount is the top-level node count field used by the scale subresource.
+                        This is set by the controller for shadow HumioNodePool CRs.
+                      format: int32
+                      minimum: 0
+                      type: integer
+                    selector:
+                      description: Selector is used by HPA to identify which pods
+                        belong to this node pool.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     spec:
                       description: HumioNodeSpec contains a collection of various
                         configurations that are specific to a given group of LogScale
@@ -8464,6 +8886,260 @@ spec:
                             AuthServiceAccountName is no longer used as the auth sidecar container has been removed.
                             Deprecated: No longer used. The value will be ignored.
                           type: string
+                        autoscaling:
+                          description: |-
+                            Autoscaling defines bounds for HPA-driven scaling.
+                            When configured with EnableIndependentHumioNodePools, allows external autoscalers
+                            (HPA, KEDA) to manage replica counts within specified bounds.
+                          properties:
+                            maxReplicas:
+                              description: MaxReplicas is the upper bound for autoscaling.
+                                Must be >= 1.
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            minReplicas:
+                              description: MinReplicas is the lower bound for autoscaling.
+                                Must be >= 1.
+                              format: int32
+                              minimum: 1
+                              type: integer
+                          required:
+                          - maxReplicas
+                          type: object
+                        containerLifecycle:
+                          description: |-
+                            ContainerLifecycle defines lifecycle actions for the main Humio container.
+                            This can be used to configure preStop hooks for graceful shutdown.
+                          properties:
+                            postStart:
+                              description: |-
+                                PostStart is called immediately after a container is created. If the handler fails,
+                                the container is terminated and restarted according to its restart policy.
+                                Other management of the container blocks until the hook completes.
+                                More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
+                              properties:
+                                exec:
+                                  description: Exec specifies a command to execute
+                                    in the container.
+                                  properties:
+                                    command:
+                                      description: |-
+                                        Command is the command line to execute inside the container, the working directory for the
+                                        command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                                        not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                                        a shell, you need to explicitly call out to that shell.
+                                        Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  type: object
+                                httpGet:
+                                  description: HTTPGet specifies an HTTP GET request
+                                    to perform.
+                                  properties:
+                                    host:
+                                      description: |-
+                                        Host name to connect to, defaults to the pod IP. You probably want to set
+                                        "Host" in httpHeaders instead.
+                                      type: string
+                                    httpHeaders:
+                                      description: Custom headers to set in the request.
+                                        HTTP allows repeated headers.
+                                      items:
+                                        description: HTTPHeader describes a custom
+                                          header to be used in HTTP probes
+                                        properties:
+                                          name:
+                                            description: |-
+                                              The header field name.
+                                              This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                            type: string
+                                          value:
+                                            description: The header field value
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    path:
+                                      description: Path to access on the HTTP server.
+                                      type: string
+                                    port:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        Name or number of the port to access on the container.
+                                        Number must be in the range 1 to 65535.
+                                        Name must be an IANA_SVC_NAME.
+                                      x-kubernetes-int-or-string: true
+                                    scheme:
+                                      description: |-
+                                        Scheme to use for connecting to the host.
+                                        Defaults to HTTP.
+                                      type: string
+                                  required:
+                                  - port
+                                  type: object
+                                sleep:
+                                  description: Sleep represents a duration that the
+                                    container should sleep.
+                                  properties:
+                                    seconds:
+                                      description: Seconds is the number of seconds
+                                        to sleep.
+                                      format: int64
+                                      type: integer
+                                  required:
+                                  - seconds
+                                  type: object
+                                tcpSocket:
+                                  description: |-
+                                    Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
+                                    for backward compatibility. There is no validation of this field and
+                                    lifecycle hooks will fail at runtime when it is specified.
+                                  properties:
+                                    host:
+                                      description: 'Optional: Host name to connect
+                                        to, defaults to the pod IP.'
+                                      type: string
+                                    port:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        Number or name of the port to access on the container.
+                                        Number must be in the range 1 to 65535.
+                                        Name must be an IANA_SVC_NAME.
+                                      x-kubernetes-int-or-string: true
+                                  required:
+                                  - port
+                                  type: object
+                              type: object
+                            preStop:
+                              description: |-
+                                PreStop is called immediately before a container is terminated due to an
+                                API request or management event such as liveness/startup probe failure,
+                                preemption, resource contention, etc. The handler is not called if the
+                                container crashes or exits. The Pod's termination grace period countdown begins before the
+                                PreStop hook is executed. Regardless of the outcome of the handler, the
+                                container will eventually terminate within the Pod's termination grace
+                                period (unless delayed by finalizers). Other management of the container blocks until the hook completes
+                                or until the termination grace period is reached.
+                                More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
+                              properties:
+                                exec:
+                                  description: Exec specifies a command to execute
+                                    in the container.
+                                  properties:
+                                    command:
+                                      description: |-
+                                        Command is the command line to execute inside the container, the working directory for the
+                                        command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                                        not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                                        a shell, you need to explicitly call out to that shell.
+                                        Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  type: object
+                                httpGet:
+                                  description: HTTPGet specifies an HTTP GET request
+                                    to perform.
+                                  properties:
+                                    host:
+                                      description: |-
+                                        Host name to connect to, defaults to the pod IP. You probably want to set
+                                        "Host" in httpHeaders instead.
+                                      type: string
+                                    httpHeaders:
+                                      description: Custom headers to set in the request.
+                                        HTTP allows repeated headers.
+                                      items:
+                                        description: HTTPHeader describes a custom
+                                          header to be used in HTTP probes
+                                        properties:
+                                          name:
+                                            description: |-
+                                              The header field name.
+                                              This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                            type: string
+                                          value:
+                                            description: The header field value
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    path:
+                                      description: Path to access on the HTTP server.
+                                      type: string
+                                    port:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        Name or number of the port to access on the container.
+                                        Number must be in the range 1 to 65535.
+                                        Name must be an IANA_SVC_NAME.
+                                      x-kubernetes-int-or-string: true
+                                    scheme:
+                                      description: |-
+                                        Scheme to use for connecting to the host.
+                                        Defaults to HTTP.
+                                      type: string
+                                  required:
+                                  - port
+                                  type: object
+                                sleep:
+                                  description: Sleep represents a duration that the
+                                    container should sleep.
+                                  properties:
+                                    seconds:
+                                      description: Seconds is the number of seconds
+                                        to sleep.
+                                      format: int64
+                                      type: integer
+                                  required:
+                                  - seconds
+                                  type: object
+                                tcpSocket:
+                                  description: |-
+                                    Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
+                                    for backward compatibility. There is no validation of this field and
+                                    lifecycle hooks will fail at runtime when it is specified.
+                                  properties:
+                                    host:
+                                      description: 'Optional: Host name to connect
+                                        to, defaults to the pod IP.'
+                                      type: string
+                                    port:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        Number or name of the port to access on the container.
+                                        Number must be in the range 1 to 65535.
+                                        Name must be an IANA_SVC_NAME.
+                                      x-kubernetes-int-or-string: true
+                                  required:
+                                  - port
+                                  type: object
+                              type: object
+                            stopSignal:
+                              description: |-
+                                StopSignal defines which signal will be sent to a container when it is being stopped.
+                                If not specified, the default is defined by the container runtime in use.
+                                StopSignal can only be set for Pods with a non-empty .spec.os.name
+                              type: string
+                          type: object
                         containerLivenessProbe:
                           description: |-
                             ContainerLivenessProbe is the liveness probe applied to the Humio container
@@ -11140,11 +11816,119 @@ spec:
                               - volumePath
                               type: object
                           type: object
+                        dependencyCheck:
+                          description: |-
+                            DependencyCheck configures startup dependency checking
+                            When configured, the init container will check dependency availability
+                            before allowing the main Humio container to start
+                            If not specified, dependency checks are disabled (backwards compatible)
+                          properties:
+                            enforcement:
+                              default: required
+                              description: |-
+                                Enforcement controls how dependency check failures are handled:
+                                  required  - (default) pod startup is blocked until all checks pass
+                                  advisory  - failures are logged but pod startup is not blocked
+                                  disabled  - dependency checking is completely disabled
+                              enum:
+                              - required
+                              - advisory
+                              - disabled
+                              type: string
+                            exclude:
+                              description: |-
+                                Exclude lists check types to skip even if auto-discovered from environment variables.
+                                Valid values are: kafka, s3, gcs
+                              items:
+                                description: DependencyCheckType represents the type
+                                  of dependency check to perform.
+                                enum:
+                                - kafka
+                                - s3
+                                - gcs
+                                type: string
+                              type: array
+                            retryIntervalSeconds:
+                              default: 5
+                              description: RetryIntervalSeconds is the time between
+                                retry attempts
+                              minimum: 1
+                              type: integer
+                            timeoutSeconds:
+                              default: 600
+                              description: TimeoutSeconds is the maximum time for
+                                the entire dependency check process
+                              minimum: 60
+                              type: integer
+                          type: object
                         disableInitContainer:
                           default: false
                           description: |-
                             DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
                             This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
+                          type: boolean
+                        dnsConfig:
+                          description: |-
+                            DNSConfig defines the DNS configuration for the pod.
+                            This field is required when DNSPolicy is set to None.
+                          properties:
+                            nameservers:
+                              description: |-
+                                A list of DNS name server IP addresses.
+                                This will be appended to the base nameservers generated from DNSPolicy.
+                                Duplicated nameservers will be removed.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            options:
+                              description: |-
+                                A list of DNS resolver options.
+                                This will be merged with the base options generated from DNSPolicy.
+                                Duplicated entries will be removed. Resolution options given in Options
+                                will override those that appear in the base DNSPolicy.
+                              items:
+                                description: PodDNSConfigOption defines DNS resolver
+                                  options of a pod.
+                                properties:
+                                  name:
+                                    description: |-
+                                      Name is this DNS resolver option's name.
+                                      Required.
+                                    type: string
+                                  value:
+                                    description: Value is this DNS resolver option's
+                                      value.
+                                    type: string
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            searches:
+                              description: |-
+                                A list of DNS search domains for host-name lookup.
+                                This will be appended to the base search paths generated from DNSPolicy.
+                                Duplicated search paths will be removed.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          type: object
+                        dnsPolicy:
+                          description: |-
+                            DNSPolicy sets the DNS policy for the pod.
+                            Valid values: ClusterFirst, ClusterFirstWithHostNet, Default, None.
+                            When unset, Kubernetes applies ClusterFirst default.
+                          enum:
+                          - ClusterFirst
+                          - ClusterFirstWithHostNet
+                          - Default
+                          - None
+                          type: string
+                        enableNodePoolService:
+                          description: |-
+                            EnableNodePoolService controls whether the per-node-pool service is created for this pool.
+                            When nil or true, the per-pool service is created as normal (backwards compatible default).
+                            Set to false to opt out of per-pool service creation once workload-type aggregate services are in place.
                           type: boolean
                         environmentVariables:
                           description: |-
@@ -14769,9 +15553,9 @@ spec:
                             in the humio pod.
                           type: string
                         nodeCount:
-                          default: 0
                           description: NodeCount is the desired number of humio cluster
                             nodes
+                          format: int32
                           type: integer
                         nodePoolFeatures:
                           description: NodePoolFeatures defines the features that
@@ -14805,6 +15589,12 @@ spec:
                             enabled:
                               description: Enabled indicates whether PodDisruptionBudget
                                 is enabled for this NodePool.
+                              type: boolean
+                            freezeDuringUpdate:
+                              description: |-
+                                FreezeDuringUpdate blocks all voluntary pod evictions when the cluster is
+                                in Upgrading or Restarting state by setting minAvailable equal to the
+                                replica count. When nil or false, PDB fields reflect user-configured values.
                               type: boolean
                             maxUnavailable:
                               anyOf:
@@ -16874,7 +17664,22 @@ spec:
                               - RollingUpdateBestEffort
                               type: string
                           type: object
+                        workloadTypes:
+                          description: |-
+                            WorkloadTypes is a list of workload types this pool participates in.
+                            Each entry adds a label humio.com/workload-type/{value}: "true" to pods.
+                            If nil, workload types are automatically derived from NODE_ROLES:
+                              all / "" / unset → ["digest", "ingest"]
+                              httponly / ingestonly / lightweightingestonly → ["ingest"]
+                            Set explicitly to override automatic derivation (e.g., when using INITIAL_DISABLED_NODE_TASKS).
+                          items:
+                            type: string
+                          type: array
                       type: object
+                      x-kubernetes-validations:
+                      - message: dnsConfig is required when dnsPolicy is None
+                        rule: '!has(self.dnsPolicy) || self.dnsPolicy != ''None''
+                          || has(self.dnsConfig)'
                   required:
                   - name
                   type: object
@@ -16902,6 +17707,12 @@ spec:
                   enabled:
                     description: Enabled indicates whether PodDisruptionBudget is
                       enabled for this NodePool.
+                    type: boolean
+                  freezeDuringUpdate:
+                    description: |-
+                      FreezeDuringUpdate blocks all voluntary pod evictions when the cluster is
+                      in Upgrading or Restarting state by setting minAvailable equal to the
+                      replica count. When nil or false, PDB fields reflect user-configured values.
                     type: boolean
                   maxUnavailable:
                     anyOf:
@@ -19069,9 +19880,73 @@ spec:
                   ViewGroupPermissions is a multi-line string containing view-group-permissions.json.
                   Deprecated: Use RolePermissions instead.
                 type: string
+              workloadServices:
+                description: |-
+                  WorkloadServices defines aggregate services that span multiple node pools sharing the same workload type.
+                  Each entry creates a service named {cluster}-{name} that selects pods with the matching workload-type label.
+                  No aggregate services are created unless this field is populated.
+                items:
+                  description: WorkloadServiceSpec defines an aggregate service that
+                    spans multiple node pools sharing the same workload type.
+                  properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      description: Annotations to add to the aggregate service resource.
+                      type: object
+                    humioESServicePort:
+                      description: 'HumioESServicePort is the port number for the
+                        Elasticsearch interface on the aggregate service. Default:
+                        9200.'
+                      format: int32
+                      type: integer
+                    humioServicePort:
+                      description: 'HumioServicePort is the port number for the HTTP
+                        interface on the aggregate service. Default: 8080.'
+                      format: int32
+                      type: integer
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Labels to add to the aggregate service resource.
+                      type: object
+                    name:
+                      description: 'Name is the suffix for the aggregate service:
+                        {cluster}-{name}.'
+                      minLength: 1
+                      type: string
+                    serviceType:
+                      description: 'ServiceType is the Kubernetes service type for
+                        the aggregate service. Default: ClusterIP.'
+                      type: string
+                    workloadType:
+                      description: |-
+                        WorkloadType is the workload-type label value to select on.
+                        The service selector will match pods with label humio.com/workload-type/{workloadType}: "true".
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  - workloadType
+                  type: object
+                type: array
+              workloadTypes:
+                description: |-
+                  WorkloadTypes is a list of workload types this pool participates in.
+                  Each entry adds a label humio.com/workload-type/{value}: "true" to pods.
+                  If nil, workload types are automatically derived from NODE_ROLES:
+                    all / "" / unset → ["digest", "ingest"]
+                    httponly / ingestonly / lightweightingestonly → ["ingest"]
+                  Set explicitly to override automatic derivation (e.g., when using INITIAL_DISABLED_NODE_TASKS).
+                items:
+                  type: string
+                type: array
             required:
             - license
             type: object
+            x-kubernetes-validations:
+            - message: dnsConfig is required when dnsPolicy is None
+              rule: '!has(self.dnsPolicy) || self.dnsPolicy != ''None'' || has(self.dnsConfig)'
           status:
             description: HumioClusterStatus defines the observed state of HumioCluster.
             properties:
@@ -19164,6 +20039,11 @@ spec:
                 items:
                   description: HumioNodePoolStatus shows the status of each node pool
                   properties:
+                    currentReplicas:
+                      description: CurrentReplicas is the actual number of nodes running
+                        in this node pool
+                      format: int32
+                      type: integer
                     desiredBootstrapTokenHash:
                       description: DesiredBootstrapTokenHash holds a SHA256 of the
                         value set in environment variable BOOTSTRAP_ROOT_TOKEN_HASHED
@@ -19176,9 +20056,18 @@ spec:
                       description: DesiredPodRevision holds the desired pod revision
                         for pods of the given node pool.
                       type: integer
+                    desiredReplicas:
+                      description: DesiredReplicas is the target number of nodes for
+                        this node pool
+                      format: int32
+                      type: integer
                     name:
                       description: Name is the name of the node pool
                       minLength: 1
+                      type: string
+                    selector:
+                      description: Selector is the label selector string for the scale
+                        subresource
                       type: string
                     state:
                       description: State will be empty before the cluster is bootstrapped.

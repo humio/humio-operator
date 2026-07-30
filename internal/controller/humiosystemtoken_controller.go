@@ -143,9 +143,8 @@ func (r *HumioSystemTokenReconciler) handleSystemTokenDeletion(ctx context.Conte
 		return reconcile.Result{}, nil
 	}
 
-	// Check for force finalize annotation
-	if ShouldForceFinalize(hst) {
-		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+	if ShouldSkipFinalizer(r.CommonConfig, hst) {
+		r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 			"resource", hst.Name,
 			"namespace", hst.Namespace)
 		hst.SetFinalizers(helpers.RemoveElement(hst.GetFinalizers(), HumioFinalizer))

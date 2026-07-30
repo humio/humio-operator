@@ -365,9 +365,9 @@ func (r *HumioEventForwardingRuleReconciler) ensureFinalizer(
 	hefr *humiov1alpha1.HumioEventForwardingRule,
 ) (reconcile.Result, error, bool) {
 	if helpers.ContainsElement(hefr.GetFinalizers(), HumioFinalizer) {
-		// Check for force finalize annotation
-		if ShouldForceFinalize(hefr) {
-			r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+
+		if ShouldSkipFinalizer(r.CommonConfig, hefr) {
+			r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 				"resource", hefr.Name,
 				"namespace", hefr.Namespace)
 			hefr.SetFinalizers(helpers.RemoveElement(hefr.GetFinalizers(), HumioFinalizer))
@@ -444,9 +444,8 @@ func (r *HumioEventForwardingRuleReconciler) handleResourceDeletion(
 		return reconcile.Result{}, nil, true
 	}
 
-	// Check for force finalize annotation
-	if ShouldForceFinalize(hefr) {
-		r.Log.Info("Force finalize annotation detected, removing finalizer without cleanup",
+	if ShouldSkipFinalizer(r.CommonConfig, hefr) {
+		r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup",
 			"resource", hefr.Name,
 			"namespace", hefr.Namespace)
 		hefr.SetFinalizers(helpers.RemoveElement(hefr.GetFinalizers(), HumioFinalizer))

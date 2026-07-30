@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -254,7 +255,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 	nodeSpec := humiov1alpha1.HumioNodeSpec{
 		Image:             versions.DefaultHumioImageVersion(),
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
-		NodeCount:         1,
+		NodeCount:         ptr.To(int32(1)),
 		// Affinity needs to be overridden to exclude default value for kubernetes.io/arch to allow running local tests
 		// on ARM-based machines without getting pods stuck in "Pending" due to no nodes matching the affinity rules.
 		Affinity: corev1.Affinity{
@@ -578,7 +579,7 @@ func verifyNumPodsPodPhaseRunning(ctx context.Context, k8sClient client.Client, 
 		if err != nil {
 			return map[corev1.PodPhase]int{}
 		}
-		Expect(updatedClusterPods).To(HaveLen(cluster.Spec.NodeCount))
+		Expect(updatedClusterPods).To(HaveLen(int(*cluster.Spec.NodeCount)))
 
 		for _, pod := range updatedClusterPods {
 			phaseToCount[pod.Status.Phase] += 1
@@ -586,7 +587,7 @@ func verifyNumPodsPodPhaseRunning(ctx context.Context, k8sClient client.Client, 
 
 		return phaseToCount
 
-	}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, cluster.Spec.NodeCount))
+	}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, int(*cluster.Spec.NodeCount)))
 
 	for idx := range cluster.Spec.NodePools {
 		Eventually(func() map[corev1.PodPhase]int {
@@ -598,7 +599,7 @@ func verifyNumPodsPodPhaseRunning(ctx context.Context, k8sClient client.Client, 
 			if err != nil {
 				return map[corev1.PodPhase]int{}
 			}
-			Expect(updatedClusterPods).To(HaveLen(cluster.Spec.NodePools[idx].NodeCount))
+			Expect(updatedClusterPods).To(HaveLen(int(*cluster.Spec.NodePools[idx].HumioNodeSpec.NodeCount)))
 
 			for _, pod := range updatedClusterPods {
 				phaseToCount[pod.Status.Phase] += 1
@@ -606,7 +607,7 @@ func verifyNumPodsPodPhaseRunning(ctx context.Context, k8sClient client.Client, 
 
 			return phaseToCount
 
-		}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, cluster.Spec.NodePools[idx].NodeCount))
+		}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, int(*cluster.Spec.NodePools[idx].HumioNodeSpec.NodeCount)))
 	}
 }
 
@@ -682,7 +683,7 @@ func verifyNumClusterPods(ctx context.Context, k8sClient client.Client, key type
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(cluster).GetPodLabels())
 		_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 		return clusterPods
-	}, testTimeout, TestInterval).Should(HaveLen(cluster.Spec.NodeCount))
+	}, testTimeout, TestInterval).Should(HaveLen(int(*cluster.Spec.NodeCount)))
 
 	for idx, pool := range cluster.Spec.NodePools {
 		Eventually(func() []corev1.Pod {
@@ -690,7 +691,7 @@ func verifyNumClusterPods(ctx context.Context, k8sClient client.Client, key type
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(cluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
 			_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 			return clusterPods
-		}, testTimeout, TestInterval).Should(HaveLen(pool.NodeCount))
+		}, testTimeout, TestInterval).Should(HaveLen(int(*pool.HumioNodeSpec.NodeCount)))
 	}
 }
 
@@ -753,7 +754,7 @@ func verifyNumPodsContainerStatusReady(ctx context.Context, k8sClient client.Cli
 			}
 		}
 		return numPodsReady
-	}, testTimeout, TestInterval).Should(BeIdenticalTo(cluster.Spec.NodeCount))
+	}, testTimeout, TestInterval).Should(BeIdenticalTo(int(*cluster.Spec.NodeCount)))
 
 	for idx := range cluster.Spec.NodePools {
 		Eventually(func() int {
@@ -767,7 +768,7 @@ func verifyNumPodsContainerStatusReady(ctx context.Context, k8sClient client.Cli
 				}
 			}
 			return numPodsReady
-		}, testTimeout, TestInterval).Should(BeIdenticalTo(cluster.Spec.NodePools[idx].NodeCount))
+		}, testTimeout, TestInterval).Should(BeIdenticalTo(int(*cluster.Spec.NodePools[idx].HumioNodeSpec.NodeCount)))
 	}
 }
 
@@ -1437,4 +1438,89 @@ func CreatePdfRenderServiceAndWait(
 	}
 
 	return pdfCR
+}
+
+// MockServer represents a simple HTTP server for testing
+type MockServer struct {
+	Deployment *appsv1.Deployment
+	Service    *corev1.Service
+}
+
+// ConstructMockHTTPServer creates a simple HTTP server deployment and service that returns 200 OK
+func ConstructMockHTTPServer(key types.NamespacedName) *MockServer {
+	labels := map[string]string{
+		"app": key.Name,
+	}
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: helpers.Int32Ptr(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "mock-server",
+							Image: versions.MockHTTPServerImage(),
+							Args:  []string{"-text=OK", "-listen=:80"},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "http",
+									ContainerPort: 80,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+
+	return &MockServer{
+		Deployment: deployment,
+		Service:    service,
+	}
+}
+
+// CleanupMockServer removes the mock server deployment and service
+func CleanupMockServer(ctx context.Context, k8sClient client.Client, mockServer *MockServer) {
+	_ = k8sClient.Delete(ctx, mockServer.Deployment)
+	_ = k8sClient.Delete(ctx, mockServer.Service)
+}
+
+// FindEnvVar returns a pointer to the named environment variable, or nil if not found.
+func FindEnvVar(envVars []corev1.EnvVar, name string) *corev1.EnvVar {
+	for i := range envVars {
+		if envVars[i].Name == name {
+			return &envVars[i]
+		}
+	}
+	return nil
 }

@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("HumioBootstrapToken Controller", func() {
@@ -43,11 +44,14 @@ var _ = Describe("HumioBootstrapToken Controller", func() {
 					Namespace: key.Namespace,
 				},
 				Spec: humiov1alpha1.HumioClusterSpec{
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount: ptr.To(int32(0)),
+					},
 					NodePools: []humiov1alpha1.HumioNodePoolSpec{
 						{
 							Name: "node-pool-1",
 							HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-								NodeCount: 1,
+								NodeCount: ptr.To(int32(1)),
 								Affinity: corev1.Affinity{
 									NodeAffinity: &corev1.NodeAffinity{
 										RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{

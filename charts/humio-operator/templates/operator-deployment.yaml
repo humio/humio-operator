@@ -77,6 +77,8 @@ spec:
           value: {{ .Values.operator.watchNamespaces | join "," | quote }}
         - name: WATCH_LABEL_SELECTOR
           value: {{ .Values.operator.watchLabelSelector | quote }}
+        - name: HUMIO_ENABLE_FINALIZERS
+          value: {{ .Values.operator.enableFinalizers | quote }}
         livenessProbe:
           httpGet:
             path: /healthz

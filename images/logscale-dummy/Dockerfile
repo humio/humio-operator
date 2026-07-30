@@ -1,4 +1,4 @@
-FROM golang:1.24.9-alpine AS builder
+FROM golang:1.25.3-alpine AS builder
 
 RUN apk add bash
 

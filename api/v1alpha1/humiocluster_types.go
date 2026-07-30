@@ -133,6 +133,11 @@ type HumioClusterSpec struct {
 	// NodePools can be used to define additional groups of Humio cluster pods that share a set of configuration.
 	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
 
+	// WorkloadServices defines aggregate services that span multiple node pools sharing the same workload type.
+	// Each entry creates a service named {cluster}-{name} that selects pods with the matching workload-type label.
+	// No aggregate services are created unless this field is populated.
+	WorkloadServices []WorkloadServiceSpec `json:"workloadServices,omitempty"`
+
 	// TelemetryConfig contains the configuration for telemetry collection when enabled
 	// Telemetry is enabled if this field is not nil
 	TelemetryConfig *HumioTelemetryConfig `json:"telemetryConfig,omitempty"`
@@ -147,6 +152,7 @@ type HumioBootstrapTokenConfig struct {
 }
 
 // HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.
+// +kubebuilder:validation:XValidation:rule="!has(self.dnsPolicy) || self.dnsPolicy != 'None' || has(self.dnsConfig)",message="dnsConfig is required when dnsPolicy is None"
 type HumioNodeSpec struct {
 	// Image is the desired humio container image, including the image tag.
 	// The value from ImageSource takes precedence over Image.
@@ -158,8 +164,13 @@ type HumioNodeSpec struct {
 	ImageSource *HumioImageSource `json:"imageSource,omitempty"`
 
 	// NodeCount is the desired number of humio cluster nodes
-	// +kubebuilder:default=0
-	NodeCount int `json:"nodeCount,omitempty"`
+	NodeCount *int32 `json:"nodeCount,omitempty"`
+
+	// Autoscaling defines bounds for HPA-driven scaling.
+	// When configured with EnableIndependentHumioNodePools, allows external autoscalers
+	// (HPA, KEDA) to manage replica counts within specified bounds.
+	// +optional
+	Autoscaling *AutoscalingSpec `json:"autoscaling,omitempty"`
 
 	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
 	DataVolumePersistentVolumeClaimSpecTemplate corev1.PersistentVolumeClaimSpec `json:"dataVolumePersistentVolumeClaimSpecTemplate,omitempty"`
@@ -243,6 +254,18 @@ type HumioNodeSpec struct {
 	// TopologySpreadConstraints defines the topologySpreadConstraints that will be attached to the humio pods
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 
+	// DNSPolicy sets the DNS policy for the pod.
+	// Valid values: ClusterFirst, ClusterFirstWithHostNet, Default, None.
+	// When unset, Kubernetes applies ClusterFirst default.
+	// +kubebuilder:validation:Enum=ClusterFirst;ClusterFirstWithHostNet;Default;None
+	// +optional
+	DNSPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty"`
+
+	// DNSConfig defines the DNS configuration for the pod.
+	// This field is required when DNSPolicy is set to None.
+	// +optional
+	DNSConfig *corev1.PodDNSConfig `json:"dnsConfig,omitempty"`
+
 	// SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the
 	// Humio pod to help out in debugging purposes.
 	SidecarContainers []corev1.Container `json:"sidecarContainer,omitempty"`
@@ -318,6 +341,33 @@ type HumioNodeSpec struct {
 
 	// PodDisruptionBudget defines the PDB configuration for this node spec
 	PodDisruptionBudget *HumioPodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
+
+	// DependencyCheck configures startup dependency checking
+	// When configured, the init container will check dependency availability
+	// before allowing the main Humio container to start
+	// If not specified, dependency checks are disabled (backwards compatible)
+	// +optional
+	DependencyCheck *DependencyCheckConfig `json:"dependencyCheck,omitempty"`
+
+	// ContainerLifecycle defines lifecycle actions for the main Humio container.
+	// This can be used to configure preStop hooks for graceful shutdown.
+	// +optional
+	ContainerLifecycle *corev1.Lifecycle `json:"containerLifecycle,omitempty"`
+
+	// WorkloadTypes is a list of workload types this pool participates in.
+	// Each entry adds a label humio.com/workload-type/{value}: "true" to pods.
+	// If nil, workload types are automatically derived from NODE_ROLES:
+	//   all / "" / unset → ["digest", "ingest"]
+	//   httponly / ingestonly / lightweightingestonly → ["ingest"]
+	// Set explicitly to override automatic derivation (e.g., when using INITIAL_DISABLED_NODE_TASKS).
+	// +kubebuilder:validation:Optional
+	WorkloadTypes *[]string `json:"workloadTypes,omitempty"`
+
+	// EnableNodePoolService controls whether the per-node-pool service is created for this pool.
+	// When nil or true, the per-pool service is created as normal (backwards compatible default).
+	// Set to false to opt out of per-pool service creation once workload-type aggregate services are in place.
+	// +kubebuilder:validation:Optional
+	EnableNodePoolService *bool `json:"enableNodePoolService,omitempty"`
 }
 
 // HumioOperatorFeatureFlags contains feature flags applied to the Humio operator.
@@ -327,6 +377,13 @@ type HumioOperatorFeatureFlags struct {
 	// Preview: this feature is in a preview state
 	// +kubebuilder:default=false
 	EnableDownscalingFeature bool `json:"enableDownscalingFeature,omitempty"`
+	// EnableIndependentHumioNodePools enables independent HumioNodePool resource creation for embedded node pools.
+	// This creates shadow HumioNodePool CRD resources that mirror embedded node pool specs,
+	// enabling advanced features like HPA autoscaling and individual node pool management.
+	// When disabled, the operator works as before without creating HumioNodePool resources.
+	// Default: false
+	// +kubebuilder:default=false
+	EnableIndependentHumioNodePools bool `json:"enableIndependentHumioNodePools,omitempty"`
 }
 
 // HumioNodePoolFeatures is used to toggle certain features that are specific instance of HumioNodeSpec. This means
@@ -335,6 +392,40 @@ type HumioNodePoolFeatures struct {
 	// AllowedAPIRequestTypes is a list of API request types that are allowed by the node pool. Current options are:
 	// OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request types, set this to [].
 	AllowedAPIRequestTypes *[]string `json:"allowedAPIRequestTypes,omitempty"`
+}
+
+// WorkloadServiceSpec defines an aggregate service that spans multiple node pools sharing the same workload type.
+type WorkloadServiceSpec struct {
+	// Name is the suffix for the aggregate service: {cluster}-{name}.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// WorkloadType is the workload-type label value to select on.
+	// The service selector will match pods with label humio.com/workload-type/{workloadType}: "true".
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	WorkloadType string `json:"workloadType"`
+
+	// ServiceType is the Kubernetes service type for the aggregate service. Default: ClusterIP.
+	// +kubebuilder:validation:Optional
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+
+	// HumioServicePort is the port number for the HTTP interface on the aggregate service. Default: 8080.
+	// +kubebuilder:validation:Optional
+	HumioServicePort int32 `json:"humioServicePort,omitempty"`
+
+	// HumioESServicePort is the port number for the Elasticsearch interface on the aggregate service. Default: 9200.
+	// +kubebuilder:validation:Optional
+	HumioESServicePort int32 `json:"humioESServicePort,omitempty"`
+
+	// Labels to add to the aggregate service resource.
+	// +kubebuilder:validation:Optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations to add to the aggregate service resource.
+	// +kubebuilder:validation:Optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // HumioUpdateStrategy contains a set of different toggles for defining how a set of pods should be replaced during
@@ -381,6 +472,21 @@ type HumioNodePoolSpec struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
+	// ClusterName is the name of the HumioCluster this node pool belongs to.
+	// Required for standalone HumioNodePool resources, optional for embedded node pools.
+	// +kubebuilder:validation:Optional
+	ClusterName string `json:"clusterName,omitempty"`
+
+	// Selector is used by HPA to identify which pods belong to this node pool.
+	// +kubebuilder:validation:Optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+
+	// NodeCount is the top-level node count field used by the scale subresource.
+	// This is set by the controller for shadow HumioNodePool CRs.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	NodeCount int32 `json:"nodeCount"`
+
 	HumioNodeSpec `json:"spec,omitempty"`
 }
 
@@ -408,7 +514,46 @@ type HumioPodDisruptionBudgetSpec struct {
 	// Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.
 	// +kubebuilder:validation:Optional
 	Enabled bool `json:"enabled,omitempty"`
+
+	// FreezeDuringUpdate blocks all voluntary pod evictions when the cluster is
+	// in Upgrading or Restarting state by setting minAvailable equal to the
+	// replica count. When nil or false, PDB fields reflect user-configured values.
+	// +kubebuilder:validation:Optional
+	FreezeDuringUpdate *bool `json:"freezeDuringUpdate,omitempty"`
 }
+
+// DependencyCheckConfig configures startup dependency checks in the init container.
+// When present (non-nil) on HumioNodeSpec, dependency checking is enabled.
+// Dependencies (kafka, s3, gcs) are auto-discovered from environment variables.
+// +kubebuilder:validation:Optional
+type DependencyCheckConfig struct {
+	// Enforcement controls how dependency check failures are handled:
+	//   required  - (default) pod startup is blocked until all checks pass
+	//   advisory  - failures are logged but pod startup is not blocked
+	//   disabled  - dependency checking is completely disabled
+	// +kubebuilder:validation:Enum=required;advisory;disabled
+	// +kubebuilder:default="required"
+	Enforcement string `json:"enforcement,omitempty"`
+
+	// TimeoutSeconds is the maximum time for the entire dependency check process
+	// +kubebuilder:default=600
+	// +kubebuilder:validation:Minimum=60
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
+
+	// RetryIntervalSeconds is the time between retry attempts
+	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=1
+	RetryIntervalSeconds int `json:"retryIntervalSeconds,omitempty"`
+
+	// Exclude lists check types to skip even if auto-discovered from environment variables.
+	// Valid values are: kafka, s3, gcs
+	// +optional
+	Exclude []DependencyCheckType `json:"exclude,omitempty"`
+}
+
+// DependencyCheckType represents the type of dependency check to perform.
+// +kubebuilder:validation:Enum=kafka;s3;gcs
+type DependencyCheckType string
 
 // HumioHostnameSource is the possible references to a hostname value that is stored outside of the HumioCluster resource
 type HumioHostnameSource struct {
@@ -465,6 +610,19 @@ type HumioImageSource struct {
 // HumioPersistentVolumeReclaimType is the type of reclaim which will occur on a persistent volume
 type HumioPersistentVolumeReclaimType string
 
+// AutoscalingSpec defines bounds for HPA-driven scaling.
+type AutoscalingSpec struct {
+	// MinReplicas is the lower bound for autoscaling. Must be >= 1.
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+
+	// MaxReplicas is the upper bound for autoscaling. Must be >= 1.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Required
+	MaxReplicas int32 `json:"maxReplicas"`
+}
+
 // HumioPersistentVolumeClaimPolicy contains the policy for handling persistent volumes
 type HumioPersistentVolumeClaimPolicy struct {
 	// ReclaimType is used to indicate what reclaim type should be used. This e.g. allows the user to specify if the
@@ -519,6 +677,12 @@ type HumioNodePoolStatus struct {
 	DesiredPodHash string `json:"desiredPodHash,omitempty"`
 	// DesiredBootstrapTokenHash holds a SHA256 of the value set in environment variable BOOTSTRAP_ROOT_TOKEN_HASHED
 	DesiredBootstrapTokenHash string `json:"desiredBootstrapTokenHash,omitempty"`
+	// CurrentReplicas is the actual number of nodes running in this node pool
+	CurrentReplicas int32 `json:"currentReplicas,omitempty"`
+	// DesiredReplicas is the target number of nodes for this node pool
+	DesiredReplicas int32 `json:"desiredReplicas,omitempty"`
+	// Selector is the label selector string for the scale subresource
+	Selector string `json:"selector,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster.
@@ -679,6 +843,35 @@ func (l HumioPodStatusList) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
 
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.nodeCount,statuspath=.status.currentReplicas,selectorpath=.status.selector
+// +kubebuilder:resource:path=humionodepools,scope=Namespaced
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.clusterName",description="The cluster this node pool belongs to"
+// +kubebuilder:printcolumn:name="Pool",type="string",JSONPath=".spec.name",description="The name of the node pool"
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".status.currentReplicas",description="Current replicas"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the node pool"
+
+// HumioNodePool is the Schema for the humionodepools API.
+// This resource represents an individual node pool within a HumioCluster and supports the scale subresource for HPA.
+type HumioNodePool struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// +kubebuilder:validation:Required
+	Spec   HumioNodePoolSpec   `json:"spec"`
+	Status HumioNodePoolStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// HumioNodePoolList contains a list of HumioNodePool.
+type HumioNodePoolList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []HumioNodePool `json:"items"`
+}
+
 func init() {
-	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{})
+	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{}, &HumioNodePool{}, &HumioNodePoolList{})
 }

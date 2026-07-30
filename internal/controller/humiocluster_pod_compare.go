@@ -57,8 +57,7 @@ func NewPodComparison(hnp *HumioNodePool, current *corev1.Pod, desired *corev1.P
 		currentPod: sanitizedCurrentPod,
 		desiredPod: sanitizedDesiredPod,
 		result: PodComparisionResult{
-			diff:                   cmp.Diff(sanitizedCurrentPod.Spec, sanitizedDesiredPod.Spec),
-			humioContainerMismatch: &VersionMismatch{},
+			diff: cmp.Diff(sanitizedCurrentPod.Spec, sanitizedDesiredPod.Spec),
 		},
 	}
 
@@ -116,11 +115,11 @@ func (pc *PodComparison) processEnvironmentVariables() {
 	desiredEnvVars := make(map[string]string)
 
 	for _, env := range pc.currentHumioContainer.Env {
-		currentEnvVars[env.Name] = EnvVarValue(pc.currentHumioContainer.Env, env.Name)
+		currentEnvVars[env.Name] = env.Value
 	}
 
 	for _, env := range pc.desiredHumioContainer.Env {
-		desiredEnvVars[env.Name] = EnvVarValue(pc.desiredHumioContainer.Env, env.Name)
+		desiredEnvVars[env.Name] = env.Value
 	}
 
 	for envName, desiredValue := range desiredEnvVars {
@@ -157,7 +156,7 @@ func (pc *PodComparison) MismatchedHumioVersions() (bool, *VersionMismatch) {
 	if pc.result.mismatchType == PodMismatchVersion {
 		return true, pc.result.humioContainerMismatch
 	}
-	return false, pc.result.humioContainerMismatch
+	return false, nil
 }
 
 func (pc *PodComparison) setDoesNotMatch(mismatchType PodMismatchType, mismatchSeverity PodMismatchSeverityType) {
@@ -175,7 +174,6 @@ func (pc *PodComparison) processAnnotations() {
 		BootstrapTokenHashAnnotation,
 		PodHashAnnotation,
 		PodRevisionAnnotation,
-		BootstrapTokenHashAnnotation,
 		EnvVarSourceHashAnnotation,
 		CertificateHashAnnotation,
 	} {

@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -1450,7 +1451,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				CASecretName:   "custom-ca-secret",
 				ExtraHostnames: []string{"pdf-service.example.com"},
 			}
-			cluster.Spec.NodeCount = 1
+			cluster.Spec.NodeCount = ptr.To(int32(1))
 			// Enable PDF rendering for this cluster
 			cluster.Spec.EnvironmentVariables = []corev1.EnvVar{
 				{Name: "ENABLE_SCHEDULED_REPORT", Value: "true"},

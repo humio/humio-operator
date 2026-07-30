@@ -1,9 +1,12 @@
 package cacheconfig
 
 import (
+	"fmt"
 	"testing"
 
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func setEnvs(t *testing.T, envs map[string]string) {
@@ -76,6 +79,26 @@ func TestGetCacheOptionsWithWatchNamespace_LabelSelectorMode(t *testing.T) {
 	}
 	if len(opts.ByObject) == 0 {
 		t.Error("expected ByObject to contain native type exemptions")
+	}
+
+	// Verify all internally-created Humio CRDs are exempted
+	internalCRDs := []client.Object{
+		&humiov1alpha1.HumioBootstrapToken{},
+		&humiov1alpha1.HumioTelemetryCollection{},
+		&humiov1alpha1.HumioTelemetryExport{},
+		&humiov1alpha1.HumioDependencyCheck{},
+	}
+	for _, obj := range internalCRDs {
+		found := false
+		for key := range opts.ByObject {
+			if fmt.Sprintf("%T", key) == fmt.Sprintf("%T", obj) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected %T in ByObject exemptions for internally-created CRD", obj)
+		}
 	}
 }
 

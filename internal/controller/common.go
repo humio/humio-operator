@@ -11,6 +11,7 @@ import (
 	humioapi "github.com/humio/humio-operator/internal/api"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -31,6 +32,7 @@ const ForceFinalizerAnnotationValue = "true"
 type CommonConfig struct {
 	RequeuePeriod              time.Duration // How frequently to requeue a resource for reconcile.
 	CriticalErrorRequeuePeriod time.Duration // How frequently to requeue a resource for reconcile after a critical error.
+	EnableFinalizers           *bool         // When false, skip adding finalizers and remove them without cleanup on deletion.
 }
 
 // ShouldForceFinalize safely checks if the force-finalize annotation is set on a resource.
@@ -51,6 +53,20 @@ type CommonConfig struct {
 func ShouldForceFinalize(obj client.Object) bool {
 	annotations := obj.GetAnnotations()
 	return annotations != nil && annotations[ForceFinalizerAnnotation] == ForceFinalizerAnnotationValue
+}
+
+// ShouldSkipFinalizer returns true if finalizers should be skipped for this resource.
+// This checks both the global EnableFinalizers config flag and the per-resource
+// force-finalize annotation.
+func ShouldSkipFinalizer(config CommonConfig, obj client.Object) bool {
+	if config.EnableFinalizers == nil {
+		ctrl.Log.Error(fmt.Errorf("EnableFinalizers not set in CommonConfig"), "EnableFinalizers is nil, defaulting to enabled")
+		return ShouldForceFinalize(obj)
+	}
+	if !*config.EnableFinalizers {
+		return true
+	}
+	return ShouldForceFinalize(obj)
 }
 
 // DeleteRecreateRenameConfig configures delete-recreate rename behavior for a resource type
