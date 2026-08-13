@@ -110,7 +110,7 @@ mutation CreateScheduledSearchV2(
         labels: $Labels
         queryOwnershipType: $QueryOwnershipType
     }) {
-        ...ScheduledSearchDetails
+        ...ScheduledSearchDetailsV2
     }
 }
 

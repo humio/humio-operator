@@ -3652,72 +3652,82 @@ func (v *CreateScheduledSearchResponse) GetCreateScheduledSearch() CreateSchedul
 //
 // Information about a scheduled search
 type CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch struct {
-	ScheduledSearchDetails `json:"-"`
+	ScheduledSearchDetailsV2 `json:"-"`
 }
 
 // GetId returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Id, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetId() string {
-	return v.ScheduledSearchDetails.Id
+	return v.ScheduledSearchDetailsV2.Id
 }
 
 // GetName returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Name, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetName() string {
-	return v.ScheduledSearchDetails.Name
+	return v.ScheduledSearchDetailsV2.Name
 }
 
 // GetDescription returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Description, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetDescription() *string {
-	return v.ScheduledSearchDetails.Description
+	return v.ScheduledSearchDetailsV2.Description
 }
 
 // GetQueryString returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.QueryString, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetQueryString() string {
-	return v.ScheduledSearchDetails.QueryString
+	return v.ScheduledSearchDetailsV2.QueryString
 }
 
-// GetStart returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Start, and is useful for accessing the field via an interface.
-func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetStart() string {
-	return v.ScheduledSearchDetails.Start
+// GetSearchIntervalSeconds returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.SearchIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetSearchIntervalSeconds() int64 {
+	return v.ScheduledSearchDetailsV2.SearchIntervalSeconds
 }
 
-// GetEnd returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.End, and is useful for accessing the field via an interface.
-func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetEnd() string {
-	return v.ScheduledSearchDetails.End
+// GetSearchIntervalOffsetSeconds returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.SearchIntervalOffsetSeconds, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetSearchIntervalOffsetSeconds() *int64 {
+	return v.ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds
+}
+
+// GetMaxWaitTimeSeconds returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.MaxWaitTimeSeconds, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetMaxWaitTimeSeconds() *int64 {
+	return v.ScheduledSearchDetailsV2.MaxWaitTimeSeconds
 }
 
 // GetTimeZone returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.TimeZone, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetTimeZone() string {
-	return v.ScheduledSearchDetails.TimeZone
+	return v.ScheduledSearchDetailsV2.TimeZone
 }
 
 // GetSchedule returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Schedule, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetSchedule() string {
-	return v.ScheduledSearchDetails.Schedule
+	return v.ScheduledSearchDetailsV2.Schedule
 }
 
-// GetBackfillLimit returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.BackfillLimit, and is useful for accessing the field via an interface.
-func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetBackfillLimit() int {
-	return v.ScheduledSearchDetails.BackfillLimit
+// GetBackfillLimitV2 returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.BackfillLimitV2, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetBackfillLimitV2() *int {
+	return v.ScheduledSearchDetailsV2.BackfillLimitV2
+}
+
+// GetQueryTimestampType returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.QueryTimestampType, and is useful for accessing the field via an interface.
+func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetQueryTimestampType() QueryTimestampType {
+	return v.ScheduledSearchDetailsV2.QueryTimestampType
 }
 
 // GetEnabled returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Enabled, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetEnabled() bool {
-	return v.ScheduledSearchDetails.Enabled
+	return v.ScheduledSearchDetailsV2.Enabled
 }
 
 // GetLabels returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.Labels, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetLabels() []string {
-	return v.ScheduledSearchDetails.Labels
+	return v.ScheduledSearchDetailsV2.Labels
 }
 
 // GetActionsV2 returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.ActionsV2, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetActionsV2() []SharedActionNameType {
-	return v.ScheduledSearchDetails.ActionsV2
+	return v.ScheduledSearchDetailsV2.ActionsV2
 }
 
 // GetQueryOwnership returns CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.QueryOwnership, and is useful for accessing the field via an interface.
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) GetQueryOwnership() SharedQueryOwnershipType {
-	return v.ScheduledSearchDetails.QueryOwnership
+	return v.ScheduledSearchDetailsV2.QueryOwnership
 }
 
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) UnmarshalJSON(b []byte) error {
@@ -3738,7 +3748,7 @@ func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) Unmarsha
 	}
 
 	err = json.Unmarshal(
-		b, &v.ScheduledSearchDetails)
+		b, &v.ScheduledSearchDetailsV2)
 	if err != nil {
 		return err
 	}
@@ -3754,15 +3764,19 @@ type __premarshalCreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch s
 
 	QueryString string `json:"queryString"`
 
-	Start string `json:"start"`
+	SearchIntervalSeconds int64 `json:"searchIntervalSeconds"`
 
-	End string `json:"end"`
+	SearchIntervalOffsetSeconds *int64 `json:"searchIntervalOffsetSeconds"`
+
+	MaxWaitTimeSeconds *int64 `json:"maxWaitTimeSeconds"`
 
 	TimeZone string `json:"timeZone"`
 
 	Schedule string `json:"schedule"`
 
-	BackfillLimit int `json:"backfillLimit"`
+	BackfillLimitV2 *int `json:"backfillLimitV2"`
+
+	QueryTimestampType QueryTimestampType `json:"queryTimestampType"`
 
 	Enabled bool `json:"enabled"`
 
@@ -3784,21 +3798,23 @@ func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) MarshalJ
 func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) __premarshalJSON() (*__premarshalCreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch, error) {
 	var retval __premarshalCreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch
 
-	retval.Id = v.ScheduledSearchDetails.Id
-	retval.Name = v.ScheduledSearchDetails.Name
-	retval.Description = v.ScheduledSearchDetails.Description
-	retval.QueryString = v.ScheduledSearchDetails.QueryString
-	retval.Start = v.ScheduledSearchDetails.Start
-	retval.End = v.ScheduledSearchDetails.End
-	retval.TimeZone = v.ScheduledSearchDetails.TimeZone
-	retval.Schedule = v.ScheduledSearchDetails.Schedule
-	retval.BackfillLimit = v.ScheduledSearchDetails.BackfillLimit
-	retval.Enabled = v.ScheduledSearchDetails.Enabled
-	retval.Labels = v.ScheduledSearchDetails.Labels
+	retval.Id = v.ScheduledSearchDetailsV2.Id
+	retval.Name = v.ScheduledSearchDetailsV2.Name
+	retval.Description = v.ScheduledSearchDetailsV2.Description
+	retval.QueryString = v.ScheduledSearchDetailsV2.QueryString
+	retval.SearchIntervalSeconds = v.ScheduledSearchDetailsV2.SearchIntervalSeconds
+	retval.SearchIntervalOffsetSeconds = v.ScheduledSearchDetailsV2.SearchIntervalOffsetSeconds
+	retval.MaxWaitTimeSeconds = v.ScheduledSearchDetailsV2.MaxWaitTimeSeconds
+	retval.TimeZone = v.ScheduledSearchDetailsV2.TimeZone
+	retval.Schedule = v.ScheduledSearchDetailsV2.Schedule
+	retval.BackfillLimitV2 = v.ScheduledSearchDetailsV2.BackfillLimitV2
+	retval.QueryTimestampType = v.ScheduledSearchDetailsV2.QueryTimestampType
+	retval.Enabled = v.ScheduledSearchDetailsV2.Enabled
+	retval.Labels = v.ScheduledSearchDetailsV2.Labels
 	{
 
 		dst := &retval.ActionsV2
-		src := v.ScheduledSearchDetails.ActionsV2
+		src := v.ScheduledSearchDetailsV2.ActionsV2
 		*dst = make(
 			[]json.RawMessage,
 			len(src))
@@ -3809,20 +3825,20 @@ func (v *CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch) __premar
 				&src)
 			if err != nil {
 				return nil, fmt.Errorf(
-					"unable to marshal CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.ScheduledSearchDetails.ActionsV2: %w", err)
+					"unable to marshal CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.ScheduledSearchDetailsV2.ActionsV2: %w", err)
 			}
 		}
 	}
 	{
 
 		dst := &retval.QueryOwnership
-		src := v.ScheduledSearchDetails.QueryOwnership
+		src := v.ScheduledSearchDetailsV2.QueryOwnership
 		var err error
 		*dst, err = __marshalSharedQueryOwnershipType(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
-				"unable to marshal CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.ScheduledSearchDetails.QueryOwnership: %w", err)
+				"unable to marshal CreateScheduledSearchV2CreateScheduledSearchV2ScheduledSearch.ScheduledSearchDetailsV2.QueryOwnership: %w", err)
 		}
 	}
 	return &retval, nil
@@ -28335,19 +28351,21 @@ func CreateScheduledSearch(
 const CreateScheduledSearchV2_Operation = `
 mutation CreateScheduledSearchV2 ($SearchDomainName: String!, $Name: String!, $Description: String, $QueryString: String!, $SearchIntervalSeconds: Long!, $SearchIntervalOffsetSeconds: Long, $MaxWaitTimeSeconds: Long, $QueryTimestampType: QueryTimestampType!, $Schedule: String!, $TimeZone: String!, $BackfillLimit: Int, $Enabled: Boolean!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $QueryOwnershipType: QueryOwnershipType!) {
 	createScheduledSearchV2(input: {viewName:$SearchDomainName,name:$Name,description:$Description,queryString:$QueryString,searchIntervalSeconds:$SearchIntervalSeconds,searchIntervalOffsetSeconds:$SearchIntervalOffsetSeconds,maxWaitTimeSeconds:$MaxWaitTimeSeconds,queryTimestampType:$QueryTimestampType,schedule:$Schedule,timeZone:$TimeZone,backfillLimit:$BackfillLimit,enabled:$Enabled,actionIdsOrNames:$ActionIdsOrNames,labels:$Labels,queryOwnershipType:$QueryOwnershipType}) {
-		... ScheduledSearchDetails
+		... ScheduledSearchDetailsV2
 	}
 }
-fragment ScheduledSearchDetails on ScheduledSearch {
+fragment ScheduledSearchDetailsV2 on ScheduledSearch {
 	id
 	name
 	description
 	queryString
-	start
-	end
+	searchIntervalSeconds
+	searchIntervalOffsetSeconds
+	maxWaitTimeSeconds
 	timeZone
 	schedule
-	backfillLimit
+	backfillLimitV2
+	queryTimestampType
 	enabled
 	labels
 	actionsV2 {
