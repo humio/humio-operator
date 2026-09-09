@@ -25,8 +25,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -2100,4 +2102,122 @@ func TestReverseSyncNodeCount_SkipsClampingWhenAutoscalingNil(t *testing.T) {
 	err = cl.Get(context.Background(), types.NamespacedName{Name: "test-pool", Namespace: "default"}, updatedShadow)
 	assert.NoError(t, err)
 	assert.Equal(t, int32(5), updatedShadow.Spec.NodeCount, "shadow nodeCount should not be corrected when autoscaling is nil")
+}
+
+// alreadyExistsOnCreateClient wraps a client and simulates the race condition:
+// the first Get for a shadow HumioNodePool returns NotFound (stale informer cache),
+// Create returns AlreadyExists (another reconcile beat us), and subsequent Gets
+// return the real resource.
+type alreadyExistsOnCreateClient struct {
+	client.Client
+	createCalls     int
+	shadowGetCalls  int
+	shadowName      string
+	shadowNamespace string
+}
+
+func (c *alreadyExistsOnCreateClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, ok := obj.(*humiov1alpha1.HumioNodePool); ok && key.Name == c.shadowName && key.Namespace == c.shadowNamespace {
+		c.shadowGetCalls++
+		if c.shadowGetCalls == 1 {
+			return k8serrors.NewNotFound(
+				schema.GroupResource{Group: "core.humio.com", Resource: "humionodepools"},
+				key.Name,
+			)
+		}
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+func (c *alreadyExistsOnCreateClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if _, ok := obj.(*humiov1alpha1.HumioNodePool); ok {
+		c.createCalls++
+		return k8serrors.NewAlreadyExists(
+			schema.GroupResource{Group: "core.humio.com", Resource: "humionodepools"},
+			obj.GetName(),
+		)
+	}
+	return c.Client.Create(ctx, obj, opts...)
+}
+
+func TestShadowNodePoolCreateAlreadyExistsRace(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = humiov1alpha1.AddToScheme(scheme)
+
+	ctx := context.Background()
+
+	hc := &humiov1alpha1.HumioCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "default",
+			UID:       types.UID("test-cluster-uid"),
+		},
+		Spec: humiov1alpha1.HumioClusterSpec{
+			HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+				NodeCount: ptr.To(int32(3)),
+				Image:     "humio/humio:latest",
+			},
+			OperatorFeatureFlags: humiov1alpha1.HumioOperatorFeatureFlags{
+				EnableIndependentHumioNodePools: true,
+			},
+		},
+	}
+
+	// Pre-populate the shadow resource as if a concurrent reconcile already created it.
+	// This is the state after the other reconcile's Create succeeded.
+	existingShadow := &humiov1alpha1.HumioNodePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "default",
+			Labels:    map[string]string{"app.kubernetes.io/instance": "test-cluster", "app.kubernetes.io/managed-by": "humio-operator", "app.kubernetes.io/name": "humio"},
+			Annotations: map[string]string{
+				annotationManagedBy: shadowNodePoolManagedBy,
+				annotationCluster:   "test-cluster",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "core.humio.com/v1alpha1",
+				Kind:       "HumioCluster",
+				Name:       "test-cluster",
+				UID:        types.UID("test-cluster-uid"),
+			}},
+		},
+		Spec: humiov1alpha1.HumioNodePoolSpec{
+			Name:        "main",
+			ClusterName: "test-cluster",
+			NodeCount:   3,
+			HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+				NodeCount: ptr.To(int32(3)),
+				Image:     "humio/humio:latest",
+			},
+		},
+	}
+
+	baseFakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(hc, existingShadow).
+		WithStatusSubresource(&humiov1alpha1.HumioNodePool{}).
+		Build()
+
+	raceClient := &alreadyExistsOnCreateClient{
+		Client:          baseFakeClient,
+		shadowName:      "test-cluster",
+		shadowNamespace: "default",
+	}
+
+	reconciler := &HumioClusterReconciler{
+		Client: raceClient,
+		Log:    logr.Discard(),
+	}
+
+	err := reconciler.ensureNodePoolResources(ctx, hc)
+	assert.NoError(t, err, "ensureNodePoolResources should handle AlreadyExists gracefully")
+	assert.Equal(t, 1, raceClient.createCalls, "Create should have been called once for the shadow pool")
+
+	// Verify the shadow resource still exists with correct spec
+	result := &humiov1alpha1.HumioNodePool{}
+	err = baseFakeClient.Get(ctx, types.NamespacedName{Name: "test-cluster", Namespace: "default"}, result)
+	assert.NoError(t, err)
+	assert.Equal(t, "test-cluster", result.Spec.ClusterName)
+	assert.Equal(t, int32(3), result.Spec.NodeCount)
+	assert.Equal(t, shadowNodePoolManagedBy, result.Annotations[annotationManagedBy])
 }

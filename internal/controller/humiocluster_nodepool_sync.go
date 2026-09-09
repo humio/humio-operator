@@ -148,11 +148,17 @@ func (r *HumioClusterReconciler) ensureShadowNodePool(ctx context.Context, hc *h
 	if k8serrors.IsNotFound(err) {
 		r.Log.Info("creating shadow HumioNodePool resource", "name", resourceName, "clusterName", hc.Name, "component", "shadow-node-pool-sync")
 		if err := r.Create(ctx, desired); err != nil {
-			return err
+			if !k8serrors.IsAlreadyExists(err) {
+				return err
+			}
+			// Race: another reconcile created it between our Get and Create. Re-fetch and continue to update path.
+			if err := r.Get(ctx, types.NamespacedName{Name: resourceName, Namespace: hc.Namespace}, existing); err != nil {
+				return fmt.Errorf("failed to get shadow HumioNodePool %s after AlreadyExists: %w", resourceName, err)
+			}
+		} else {
+			return r.patchShadowNodePoolStatus(ctx, hc.Name, resourceName, hc.Namespace, selector)
 		}
-		return r.patchShadowNodePoolStatus(ctx, hc.Name, resourceName, hc.Namespace, selector)
-	}
-	if err != nil {
+	} else if err != nil {
 		return fmt.Errorf("failed to get shadow HumioNodePool %s: %w", resourceName, err)
 	}
 
