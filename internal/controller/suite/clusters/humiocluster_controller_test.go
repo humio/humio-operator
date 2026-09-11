@@ -8031,4 +8031,77 @@ var _ = Describe("HumioCluster Telemetry Integration", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 		})
 	})
+
+	Context("Humio Cluster expireAfter with Karpenter eviction protection", Label("envtest", "dummy", "real"), func() {
+		It("Should create eviction-protection PDB while a pod is terminating and remove it when stable", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-expire-karpenter",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Enabling expireAfter and eviction protection")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, &updatedHumioCluster); err != nil {
+					return err
+				}
+				// 1h is the minimum CRD-allowed value. Test verifies PDB lifecycle via
+				// manual pod deletion rather than waiting for pods to expire.
+				minExpiry := metav1.Duration{Duration: 1 * time.Hour}
+				updatedHumioCluster.Spec.ExpireAfter = &minExpiry
+				updatedHumioCluster.Spec.OperatorFeatureFlags.EnableEvictionProtectionDuringMaintenance = true
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Deleting a pod to simulate expireAfter eviction and trigger PDB creation")
+			pods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace,
+				controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetNodePoolLabels())
+			Expect(err).Should(Succeed())
+			Expect(pods).ShouldNot(BeEmpty())
+			// envtest has no kubelet, so a plain Delete removes the pod before isClusterStable ever observes DeletionTimestamp. A finalizer holds the pod in Terminating so the operator sees the same state a real cluster's grace-period window would present.
+			target := pods[0]
+			target.Finalizers = append(target.Finalizers, "humio.com/test-hold")
+			Expect(k8sClient.Update(ctx, &target)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, &target)).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Verifying eviction-protection PDB is created while pod is terminating")
+			pdbKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-eviction-protection", key.Name),
+				Namespace: key.Namespace,
+			}
+			Eventually(func() error {
+				var pdb policyv1.PodDisruptionBudget
+				return k8sClient.Get(ctx, pdbKey, &pdb)
+			}, testTimeout, suite.TestInterval).Should(Succeed(), "eviction-protection PDB should exist while a pod is terminating")
+
+			suite.UsingClusterBy(key.Name, "Verifying PDB has maxUnavailable=0 to block Karpenter node consolidation")
+			var pdb policyv1.PodDisruptionBudget
+			Expect(k8sClient.Get(ctx, pdbKey, &pdb)).Should(Succeed())
+			Expect(pdb.Spec.MaxUnavailable).ToNot(BeNil())
+			Expect(pdb.Spec.MaxUnavailable.IntValue()).To(Equal(0))
+
+			suite.UsingClusterBy(key.Name, "Removing finalizer so the pod can complete termination and the cluster returns to stable")
+			Eventually(func() error {
+				var held corev1.Pod
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, &held); err != nil {
+					return err
+				}
+				held.Finalizers = nil
+				return k8sClient.Update(ctx, &held)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Verifying PDB is removed once the cluster returns to stable (all pods ready)")
+			Eventually(func() bool {
+				var pdb policyv1.PodDisruptionBudget
+				err := k8sClient.Get(ctx, pdbKey, &pdb)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "eviction-protection PDB should be removed once all pods are ready")
+		})
+	})
 })

@@ -4325,6 +4325,14 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+              expireAfter:
+                description: ExpireAfter is the maximum pod lifetime; pods older than
+                  this are cycled using MaxUnavailable/MinReadySeconds/zone-awareness
+                  safety gates. Uses Go duration format (e.g. "24h").
+                type: string
+                x-kubernetes-validations:
+                - message: expireAfter must be at least 1h
+                  rule: duration(self) >= duration('1h')
               extraHumioVolumeMounts:
                 description: ExtraHumioVolumeMounts is the list of additional volume
                   mounts that will be added to the Humio container
@@ -7624,6 +7632,30 @@ spec:
                       EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
                       Default: false
                       Preview: this feature is in a preview state
+                    type: boolean
+                  enableEvictionProtectionDuringMaintenance:
+                    default: false
+                    description: |-
+                      EnableEvictionProtectionDuringMaintenance blocks voluntary evictions of Humio pods
+                      (by Karpenter consolidation, cluster-autoscaler, or manual drains) during upgrades
+                      and restarts. When enabled, the operator creates a restrictive PodDisruptionBudget
+                      per node pool whenever the cluster is not fully stable and removes it once every
+                      node pool returns to Running. The mechanism is autoscaler-agnostic (vanilla
+                      Kubernetes PDBs).
+
+                      Safety valve: if the cluster does not return to Running within 2 hours, the PDB
+                      is automatically relaxed (a Warning Event is recorded on the HumioCluster) so a
+                      wedged cluster does not permanently block eviction across the underlying nodes.
+
+                      Interaction with spec.podDisruptionBudget: independent. Both PDBs target the same
+                      pods; Kubernetes enforces the most restrictive across all matching PDBs.
+
+                      Interaction with aggressive pod-cycling features (e.g. expireAfter): while
+                      enabled, this feature keeps the PDB active whenever any pool is unstable.
+                      Combined with short-cadence pod cycling, voluntary evictions may be effectively
+                      disabled cluster-wide. Consider both features' cadence together.
+
+                      Default: false
                     type: boolean
                   enableIndependentHumioNodePools:
                     default: false
@@ -12105,6 +12137,14 @@ spec:
                                 x-kubernetes-map-type: atomic
                             type: object
                           type: array
+                        expireAfter:
+                          description: ExpireAfter is the maximum pod lifetime; pods
+                            older than this are cycled using MaxUnavailable/MinReadySeconds/zone-awareness
+                            safety gates. Uses Go duration format (e.g. "24h").
+                          type: string
+                          x-kubernetes-validations:
+                          - message: expireAfter must be at least 1h
+                            rule: duration(self) >= duration('1h')
                         extraHumioVolumeMounts:
                           description: ExtraHumioVolumeMounts is the list of additional
                             volume mounts that will be added to the Humio container
@@ -20092,6 +20132,12 @@ spec:
                   description: HumioPodStatus shows the status of individual humio
                     pods
                   properties:
+                    expiresAt:
+                      description: ExpiresAt is the time at which this pod becomes
+                        eligible for expiry-based cycling. Only set when expireAfter
+                        is configured.
+                      format: date-time
+                      type: string
                     nodeId:
                       description: |-
                         NodeId used to refer to the value of the BOOTSTRAP_HOST_ID environment variable for a Humio instance.

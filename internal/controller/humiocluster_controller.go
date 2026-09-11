@@ -21,11 +21,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"reflect"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -68,6 +70,8 @@ type HumioClusterReconciler struct {
 
 	// stalenessCounters tracks consecutive shadow read failures
 	stalenessCounters *stalenessCounter
+
+	lastEviction sync.Map
 }
 
 type ctxHumioClusterPoolFunc func(context.Context, *humiov1alpha1.HumioCluster, *HumioNodePool) error
@@ -84,6 +88,15 @@ const (
 	humioVersionMinimumForReliableDownscaling = "1.173.0"
 
 	fieldManagerOperatorManagedName = "humio-operator"
+
+	// expireAfterRequeueFloor is the minimum requeue interval after an expireAfter deletion.
+	expireAfterRequeueFloor = 30 * time.Second
+
+	// expireAfterSkip* are the reason label values for ExpireAfterSkipsTotal.
+	expireAfterSkipOnDeleteStrategy  = "on_delete_strategy"
+	expireAfterSkipClusterNotRunning = "cluster_not_running"
+	expireAfterSkipMinReadyThrottle  = "min_ready_throttle"
+	expireAfterSkipWaitingOnPods     = "waiting_on_pods"
 )
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
@@ -110,7 +123,7 @@ const (
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;delete;get;list;patch;update;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -218,6 +231,13 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	// Arm eviction-protection PDBs before pod deletion so voluntary evictions are
+	// blocked throughout the maintenance window. No-op when the feature is disabled.
+	if err := r.reconcileEvictionProtectionPDBsAddOnly(ctx, hc, humioNodePools); err != nil {
+		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			withMessage(err.Error()))
+	}
+
 	// ensure pods that does not run the desired version or config gets deleted and update state accordingly
 	for _, pool := range humioNodePools.Items {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
@@ -226,6 +246,13 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				return result, err
 			}
 		}
+	}
+
+	// Release eviction-protection PDBs after pod deletion so voluntary evictions
+	// resume only once the operator has finished the current wave of pod work.
+	if err := r.reconcileEvictionProtectionPDBsRemove(ctx, hc, humioNodePools); err != nil {
+		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			withMessage(err.Error()))
 	}
 
 	// create various k8s objects, e.g. Issuer, Certificate, ConfigMap, Ingress, Service, ServiceAccount, ClusterRole, ClusterRoleBinding
@@ -253,6 +280,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		for _, fun := range []ctxHumioClusterPoolFunc{
 			r.ensureService,
+			r.ensurePoolHeadlessService,
 			r.ensureHumioPodPermissions,
 			r.ensureInitContainerPermissions,
 			r.ensureHumioNodeCertificates,
@@ -313,6 +341,25 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				return result, err
 			}
 		}
+	}
+
+	// ensure pods that have exceeded their expireAfter duration are deleted
+	var minRequeue time.Duration
+	var firstExpireErr error
+	for _, pool := range humioNodePools.Items {
+		if !r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
+			continue
+		}
+		result, err := r.ensureExpiredPodsAreDeleted(ctx, hc, pool)
+		if err != nil && firstExpireErr == nil {
+			firstExpireErr = err
+		}
+		if result.RequeueAfter > 0 && (minRequeue == 0 || result.RequeueAfter < minRequeue) {
+			minRequeue = result.RequeueAfter
+		}
+	}
+	if firstExpireErr != nil {
+		return reconcile.Result{}, firstExpireErr
 	}
 
 	// patch the pods with managedFields
@@ -408,6 +455,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	r.Log.Info("done reconciling")
+	if minRequeue > MaximumMinReadyRequeue {
+		minRequeue = MaximumMinReadyRequeue
+	}
+	if minRequeue > 0 {
+		return reconcile.Result{RequeueAfter: minRequeue}, nil
+	}
 	return r.updateStatus(
 		ctx,
 		r.Status(),
@@ -441,74 +494,6 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			r.findClustersReferencingConfigMap,
 		), builder.WithPredicates(configMapDataChangedPredicate())).
 		Complete(r)
-}
-
-// findClustersReferencingConfigMap returns reconcile requests for all HumioClusters that reference the given ConfigMap via imageSource.configMapRef.
-func (r *HumioClusterReconciler) findClustersReferencingConfigMap(ctx context.Context, obj client.Object) []reconcile.Request {
-	// ConfigMaps owned by a HumioCluster are already handled by Owns(), skip them.
-	for _, ref := range obj.GetOwnerReferences() {
-		if ref.Kind == "HumioCluster" {
-			return nil
-		}
-	}
-
-	clusterList := &humiov1alpha1.HumioClusterList{}
-	if err := r.List(ctx, clusterList, client.InNamespace(obj.GetNamespace())); err != nil {
-		r.Log.Error(err, "failed to list HumioCluster instances while handling ConfigMap change",
-			"configMapName", obj.GetName(), "namespace", obj.GetNamespace())
-		return nil
-	}
-
-	var requests []reconcile.Request
-	for _, cluster := range clusterList.Items {
-		if referencesConfigMap(&cluster, obj.GetName()) {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      cluster.Name,
-					Namespace: cluster.Namespace,
-				},
-			})
-		}
-	}
-	return requests
-}
-
-// referencesConfigMap checks whether a HumioCluster references the named ConfigMap via imageSource.configMapRef at the top-level spec or in any node pool.
-func referencesConfigMap(cluster *humiov1alpha1.HumioCluster, configMapName string) bool {
-	if cluster.Spec.ImageSource != nil &&
-		cluster.Spec.ImageSource.ConfigMapRef != nil &&
-		cluster.Spec.ImageSource.ConfigMapRef.Name == configMapName {
-		return true
-	}
-	for _, np := range cluster.Spec.NodePools {
-		if np.ImageSource != nil &&
-			np.ImageSource.ConfigMapRef != nil &&
-			np.ImageSource.ConfigMapRef.Name == configMapName {
-			return true
-		}
-	}
-	return false
-}
-
-// configMapDataChangedPredicate returns a predicate that only passes through Update events where the ConfigMap .Data has actually changed.
-// This avoids unnecessary reconciliations from metadata-only changes.
-func configMapDataChangedPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc:  func(e event.CreateEvent) bool { return false },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
-		GenericFunc: func(e event.GenericEvent) bool { return false },
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldCM, ok := e.ObjectOld.(*corev1.ConfigMap)
-			if !ok {
-				return false
-			}
-			newCM, ok := e.ObjectNew.(*corev1.ConfigMap)
-			if !ok {
-				return false
-			}
-			return !equality.Semantic.DeepEqual(oldCM.Data, newCM.Data)
-		},
-	}
 }
 
 // ensureDependencyCheckResources creates, updates, and garbage-collects HumioDependencyCheck CRs for a node pool.
@@ -620,6 +605,74 @@ func (r *HumioClusterReconciler) ensureDependencyCheckResources(ctx context.Cont
 	}
 
 	return nil
+}
+
+// findClustersReferencingConfigMap returns reconcile requests for all HumioClusters that reference the given ConfigMap via imageSource.configMapRef.
+func (r *HumioClusterReconciler) findClustersReferencingConfigMap(ctx context.Context, obj client.Object) []reconcile.Request {
+	// ConfigMaps owned by a HumioCluster are already handled by Owns(), skip them.
+	for _, ref := range obj.GetOwnerReferences() {
+		if ref.Kind == "HumioCluster" {
+			return nil
+		}
+	}
+
+	clusterList := &humiov1alpha1.HumioClusterList{}
+	if err := r.List(ctx, clusterList, client.InNamespace(obj.GetNamespace())); err != nil {
+		r.Log.Error(err, "failed to list HumioCluster instances while handling ConfigMap change",
+			"configMapName", obj.GetName(), "namespace", obj.GetNamespace())
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, cluster := range clusterList.Items {
+		if referencesConfigMap(&cluster, obj.GetName()) {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      cluster.Name,
+					Namespace: cluster.Namespace,
+				},
+			})
+		}
+	}
+	return requests
+}
+
+// referencesConfigMap checks whether a HumioCluster references the named ConfigMap via imageSource.configMapRef at the top-level spec or in any node pool.
+func referencesConfigMap(cluster *humiov1alpha1.HumioCluster, configMapName string) bool {
+	if cluster.Spec.ImageSource != nil &&
+		cluster.Spec.ImageSource.ConfigMapRef != nil &&
+		cluster.Spec.ImageSource.ConfigMapRef.Name == configMapName {
+		return true
+	}
+	for _, np := range cluster.Spec.NodePools {
+		if np.ImageSource != nil &&
+			np.ImageSource.ConfigMapRef != nil &&
+			np.ImageSource.ConfigMapRef.Name == configMapName {
+			return true
+		}
+	}
+	return false
+}
+
+// configMapDataChangedPredicate returns a predicate that only passes through Update events where the ConfigMap .Data has actually changed.
+// This avoids unnecessary reconciliations from metadata-only changes.
+func configMapDataChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldCM, ok := e.ObjectOld.(*corev1.ConfigMap)
+			if !ok {
+				return false
+			}
+			newCM, ok := e.ObjectNew.(*corev1.ConfigMap)
+			if !ok {
+				return false
+			}
+			return !equality.Semantic.DeepEqual(oldCM.Data, newCM.Data)
+		},
+	}
 }
 
 func (r *HumioClusterReconciler) nodePoolPodsReady(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (bool, error) {
@@ -1829,6 +1882,13 @@ func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1a
 		return nil
 	}
 
+	// If a workload service owns this name, skip per-pool service management
+	for _, ws := range hc.Spec.WorkloadServices {
+		if workloadTypeServiceName(hc.Name, ws.Name) == hnp.GetNodePoolName() {
+			return nil
+		}
+	}
+
 	r.Log.Info("ensuring service")
 	existingService, err := kubernetes.GetService(ctx, r, hnp.GetNodePoolName(), hnp.GetNamespace())
 	service := ConstructService(hnp)
@@ -1848,6 +1908,57 @@ func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1a
 		updateService(existingService, service)
 		if err = r.Update(ctx, existingService); err != nil {
 			return r.logErrorAndReturn(err, fmt.Sprintf("could not update service %s", service.Name))
+		}
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) ensurePoolHeadlessService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	if hnp.GetRawNodePoolName() == "" {
+		return nil
+	}
+
+	serviceName := poolHeadlessServiceName(hnp.GetNodePoolName())
+
+	// If a workload headless service owns this name, skip per-pool headless management
+	for _, ws := range hc.Spec.WorkloadServices {
+		if workloadTypeHeadlessServiceName(hc.Name, ws.Name) == serviceName {
+			return nil
+		}
+	}
+
+	if !hnp.NodePoolServiceEnabled() {
+		existingService, err := kubernetes.GetService(ctx, r, serviceName, hnp.GetNamespace())
+		if err == nil {
+			r.Log.Info(fmt.Sprintf("deleting per-pool headless service %s (enableNodePoolService=false)", existingService.Name))
+			if err = r.Delete(ctx, existingService); err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not delete per-pool headless service %s", existingService.Name))
+			}
+		}
+		return nil
+	}
+
+	r.Log.Info(fmt.Sprintf("ensuring per-pool headless service %s", serviceName))
+	existingService, err := kubernetes.GetService(ctx, r, serviceName, hnp.GetNamespace())
+	service := constructPoolHeadlessService(hnp)
+	if k8serrors.IsNotFound(err) {
+		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
+			return r.logErrorAndReturn(err, "could not set controller reference")
+		}
+		if err = r.Create(ctx, service); err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("unable to create per-pool headless service %s", serviceName))
+		}
+		return nil
+	}
+	if err != nil {
+		return r.logErrorAndReturn(err, fmt.Sprintf("failed to get per-pool headless service %s", serviceName))
+	}
+
+	if servicesMatchTest, matchErr := servicesMatch(existingService, service); !servicesMatchTest || matchErr != nil {
+		r.Log.Info(fmt.Sprintf("per-pool headless service %s requires update: %s", serviceName, matchErr))
+		updateService(existingService, service)
+		if err = r.Update(ctx, existingService); err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("could not update per-pool headless service %s", serviceName))
 		}
 	}
 	return nil
@@ -1901,6 +2012,66 @@ func (r *HumioClusterReconciler) ensureInternalServiceExists(ctx context.Context
 	return nil
 }
 
+func (r *HumioClusterReconciler) ensureWorkloadLabels(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	if len(hc.Spec.WorkloadServices) == 0 {
+		return nil
+	}
+	hnps := getHumioNodePoolManagers(hc)
+	for _, hnp := range hnps.Items {
+		if !hnp.workloadServicesEnabled {
+			continue
+		}
+		desiredLabels := make(map[string]string)
+		for _, wt := range hnp.GetWorkloadTypes() {
+			desiredLabels[kubernetes.WorkloadTypeLabelPrefix+wt] = "true"
+		}
+		pods, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), client.MatchingLabels(hnp.GetNodePoolLabels()))
+		if err != nil {
+			return fmt.Errorf("list pods for pool %s: %w", hnp.GetNodePoolName(), err)
+		}
+		for i := range pods {
+			pod := &pods[i]
+			if !podNeedsWorkloadLabelUpdate(pod, desiredLabels) {
+				continue
+			}
+			patch := client.MergeFrom(pod.DeepCopy())
+			if pod.Labels == nil {
+				pod.Labels = make(map[string]string)
+			}
+			for k, v := range desiredLabels {
+				pod.Labels[k] = v
+			}
+			for k := range pod.Labels {
+				if len(k) > len(kubernetes.WorkloadTypeLabelPrefix) &&
+					k[:len(kubernetes.WorkloadTypeLabelPrefix)] == kubernetes.WorkloadTypeLabelPrefix &&
+					desiredLabels[k] == "" {
+					delete(pod.Labels, k)
+				}
+			}
+			if err := r.Patch(ctx, pod, patch); err != nil {
+				return fmt.Errorf("patch workload labels on pod %s: %w", pod.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func podNeedsWorkloadLabelUpdate(pod *corev1.Pod, desired map[string]string) bool {
+	for k, v := range desired {
+		if pod.Labels[k] != v {
+			return true
+		}
+	}
+	for k := range pod.Labels {
+		if len(k) > len(kubernetes.WorkloadTypeLabelPrefix) &&
+			k[:len(kubernetes.WorkloadTypeLabelPrefix)] == kubernetes.WorkloadTypeLabelPrefix &&
+			desired[k] == "" {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *HumioClusterReconciler) ensureWorkloadTypeServices(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	for _, ws := range hc.Spec.WorkloadServices {
 		serviceName := workloadTypeServiceName(hc.Name, ws.Name)
@@ -1941,10 +2112,40 @@ func (r *HumioClusterReconciler) ensureWorkloadTypeServices(ctx context.Context,
 	return nil
 }
 
+func (r *HumioClusterReconciler) ensureWorkloadTypeHeadlessServices(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	for _, ws := range hc.Spec.WorkloadServices {
+		serviceName := workloadTypeHeadlessServiceName(hc.Name, ws.Name)
+		r.Log.Info(fmt.Sprintf("ensuring workload-type headless service %s", serviceName))
+		existingService, err := kubernetes.GetService(ctx, r, serviceName, hc.Namespace)
+		service := constructWorkloadTypeHeadlessService(hc, ws)
+		if k8serrors.IsNotFound(err) {
+			if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
+				return r.logErrorAndReturn(err, "could not set controller reference")
+			}
+			if err = r.Create(ctx, service); err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("unable to create workload-type headless service %s", serviceName))
+			}
+			continue
+		}
+		if err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("failed to get workload-type headless service %s", serviceName))
+		}
+		if servicesMatchTest, matchErr := servicesMatch(existingService, service); !servicesMatchTest || matchErr != nil {
+			r.Log.Info(fmt.Sprintf("workload-type headless service %s requires update: %s", serviceName, matchErr))
+			updateService(existingService, service)
+			if err = r.Update(ctx, existingService); err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not update workload-type headless service %s", serviceName))
+			}
+		}
+	}
+	return nil
+}
+
 func (r *HumioClusterReconciler) cleanupUnusedWorkloadTypeServices(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	configuredNames := make(map[string]bool)
 	for _, ws := range hc.Spec.WorkloadServices {
 		configuredNames[workloadTypeServiceName(hc.Name, ws.Name)] = true
+		configuredNames[workloadTypeHeadlessServiceName(hc.Name, ws.Name)] = true
 	}
 
 	serviceList := &corev1.ServiceList{}
@@ -2541,6 +2742,14 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if desiredLifecycleState.ADifferenceWasDetectedAndManualDeletionsNotEnabled() {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading {
 			if podsStatus.waitingOnPods() && desiredLifecycleState.ShouldRollingRestart() {
+				// If we're only "waiting on pods" because we have fewer pods than
+				// nodeCount (missing pods, not unready pods), don't return here.
+				// Returning would starve ensurePodsExist, which runs later in the
+				// reconcile and is the only place that creates missing pods.
+				// Without this, a Restarting cluster with podCount<nodeCount is
+				// permanently stuck: readyCount never reaches nodeCount because
+				// the missing pod is never created.
+				missingPodsOnly := podsStatus.notReadyCount == 0 && podsStatus.readyCount < podsStatus.nodeCount
 				r.Log.Info(fmt.Sprintf("pods %s should be deleted, but waiting because not all other pods are "+
 					"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.namesOfPodsToBeReplaced(),
 					podsStatus.waitingOnPods(), hc.Status.State),
@@ -2549,9 +2758,19 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 					"podsStatus.notReadyCount", podsStatus.notReadyCount,
 					"!podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions()", !podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions(),
 					"!podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs()", !podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs(),
+					"missingPodsOnly", missingPodsOnly,
 				)
-				return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				if !missingPodsOnly {
+					return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+						withMessage(waitingOnPodsMessage))
+				}
+				_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
 					withMessage(waitingOnPodsMessage))
+				// Return empty result so the main reconcile loop advances to
+				// ensurePodsExist and creates the missing pods. Skip the deletion
+				// loop below — we don't want to reduce pod count further while
+				// already short.
+				return reconcile.Result{}, nil
 			}
 		}
 
@@ -3238,7 +3457,9 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 		r.ensureLicenseIsValid,
 		r.ensureHeadlessServiceExists,
 		r.ensureInternalServiceExists,
+		r.ensureWorkloadLabels,
 		r.ensureWorkloadTypeServices,
+		r.ensureWorkloadTypeHeadlessServices,
 		r.cleanupUnusedWorkloadTypeServices,
 		r.validateUserDefinedServiceAccountsExists,
 	} {
@@ -4164,4 +4385,197 @@ func equalExportsStatus(a, b []humiov1alpha1.HumioTelemetryResourceStatus) bool 
 	}
 
 	return true
+}
+func podExpireJitter(podName string, maxAge time.Duration) time.Duration {
+	const maxJitterCap = time.Hour
+	maxJitter := maxAge / 10
+	if maxJitter > maxJitterCap {
+		maxJitter = maxJitterCap
+	}
+	if maxJitter <= 0 {
+		return 0
+	}
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(podName))
+	capped := h.Sum64() >> 1
+	return time.Duration(int64(capped) % int64(maxJitter)) //nolint:gosec // G115: capped ≤ math.MaxInt64 after >> 1
+}
+
+func classifyExpiredPods(foundPodList []corev1.Pod, maxAge time.Duration, now time.Time) (expired []corev1.Pod, nearestExpiry time.Duration, nearestSet bool) {
+	for _, pod := range foundPodList {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		expiresAt := podExpiresAt(pod, maxAge)
+		if now.After(expiresAt) {
+			expired = append(expired, pod)
+		} else {
+			remaining := expiresAt.Sub(now)
+			if !nearestSet || remaining < nearestExpiry {
+				nearestExpiry = remaining
+				nearestSet = true
+			}
+		}
+	}
+	return
+}
+
+func (r *HumioClusterReconciler) zoneFilterExpiredPods(ctx context.Context, expiredPods []corev1.Pod) ([]corev1.Pod, error) {
+	if expiredPods[0].Spec.NodeName == "" {
+		return nil, nil // signal: requeue needed
+	}
+	var filtered []corev1.Pod
+	targetZoneSet := false
+	targetZone := ""
+	for _, pod := range expiredPods {
+		if pod.Spec.NodeName == "" {
+			continue
+		}
+		zone, err := kubernetes.GetZoneForNodeName(ctx, r, pod.Spec.NodeName)
+		if err != nil {
+			return nil, err
+		}
+		if !targetZoneSet {
+			targetZone = zone
+			targetZoneSet = true
+		}
+		if zone == targetZone {
+			filtered = append(filtered, pod)
+		}
+	}
+	return filtered, nil
+}
+
+// podExpiresAt is the single source of truth for expiry time; used by both status reporting and eviction to keep them in sync.
+func podExpiresAt(pod corev1.Pod, expireAfter time.Duration) time.Time {
+	return pod.CreationTimestamp.Add(expireAfter + podExpireJitter(pod.Name, expireAfter))
+}
+
+func (r *HumioClusterReconciler) ensureExpiredPodsAreDeleted(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
+	emptyResult := reconcile.Result{}
+
+	// Throttle key includes namespace so same-named pools in different namespaces don't collide.
+	ns := hnp.GetNamespace()
+	poolName := hnp.GetNodePoolName()
+	throttleKey := ns + "/" + poolName
+
+	expireAfter := hnp.GetExpireAfter()
+	if expireAfter == nil {
+		r.lastEviction.Delete(throttleKey)
+		NextPodExpiryTimestampSeconds.DeleteLabelValues(ns, poolName)
+		return emptyResult, nil
+	}
+
+	if hnp.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyOnDelete {
+		r.Log.Info("skipping expireAfter: update strategy is OnDelete")
+		ExpireAfterSkipsTotal.WithLabelValues(ns, poolName, expireAfterSkipOnDeleteStrategy).Inc()
+		return emptyResult, nil
+	}
+
+	if hc.Status.State != humiov1alpha1.HumioClusterStateRunning {
+		r.Log.Info(fmt.Sprintf("skipping expireAfter: cluster state is %s, not Running", hc.Status.State))
+		ExpireAfterSkipsTotal.WithLabelValues(ns, poolName, expireAfterSkipClusterNotRunning).Inc()
+		return emptyResult, nil
+	}
+
+	// Throttle entry: skip if MinReadySeconds hasn't elapsed since last delete to prevent cache-race double-deletes.
+	minReady := time.Duration(hnp.GetUpdateStrategy().MinReadySeconds) * time.Second
+	if v, ok := r.lastEviction.Load(throttleKey); ok {
+		if wait := minReady - time.Since(v.(time.Time)); wait > 0 {
+			ExpireAfterSkipsTotal.WithLabelValues(ns, poolName, expireAfterSkipMinReadyThrottle).Inc()
+			return reconcile.Result{RequeueAfter: wait}, nil
+		}
+	}
+
+	foundPodList, err := kubernetes.ListPods(ctx, r, ns, hnp.GetNodePoolLabels())
+	if err != nil {
+		return emptyResult, r.logErrorAndReturn(err, "failed to list pods for expireAfter check")
+	}
+
+	podsStatus, err := r.getPodsStatus(ctx, hc, hnp, foundPodList)
+	if err != nil {
+		return emptyResult, r.logErrorAndReturn(err, "failed to get pod status for expireAfter check")
+	}
+
+	// waitingOnPods() returns false when unschedulable/evicted pods exist, which would let expireAfter delete healthy pods on top of a degraded pool — gate on the stricter "all ready AND no bad-state pods" invariant instead.
+	if podsStatus.readyCount < podsStatus.nodeCount ||
+		podsStatus.notReadyCount > 0 ||
+		podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions() ||
+		podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs() {
+		r.Log.Info("skipping expireAfter check because pool is not fully healthy",
+			"readyCount", podsStatus.readyCount,
+			"nodeCount", podsStatus.nodeCount,
+			"notReadyCount", podsStatus.notReadyCount)
+		ExpireAfterSkipsTotal.WithLabelValues(ns, poolName, expireAfterSkipWaitingOnPods).Inc()
+		return emptyResult, nil
+	}
+
+	now := time.Now()
+	maxAge := expireAfter.Duration
+	expiredPods, nearestExpiry, nearestExpirySet := classifyExpiredPods(foundPodList, maxAge, now)
+
+	// Update gauge every path; clear to 0 when no future expiry (active cycling or unconfigured).
+	if nearestExpirySet {
+		NextPodExpiryTimestampSeconds.WithLabelValues(ns, poolName).Set(float64(now.Add(nearestExpiry).Unix()))
+	} else {
+		NextPodExpiryTimestampSeconds.WithLabelValues(ns, poolName).Set(0)
+	}
+
+	if len(expiredPods) == 0 {
+		if nearestExpirySet && nearestExpiry > 0 {
+			r.Log.Info(fmt.Sprintf("no expired pods found, next expiry in %s", nearestExpiry))
+			return reconcile.Result{RequeueAfter: nearestExpiry}, nil
+		}
+		return emptyResult, nil
+	}
+
+	// Sort by effective expiry (creation + expireAfter + jitter) so jitter doesn't flip deletion order.
+	sort.Slice(expiredPods, func(i, j int) bool {
+		return podExpiresAt(expiredPods[i], maxAge).Before(podExpiresAt(expiredPods[j], maxAge))
+	})
+
+	if *hnp.GetUpdateStrategy().EnableZoneAwareness && !helpers.UseEnvtest() {
+		filtered, err := r.zoneFilterExpiredPods(ctx, expiredPods)
+		if err != nil {
+			return emptyResult, r.logErrorAndReturn(err, "unable to fetch zone for expired pod")
+		}
+		if filtered == nil {
+			r.Log.Info("oldest expired pod has no NodeName yet, deferring zone-aware selection", "pod", expiredPods[0].Name)
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+		expiredPods = filtered
+	}
+
+	deletionBudget := podsStatus.scaledMaxUnavailableMinusNotReadyDueToMinReadySeconds()
+
+	// Create eviction-protection PDB before deleting (isClusterStable()=true here, so add-only pass skipped it). r.Delete bypasses PDB admission.
+	if hc.Spec.OperatorFeatureFlags.EnableEvictionProtectionDuringMaintenance && deletionBudget > 0 && len(expiredPods) > 0 {
+		if err := r.ensureEvictionProtectionPDBExists(ctx, hc, hnp); err != nil {
+			return emptyResult, r.logErrorAndReturn(err, "failed to create eviction-protection PDB before expireAfter eviction")
+		}
+	}
+
+	for i := 0; i < deletionBudget && i < len(expiredPods); i++ {
+		pod := expiredPods[i]
+		podAge := now.Sub(pod.CreationTimestamp.Time)
+		r.Log.Info(fmt.Sprintf("deleting expired pod %s (age=%s, expireAfter=%s)", pod.Name, podAge.Truncate(time.Second), maxAge))
+		if err = r.Delete(ctx, &pod); err != nil {
+			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete expired pod %s", pod.Name)).Error()))
+		}
+		ExpireAfterDeletionsTotal.WithLabelValues(ns, poolName).Inc()
+		r.lastEviction.Store(throttleKey, time.Now())
+	}
+
+	// Requeue at MinReadySeconds; shorter races the controller-runtime cache
+	// and lets another delete slip through before the previous one is observed.
+	// Floor at expireAfterRequeueFloor so a pool configured with MinReadySeconds=0
+	// still gets a follow-up scan when more pods remain expired beyond deletionBudget
+	// (otherwise controller-runtime treats RequeueAfter=0 as "no requeue" and
+	// progress stalls until an unrelated watch event fires).
+	requeueAfter := time.Duration(hnp.GetUpdateStrategy().MinReadySeconds) * time.Second
+	if requeueAfter < expireAfterRequeueFloor {
+		requeueAfter = expireAfterRequeueFloor
+	}
+	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }

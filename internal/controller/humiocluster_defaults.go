@@ -188,6 +188,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			ContainerLifecycle:                          hc.Spec.ContainerLifecycle,
 			WorkloadTypes:                               hc.Spec.WorkloadTypes,
 			EnableNodePoolService:                       hc.Spec.EnableNodePoolService,
+			ExpireAfter:                                 hc.Spec.ExpireAfter,
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -286,6 +287,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			ContainerLifecycle:             hnp.ContainerLifecycle,
 			WorkloadTypes:                  hnp.WorkloadTypes,
 			EnableNodePoolService:          hnp.EnableNodePoolService,
+			ExpireAfter:                    expireAfterOrClusterDefault(hnp.ExpireAfter, hc.Spec.ExpireAfter),
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -1187,6 +1189,20 @@ func (hnp *HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy
 		EnableZoneAwareness: &defaultZoneAwareness,
 		MaxUnavailable:      &defaultMaxUnavailable,
 	}
+}
+
+func (hnp *HumioNodePool) GetExpireAfter() *metav1.Duration {
+	return hnp.humioNodeSpec.ExpireAfter
+}
+
+// expireAfterOrClusterDefault returns the per-nodePool override when set, else the cluster-wide
+// spec.expireAfter. Without this fallback a top-level expireAfter is silently ignored for any
+// pool defined under spec.nodePools[] — inconsistent with the "cluster-wide" docs contract.
+func expireAfterOrClusterDefault(nodePool, cluster *metav1.Duration) *metav1.Duration {
+	if nodePool != nil {
+		return nodePool
+	}
+	return cluster
 }
 
 func (hnp *HumioNodePool) GetPriorityClassName() string {

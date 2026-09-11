@@ -368,6 +368,10 @@ type HumioNodeSpec struct {
 	// Set to false to opt out of per-pool service creation once workload-type aggregate services are in place.
 	// +kubebuilder:validation:Optional
 	EnableNodePoolService *bool `json:"enableNodePoolService,omitempty"`
+
+	// ExpireAfter is the maximum pod lifetime; pods older than this are cycled using MaxUnavailable/MinReadySeconds/zone-awareness safety gates. Uses Go duration format (e.g. "24h").
+	// +kubebuilder:validation:XValidation:rule="duration(self) >= duration('1h')",message="expireAfter must be at least 1h"
+	ExpireAfter *metav1.Duration `json:"expireAfter,omitempty"`
 }
 
 // HumioOperatorFeatureFlags contains feature flags applied to the Humio operator.
@@ -384,6 +388,28 @@ type HumioOperatorFeatureFlags struct {
 	// Default: false
 	// +kubebuilder:default=false
 	EnableIndependentHumioNodePools bool `json:"enableIndependentHumioNodePools,omitempty"`
+	// EnableEvictionProtectionDuringMaintenance blocks voluntary evictions of Humio pods
+	// (by Karpenter consolidation, cluster-autoscaler, or manual drains) during upgrades
+	// and restarts. When enabled, the operator creates a restrictive PodDisruptionBudget
+	// per node pool whenever the cluster is not fully stable and removes it once every
+	// node pool returns to Running. The mechanism is autoscaler-agnostic (vanilla
+	// Kubernetes PDBs).
+	//
+	// Safety valve: if the cluster does not return to Running within 2 hours, the PDB
+	// is automatically relaxed (a Warning Event is recorded on the HumioCluster) so a
+	// wedged cluster does not permanently block eviction across the underlying nodes.
+	//
+	// Interaction with spec.podDisruptionBudget: independent. Both PDBs target the same
+	// pods; Kubernetes enforces the most restrictive across all matching PDBs.
+	//
+	// Interaction with aggressive pod-cycling features (e.g. expireAfter): while
+	// enabled, this feature keeps the PDB active whenever any pool is unstable.
+	// Combined with short-cadence pod cycling, voluntary evictions may be effectively
+	// disabled cluster-wide. Consider both features' cadence together.
+	//
+	// Default: false
+	// +kubebuilder:default=false
+	EnableEvictionProtectionDuringMaintenance bool `json:"enableEvictionProtectionDuringMaintenance,omitempty"`
 }
 
 // HumioNodePoolFeatures is used to toggle certain features that are specific instance of HumioNodeSpec. This means
@@ -648,6 +674,9 @@ type HumioPodStatus struct {
 	NodeId int `json:"nodeId,omitempty"`
 	// NodeName is the name of the Kubernetes worker node where this pod is currently running
 	NodeName string `json:"nodeName,omitempty"`
+	// ExpiresAt is the time at which this pod becomes eligible for expiry-based cycling. Only set when expireAfter is configured.
+	// +optional
+	ExpiresAt *metav1.Time `json:"expiresAt,omitempty"`
 }
 
 // HumioLicenseStatus shows the status of Humio license

@@ -8,6 +8,33 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func Test_scaledMaxUnavailableMinusNotReadyDueToMinReadySeconds(t *testing.T) {
+	tests := []struct {
+		name                   string
+		scaledMaxUnavailable   int
+		notReadyDueToMinReady  int
+		expectedDeletionBudget int
+	}{
+		{"budget with headroom", 2, 0, 2},
+		{"budget partially consumed by not-ready", 2, 1, 1},
+		{"budget fully consumed", 2, 2, 0},
+		{"budget over-consumed clamps to zero", 1, 2, 0},
+		{"50pct of 3 rounds down to 1", 1, 0, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &podsStatusState{
+				scaledMaxUnavailable:         tt.scaledMaxUnavailable,
+				notReadyDueToMinReadySeconds: tt.notReadyDueToMinReady,
+			}
+			got := s.scaledMaxUnavailableMinusNotReadyDueToMinReadySeconds()
+			if got != tt.expectedDeletionBudget {
+				t.Errorf("scaledMaxUnavailableMinusNotReadyDueToMinReadySeconds() = %d, want %d", got, tt.expectedDeletionBudget)
+			}
+		})
+	}
+}
+
 func Test_podsStatusState_waitingOnPods(t *testing.T) {
 	type fields struct {
 		nodeCount     int
