@@ -1247,6 +1247,10 @@ func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hc *humio
 				PodName:  pod.Name,
 				NodeName: nodeName,
 			}
+			if expireAfter := pool.GetExpireAfter(); expireAfter != nil {
+				expiresAt := metav1.NewTime(podExpiresAt(pod, expireAfter.Duration))
+				podStatus.ExpiresAt = &expiresAt
+			}
 			if pool.PVCsEnabled() {
 				for _, volume := range pod.Spec.Volumes {
 					if volume.Name == HumioDataVolumeName {

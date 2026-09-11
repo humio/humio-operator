@@ -28,6 +28,8 @@ import (
 )
 
 const labelPool = "pool"
+const labelNamespace = "namespace"
+const testNamespace = "test-ns"
 
 const controllerLabel = "humiocluster"
 
@@ -37,7 +39,7 @@ func TestReconcileDurationMetric(t *testing.T) {
 		metricName := "humio_operator_reconcile_duration_seconds"
 
 		// Observe a value to ensure metric appears
-		ReconcileDurationSeconds.WithLabelValues("registration-test", "test-pool").Observe(0.1)
+		ReconcileDurationSeconds.WithLabelValues(testNamespace, "registration-test", "test-pool").Observe(0.1)
 
 		metricFamilies, err := metrics.Registry.Gather()
 		if err != nil {
@@ -65,7 +67,7 @@ func TestReconcileDurationMetric(t *testing.T) {
 		before := getHistogramCount("test-pool")
 
 		// Observe a duration
-		ReconcileDurationSeconds.WithLabelValues(controllerLabel, "test-pool").Observe(0.5)
+		ReconcileDurationSeconds.WithLabelValues(testNamespace, controllerLabel, "test-pool").Observe(0.5)
 
 		// Verify count increased
 		after := getHistogramCount("test-pool")
@@ -83,9 +85,9 @@ func TestReconcileDurationMetric(t *testing.T) {
 		initial := getHistogramCount(pool)
 
 		// Observe multiple durations
-		ReconcileDurationSeconds.WithLabelValues(controller, pool).Observe(0.1)
-		ReconcileDurationSeconds.WithLabelValues(controller, pool).Observe(0.2)
-		ReconcileDurationSeconds.WithLabelValues(controller, pool).Observe(0.3)
+		ReconcileDurationSeconds.WithLabelValues(testNamespace, controller, pool).Observe(0.1)
+		ReconcileDurationSeconds.WithLabelValues(testNamespace, controller, pool).Observe(0.2)
+		ReconcileDurationSeconds.WithLabelValues(testNamespace, controller, pool).Observe(0.3)
 
 		// Verify accumulated
 		final := getHistogramCount(pool)
@@ -105,7 +107,7 @@ func TestReconcileDurationMetric(t *testing.T) {
 		duration := time.Since(start).Seconds()
 
 		initial := getHistogramCount(pool)
-		ReconcileDurationSeconds.WithLabelValues(controller, pool).Observe(duration)
+		ReconcileDurationSeconds.WithLabelValues(testNamespace, controller, pool).Observe(duration)
 		final := getHistogramCount(pool)
 
 		if final != initial+1 {
@@ -124,7 +126,7 @@ func TestShadowReadFailuresMetric(t *testing.T) {
 		metricName := "humio_operator_shadow_read_failures_total"
 
 		// Increment counter to ensure metric appears
-		ShadowReadFailuresTotal.WithLabelValues("registration-test", "not_found").Inc()
+		ShadowReadFailuresTotal.WithLabelValues(testNamespace, "registration-test", "not_found").Inc()
 
 		metricFamilies, err := metrics.Registry.Gather()
 		if err != nil {
@@ -152,7 +154,7 @@ func TestShadowReadFailuresMetric(t *testing.T) {
 		before := getShadowReadFailuresCounter("test-pool", "not_found")
 
 		// Increment the counter
-		ShadowReadFailuresTotal.WithLabelValues("test-pool", "not_found").Inc()
+		ShadowReadFailuresTotal.WithLabelValues(testNamespace, "test-pool", "not_found").Inc()
 
 		// Verify count increased
 		after := getShadowReadFailuresCounter("test-pool", "not_found")
@@ -167,9 +169,9 @@ func TestShadowReadFailuresMetric(t *testing.T) {
 		initial := getShadowReadFailuresCounter("multi-pool", "timeout")
 
 		// Increment multiple times
-		ShadowReadFailuresTotal.WithLabelValues("multi-pool", "timeout").Inc()
-		ShadowReadFailuresTotal.WithLabelValues("multi-pool", "timeout").Inc()
-		ShadowReadFailuresTotal.WithLabelValues("multi-pool", "timeout").Inc()
+		ShadowReadFailuresTotal.WithLabelValues(testNamespace, "multi-pool", "timeout").Inc()
+		ShadowReadFailuresTotal.WithLabelValues(testNamespace, "multi-pool", "timeout").Inc()
+		ShadowReadFailuresTotal.WithLabelValues(testNamespace, "multi-pool", "timeout").Inc()
 
 		// Verify accumulated
 		final := getShadowReadFailuresCounter("multi-pool", "timeout")
@@ -191,9 +193,10 @@ func getHistogramCount(pool string) uint64 {
 		if mf.GetName() == "humio_operator_reconcile_duration_seconds" {
 			for _, m := range mf.GetMetric() {
 				labels := m.GetLabel()
-				if len(labels) == 2 &&
+				if len(labels) == 3 &&
 					labels[0].GetName() == "controller" && labels[0].GetValue() == controllerLabel &&
-					labels[1].GetName() == labelPool && labels[1].GetValue() == pool {
+					labels[1].GetName() == labelNamespace && labels[1].GetValue() == testNamespace &&
+					labels[2].GetName() == labelPool && labels[2].GetValue() == pool {
 					if h := m.GetHistogram(); h != nil {
 						return h.GetSampleCount()
 					}
@@ -215,9 +218,10 @@ func getShadowReadFailuresCounter(pool, errorType string) float64 {
 		if mf.GetName() == "humio_operator_shadow_read_failures_total" {
 			for _, m := range mf.GetMetric() {
 				labels := m.GetLabel()
-				if len(labels) == 2 &&
+				if len(labels) == 3 &&
 					labels[0].GetName() == "error_type" && labels[0].GetValue() == errorType &&
-					labels[1].GetName() == labelPool && labels[1].GetValue() == pool {
+					labels[1].GetName() == labelNamespace && labels[1].GetValue() == testNamespace &&
+					labels[2].GetName() == labelPool && labels[2].GetValue() == pool {
 					if c := m.GetCounter(); c != nil {
 						return c.GetValue()
 					}
@@ -234,7 +238,7 @@ func TestNodeCountUpdatesMetric(t *testing.T) {
 		metricName := "humio_operator_nodecount_updates_total"
 
 		// Increment counter to ensure metric appears
-		NodeCountUpdates.WithLabelValues("registration-test", "hpa", "false").Inc()
+		NodeCountUpdates.WithLabelValues(testNamespace, "registration-test", "hpa", "false").Inc()
 
 		metricFamilies, err := metrics.Registry.Gather()
 		if err != nil {
@@ -262,7 +266,7 @@ func TestNodeCountUpdatesMetric(t *testing.T) {
 		before := getNodeCountUpdatesCounter("test-pool", "hpa", "true")
 
 		// Increment the counter
-		NodeCountUpdates.WithLabelValues("test-pool", "hpa", "true").Inc()
+		NodeCountUpdates.WithLabelValues(testNamespace, "test-pool", "hpa", "true").Inc()
 
 		// Verify count increased
 		after := getNodeCountUpdatesCounter("test-pool", "hpa", "true")
@@ -278,9 +282,9 @@ func TestNodeCountUpdatesMetric(t *testing.T) {
 		pool2Before := getNodeCountUpdatesCounter("pool-2", "spec", "true")
 
 		// Increment different combinations
-		NodeCountUpdates.WithLabelValues("pool-1", "hpa", "false").Inc()
-		NodeCountUpdates.WithLabelValues("pool-2", "spec", "true").Inc()
-		NodeCountUpdates.WithLabelValues("pool-2", "spec", "true").Inc()
+		NodeCountUpdates.WithLabelValues(testNamespace, "pool-1", "hpa", "false").Inc()
+		NodeCountUpdates.WithLabelValues(testNamespace, "pool-2", "spec", "true").Inc()
+		NodeCountUpdates.WithLabelValues(testNamespace, "pool-2", "spec", "true").Inc()
 
 		// Verify each combination tracked independently
 		pool1After := getNodeCountUpdatesCounter("pool-1", "hpa", "false")
@@ -299,7 +303,7 @@ func TestNodeCountUpdatesMetric(t *testing.T) {
 		sources := []string{"hpa", "spec", "default"}
 		for _, source := range sources {
 			before := getNodeCountUpdatesCounter("source-test-pool", source, "false")
-			NodeCountUpdates.WithLabelValues("source-test-pool", source, "false").Inc()
+			NodeCountUpdates.WithLabelValues(testNamespace, "source-test-pool", source, "false").Inc()
 			after := getNodeCountUpdatesCounter("source-test-pool", source, "false")
 
 			if after != before+1 {
@@ -320,10 +324,11 @@ func getNodeCountUpdatesCounter(pool, source, clamped string) float64 {
 		if mf.GetName() == "humio_operator_nodecount_updates_total" {
 			for _, m := range mf.GetMetric() {
 				labels := m.GetLabel()
-				if len(labels) == 3 &&
+				if len(labels) == 4 &&
 					labels[0].GetName() == "clamped" && labels[0].GetValue() == clamped &&
-					labels[1].GetName() == labelPool && labels[1].GetValue() == pool &&
-					labels[2].GetName() == "source" && labels[2].GetValue() == source {
+					labels[1].GetName() == labelNamespace && labels[1].GetValue() == testNamespace &&
+					labels[2].GetName() == labelPool && labels[2].GetValue() == pool &&
+					labels[3].GetName() == "source" && labels[3].GetValue() == source {
 					if c := m.GetCounter(); c != nil {
 						return c.GetValue()
 					}
@@ -340,7 +345,7 @@ func TestShadowStalenessMetric(t *testing.T) {
 		metricName := "humio_operator_shadow_staleness_consecutive"
 
 		// Set gauge value to ensure metric appears
-		ShadowStaleness.WithLabelValues("registration-test").Set(1)
+		ShadowStaleness.WithLabelValues(testNamespace, "registration-test").Set(1)
 
 		metricFamilies, err := metrics.Registry.Gather()
 		if err != nil {
@@ -365,7 +370,7 @@ func TestShadowStalenessMetric(t *testing.T) {
 
 	t.Run("setting gauge value updates metric", func(t *testing.T) {
 		// Set gauge to 5
-		ShadowStaleness.WithLabelValues("test-pool").Set(5)
+		ShadowStaleness.WithLabelValues(testNamespace, "test-pool").Set(5)
 
 		// Verify gauge value is 5
 		value := getShadowStalenessGauge("test-pool")
@@ -379,10 +384,10 @@ func TestShadowStalenessMetric(t *testing.T) {
 		pool := "reset-pool"
 
 		// Set to non-zero value first
-		ShadowStaleness.WithLabelValues(pool).Set(10)
+		ShadowStaleness.WithLabelValues(testNamespace, pool).Set(10)
 
 		// Reset to 0
-		ShadowStaleness.WithLabelValues(pool).Set(0)
+		ShadowStaleness.WithLabelValues(testNamespace, pool).Set(0)
 
 		// Verify gauge value is 0
 		value := getShadowStalenessGauge(pool)
@@ -394,8 +399,8 @@ func TestShadowStalenessMetric(t *testing.T) {
 
 	t.Run("different pools track independently", func(t *testing.T) {
 		// Set different values for different pools
-		ShadowStaleness.WithLabelValues("pool-a").Set(3)
-		ShadowStaleness.WithLabelValues("pool-b").Set(7)
+		ShadowStaleness.WithLabelValues(testNamespace, "pool-a").Set(3)
+		ShadowStaleness.WithLabelValues(testNamespace, "pool-b").Set(7)
 
 		// Verify each pool has its own value
 		valueA := getShadowStalenessGauge("pool-a")
@@ -422,8 +427,9 @@ func getShadowStalenessGauge(pool string) float64 {
 		if mf.GetName() == "humio_operator_shadow_staleness_consecutive" {
 			for _, m := range mf.GetMetric() {
 				labels := m.GetLabel()
-				if len(labels) == 1 &&
-					labels[0].GetName() == labelPool && labels[0].GetValue() == pool {
+				if len(labels) == 2 &&
+					labels[0].GetName() == labelNamespace && labels[0].GetValue() == testNamespace &&
+					labels[1].GetName() == labelPool && labels[1].GetValue() == pool {
 					if g := m.GetGauge(); g != nil {
 						return g.GetValue()
 					}

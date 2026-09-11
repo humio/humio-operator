@@ -66,6 +66,39 @@ func ConstructService(hnp *HumioNodePool) *corev1.Service {
 	}
 }
 
+func poolHeadlessServiceName(poolName string) string {
+	return fmt.Sprintf("%s-headless", poolName)
+}
+
+func constructPoolHeadlessService(hnp *HumioNodePool) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        poolHeadlessServiceName(hnp.GetNodePoolName()),
+			Namespace:   hnp.GetNamespace(),
+			Labels:      mergeHumioServiceLabels(hnp.GetClusterName(), hnp.GetHumioServiceLabels()),
+			Annotations: hnp.GetHumioServiceAnnotations(),
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP:                "None",
+			Type:                     corev1.ServiceTypeClusterIP,
+			Selector:                 hnp.GetNodePoolLabels(),
+			PublishNotReadyAddresses: true,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       HumioPortName,
+					Port:       HumioPort,
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
+				},
+				{
+					Name:       ElasticPortName,
+					Port:       ElasticPort,
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
+				},
+			},
+		},
+	}
+}
+
 func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -81,12 +114,14 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
-					Name: HumioPortName,
-					Port: HumioPort,
+					Name:       HumioPortName,
+					Port:       HumioPort,
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
 				},
 				{
-					Name: ElasticPortName,
-					Port: ElasticPort,
+					Name:       ElasticPortName,
+					Port:       ElasticPort,
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
 				},
 			},
 		},
@@ -107,12 +142,14 @@ func constructInternalService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			}),
 			Ports: []corev1.ServicePort{
 				{
-					Name: HumioPortName,
-					Port: HumioPort,
+					Name:       HumioPortName,
+					Port:       HumioPort,
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
 				},
 				{
-					Name: ElasticPortName,
-					Port: ElasticPort,
+					Name:       ElasticPortName,
+					Port:       ElasticPort,
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
 				},
 			},
 		},
@@ -129,6 +166,10 @@ func internalServiceName(clusterName string) string {
 
 func workloadTypeServiceName(clusterName, name string) string {
 	return fmt.Sprintf("%s-%s", clusterName, name)
+}
+
+func workloadTypeHeadlessServiceName(clusterName, name string) string {
+	return fmt.Sprintf("%s-%s-headless", clusterName, name)
 }
 
 func constructWorkloadTypeService(hc *humiov1alpha1.HumioCluster, ws humiov1alpha1.WorkloadServiceSpec) *corev1.Service {
@@ -176,6 +217,42 @@ func constructWorkloadTypeService(hc *humiov1alpha1.HumioCluster, ws humiov1alph
 					Name:       ElasticPortName,
 					Port:       esServicePort,
 					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
+				},
+			},
+		},
+	}
+}
+
+func constructWorkloadTypeHeadlessService(hc *humiov1alpha1.HumioCluster, ws humiov1alpha1.WorkloadServiceSpec) *corev1.Service {
+	labels := kubernetes.LabelsForHumio(hc.Name)
+	for k, v := range ws.Labels {
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        workloadTypeHeadlessServiceName(hc.Name, ws.Name),
+			Namespace:   hc.Namespace,
+			Labels:      labels,
+			Annotations: ws.Annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Type:      corev1.ServiceTypeClusterIP,
+			Selector: mergeHumioServiceLabels(hc.Name, map[string]string{
+				kubernetes.WorkloadTypeLabelPrefix + ws.WorkloadType: "true",
+			}),
+			PublishNotReadyAddresses: true,
+			Ports: []corev1.ServicePort{
+				{
+					Name: HumioPortName,
+					Port: HumioPort,
+				},
+				{
+					Name: ElasticPortName,
+					Port: ElasticPort,
 				},
 			},
 		},

@@ -4245,6 +4245,14 @@ spec:
                           x-kubernetes-map-type: atomic
                       type: object
                     type: array
+                  expireAfter:
+                    description: ExpireAfter is the maximum pod lifetime; pods older
+                      than this are cycled using MaxUnavailable/MinReadySeconds/zone-awareness
+                      safety gates. Uses Go duration format (e.g. "24h").
+                    type: string
+                    x-kubernetes-validations:
+                    - message: expireAfter must be at least 1h
+                      rule: duration(self) >= duration('1h')
                   extraHumioVolumeMounts:
                     description: ExtraHumioVolumeMounts is the list of additional
                       volume mounts that will be added to the Humio container

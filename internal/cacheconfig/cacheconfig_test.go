@@ -87,6 +87,7 @@ func TestGetCacheOptionsWithWatchNamespace_LabelSelectorMode(t *testing.T) {
 		&humiov1alpha1.HumioTelemetryCollection{},
 		&humiov1alpha1.HumioTelemetryExport{},
 		&humiov1alpha1.HumioDependencyCheck{},
+		&humiov1alpha1.HumioNodePool{},
 	}
 	for _, obj := range internalCRDs {
 		found := false

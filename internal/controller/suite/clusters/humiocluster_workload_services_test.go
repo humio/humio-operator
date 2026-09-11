@@ -83,6 +83,20 @@ var _ = Describe("HumioCluster Workload Type Services", func() {
 			Expect(digestSvc.Spec.Ports[0].Port).To(Equal(int32(8080)))
 			Expect(digestSvc.Spec.Ports[1].Port).To(Equal(int32(9200)))
 
+			suite.UsingClusterBy(key.Name, "Verifying digest headless service exists")
+			digestHeadlessKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-digest-headless", key.Name),
+				Namespace: key.Namespace,
+			}
+			digestHeadless := &corev1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, digestHeadlessKey, digestHeadless)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(digestHeadless.Spec.ClusterIP).To(Equal("None"))
+			Expect(digestHeadless.Spec.PublishNotReadyAddresses).To(BeTrue())
+			Expect(digestHeadless.Spec.Selector[kubernetes.WorkloadTypeLabelPrefix+"digest"]).To(Equal("true"))
+			Expect(digestHeadless.Spec.Selector["app.kubernetes.io/instance"]).To(Equal(key.Name))
+
 			suite.UsingClusterBy(key.Name, "Verifying aggregate ingest service exists")
 			ingestSvcKey := types.NamespacedName{
 				Name:      fmt.Sprintf("%s-ingest", key.Name),
@@ -97,6 +111,20 @@ var _ = Describe("HumioCluster Workload Type Services", func() {
 			Expect(ingestSvc.Spec.Selector[kubernetes.WorkloadTypeLabelPrefix+"ingest"]).To(Equal("true"))
 			Expect(ingestSvc.Spec.Selector["app.kubernetes.io/instance"]).To(Equal(key.Name))
 
+			suite.UsingClusterBy(key.Name, "Verifying ingest headless service exists")
+			ingestHeadlessKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-ingest-headless", key.Name),
+				Namespace: key.Namespace,
+			}
+			ingestHeadless := &corev1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, ingestHeadlessKey, ingestHeadless)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(ingestHeadless.Spec.ClusterIP).To(Equal("None"))
+			Expect(ingestHeadless.Spec.PublishNotReadyAddresses).To(BeTrue())
+			Expect(ingestHeadless.Spec.Selector[kubernetes.WorkloadTypeLabelPrefix+"ingest"]).To(Equal("true"))
+			Expect(ingestHeadless.Spec.Selector["app.kubernetes.io/instance"]).To(Equal(key.Name))
+
 			suite.UsingClusterBy(key.Name, "Verifying pods have workload type labels")
 			Eventually(func() int {
 				podList := &corev1.PodList{}
@@ -110,6 +138,20 @@ var _ = Describe("HumioCluster Workload Type Services", func() {
 
 			suite.UsingClusterBy(key.Name, "Verifying selectors are distinct between services")
 			Expect(digestSvc.Spec.Selector).NotTo(Equal(ingestSvc.Spec.Selector))
+
+			suite.UsingClusterBy(key.Name, "Verifying per-pool headless service exists for named pool")
+			hnp := controller.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0])
+			poolHeadlessKey := types.NamespacedName{
+				Name:      hnp.GetNodePoolName() + "-headless",
+				Namespace: key.Namespace,
+			}
+			poolHeadless := &corev1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, poolHeadlessKey, poolHeadless)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(poolHeadless.Spec.ClusterIP).To(Equal("None"))
+			Expect(poolHeadless.Spec.PublishNotReadyAddresses).To(BeTrue())
+			Expect(poolHeadless.Spec.Selector[kubernetes.NodePoolLabelName]).To(Equal(hnp.GetNodePoolName()))
 		})
 	})
 
@@ -151,6 +193,19 @@ var _ = Describe("HumioCluster Workload Type Services", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(digestSvc.Spec.Selector[kubernetes.WorkloadTypeLabelPrefix+"digest"]).To(Equal("true"))
 
+			suite.UsingClusterBy(key.Name, "Verifying digest headless service exists")
+			digestHeadlessKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-digest-headless", key.Name),
+				Namespace: key.Namespace,
+			}
+			digestHeadless := &corev1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, digestHeadlessKey, digestHeadless)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(digestHeadless.Spec.ClusterIP).To(Equal("None"))
+			Expect(digestHeadless.Spec.PublishNotReadyAddresses).To(BeTrue())
+			Expect(digestHeadless.Spec.Selector[kubernetes.WorkloadTypeLabelPrefix+"digest"]).To(Equal("true"))
+
 			suite.UsingClusterBy(key.Name, "Verifying per-pool service does NOT exist")
 			hnp := controller.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0])
 			poolSvcKey := types.NamespacedName{
@@ -160,6 +215,17 @@ var _ = Describe("HumioCluster Workload Type Services", func() {
 			poolSvc := &corev1.Service{}
 			Consistently(func() bool {
 				err := k8sClient.Get(ctx, poolSvcKey, poolSvc)
+				return err != nil
+			}, "5s", suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(key.Name, "Verifying per-pool headless service does NOT exist")
+			poolHeadlessKey := types.NamespacedName{
+				Name:      hnp.GetNodePoolName() + "-headless",
+				Namespace: key.Namespace,
+			}
+			poolHeadless := &corev1.Service{}
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, poolHeadlessKey, poolHeadless)
 				return err != nil
 			}, "5s", suite.TestInterval).Should(BeTrue())
 		})

@@ -334,14 +334,23 @@ func (r *HumioClusterReconciler) patchShadowNodePoolStatus(ctx context.Context, 
 func forwardSyncNodeCount(ctx context.Context, c client.Client, shadow *humiov1alpha1.HumioNodePool, parentNodeCount *int32) error {
 	start := time.Now()
 	defer func() {
-		ReconcileDurationSeconds.WithLabelValues("HumioCluster", shadow.Name).Observe(time.Since(start).Seconds())
+		ReconcileDurationSeconds.WithLabelValues(shadow.Namespace, "HumioCluster", shadow.Name).Observe(time.Since(start).Seconds())
 	}()
 
 	if !isExplicitOverride(parentNodeCount) {
 		return nil
 	}
-	shadow.Spec.NodeCount = *parentNodeCount
-	if err := c.Update(ctx, shadow); err != nil {
+
+	shadowKey := types.NamespacedName{Name: shadow.Name, Namespace: shadow.Namespace}
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		freshShadow := &humiov1alpha1.HumioNodePool{}
+		if err := c.Get(ctx, shadowKey, freshShadow); err != nil {
+			return err
+		}
+		freshShadow.Spec.NodeCount = *parentNodeCount
+		return c.Update(ctx, freshShadow)
+	})
+	if err != nil {
 		return fmt.Errorf("forward-sync nodeCount failed for pool %s: %w", shadow.Name, err)
 	}
 	return nil
@@ -353,8 +362,17 @@ func forwardSyncAutoscaling(ctx context.Context, c client.Client, shadow *humiov
 	if reflect.DeepEqual(shadow.Spec.Autoscaling, parentAutoscaling) {
 		return nil
 	}
-	shadow.Spec.Autoscaling = parentAutoscaling
-	if err := c.Update(ctx, shadow); err != nil {
+
+	shadowKey := types.NamespacedName{Name: shadow.Name, Namespace: shadow.Namespace}
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		freshShadow := &humiov1alpha1.HumioNodePool{}
+		if err := c.Get(ctx, shadowKey, freshShadow); err != nil {
+			return err
+		}
+		freshShadow.Spec.Autoscaling = parentAutoscaling
+		return c.Update(ctx, freshShadow)
+	})
+	if err != nil {
 		return fmt.Errorf("forward-sync autoscaling failed for pool %s: %w", shadow.Name, err)
 	}
 	return nil
@@ -375,7 +393,7 @@ func reverseSyncNodeCount(ctx context.Context, c client.Client, cluster *humiov1
 
 	clampedStr := strconv.FormatBool(clamped != desired)
 
-	NodeCountUpdates.WithLabelValues(poolName, "hpa", clampedStr).Inc()
+	NodeCountUpdates.WithLabelValues(cluster.Namespace, poolName, "hpa", clampedStr).Inc()
 
 	statusUpdated := false
 	for i := range cluster.Status.NodePoolStatus {
@@ -432,8 +450,8 @@ func reverseSyncWithStalenessTracking(ctx context.Context, c client.Client, clus
 			counter.mu.Lock()
 			counter.counts[poolName]++
 			count := counter.counts[poolName]
-			ShadowReadFailuresTotal.WithLabelValues(poolName, "not_found").Inc()
-			ShadowStaleness.WithLabelValues(poolName).Set(float64(count))
+			ShadowReadFailuresTotal.WithLabelValues(cluster.Namespace, poolName, "not_found").Inc()
+			ShadowStaleness.WithLabelValues(cluster.Namespace, poolName).Set(float64(count))
 			if count == stalenessThreshold && recorder != nil {
 				recorder.Event(cluster, "Warning", "ShadowReadStaleness", fmt.Sprintf("Shadow pool %s read failed %d consecutive times", poolName, count))
 			}
@@ -445,7 +463,7 @@ func reverseSyncWithStalenessTracking(ctx context.Context, c client.Client, clus
 	if counter != nil {
 		counter.mu.Lock()
 		counter.counts[poolName] = 0
-		ShadowStaleness.WithLabelValues(poolName).Set(0)
+		ShadowStaleness.WithLabelValues(cluster.Namespace, poolName).Set(0)
 		counter.mu.Unlock()
 	}
 
