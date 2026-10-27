@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	humioapi "github.com/humio/humio-operator/internal/api"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,6 +20,9 @@ import (
 // HumioFinalizer generic finalizer to add to resources
 const HumioFinalizer = "core.humio.com/finalizer"
 
+// capabilityDropAll is the Linux capability name used to drop all capabilities in a SecurityContext
+const capabilityDropAll corev1.Capability = "ALL"
+
 // AllowRenameAnnotationValue is the value expected for the allow-rename annotation
 const AllowRenameAnnotationValue = "true"
 
@@ -27,6 +31,18 @@ const ForceFinalizerAnnotation = "humio.com/force-finalize"
 
 // ForceFinalizerAnnotationValue is the value expected for the force-finalize annotation
 const ForceFinalizerAnnotationValue = "true"
+
+// appNameLabelKey is the standard Kubernetes recommended label key for the application name
+const appNameLabelKey = "app.kubernetes.io/name"
+
+// appInstanceLabelKey is the standard Kubernetes recommended label key for the application instance
+const appInstanceLabelKey = "app.kubernetes.io/instance"
+
+// appLabelKey is the legacy short-form application label key
+const appLabelKey = "app"
+
+// humioScheduledSearchKind is the Kind string for the HumioScheduledSearch CRD
+const humioScheduledSearchKind = "HumioScheduledSearch"
 
 // CommonConfig has common configuration parameters for all controllers.
 type CommonConfig struct {
@@ -224,7 +240,7 @@ func HandleDeleteRecreateRename(
 	logger.Info(fmt.Sprintf("Cleared lastSyncedName, will recreate %s with new name", config.ResourceType),
 		"newName", specName)
 
-	return true, reconcile.Result{Requeue: true}, nil
+	return true, reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // ValidateLogScaleName validates that a name meets LogScale's naming requirements.

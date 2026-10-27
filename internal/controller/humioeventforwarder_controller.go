@@ -316,7 +316,7 @@ func (r *HumioEventForwarderReconciler) ensureFinalizer(
 				return reconcile.Result{}, err, true
 			}
 			r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-			return reconcile.Result{Requeue: true}, nil, true
+			return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 
 		return reconcile.Result{}, nil, false // Finalizer already present
@@ -329,7 +329,7 @@ func (r *HumioEventForwarderReconciler) ensureFinalizer(
 		return reconcile.Result{}, err, true
 	}
 
-	return reconcile.Result{Requeue: true}, nil, true
+	return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // transitionLifecycleCondition transitions one-time lifecycle event reasons
@@ -395,7 +395,7 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Check if we ever adopted/created this forwarder
@@ -409,7 +409,7 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// If no ID and ManagedByOperator is not explicitly set, we never took ownership
@@ -428,7 +428,7 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// We have an ID - verify the forwarder exists before trying to delete
@@ -448,7 +448,7 @@ func (r *HumioEventForwarderReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 	if err != nil {
 		// Error checking if forwarder exists during deletion
@@ -610,7 +610,7 @@ func (r *HumioEventForwarderReconciler) reconcileHumioEventForwarder(ctx context
 				metav1.ConditionTrue, humiov1alpha1.EventForwarderReasonConfigurationSynced,
 				"Event forwarder created")
 			_ = r.setManagedByOperator(ctx, hef, true)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if event forwarder exists")
 	}
@@ -661,7 +661,7 @@ func (r *HumioEventForwarderReconciler) reconcileHumioEventForwarder(ctx context
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update status with correct forwarder ID")
 		}
 		// Requeue to pick up the new ID in next reconciliation
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Check if configuration needs updating
@@ -720,7 +720,7 @@ func (r *HumioEventForwarderReconciler) reconcileHumioEventForwarder(ctx context
 			"Configuration has been synchronized with LogScale"); err != nil {
 			r.Log.V(1).Info("failed to update synced condition after update", "error", err)
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	} else {
 		// Set synced condition if already as expected
 		if err := r.setCondition(ctx, hef, humiov1alpha1.EventForwarderConditionTypeSynced,
@@ -937,7 +937,7 @@ func (r *HumioEventForwarderReconciler) persistAdoptedID(
 		r.Log.Error(err, "failed to set ManagedByOperator after adoption")
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // rejectAdoption handles the case where we cannot adopt due to config mismatch

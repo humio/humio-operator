@@ -39,6 +39,8 @@ import (
 
 const (
 	WebhookHumioVersion string = "1.180.0"
+	mockPhaseField      string = "mock_phase"
+	mockNoteField       string = "note"
 )
 
 var (
@@ -667,7 +669,7 @@ func (h *MockClientConfig) AddMultiClusterSearchView(_ context.Context, _ *humio
 		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal {
 			tags := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag, len(connection.Tags)+1)
 			tags[0] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
-				Key:   "clusteridentity",
+				Key:   clusterIdentityKey,
 				Value: connection.ClusterIdentity,
 			}
 
@@ -690,11 +692,11 @@ func (h *MockClientConfig) AddMultiClusterSearchView(_ context.Context, _ *humio
 		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeRemote {
 			tags := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag, len(connection.Tags)+1)
 			tags[0] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
-				Key:   "clusteridentity",
+				Key:   clusterIdentityKey,
 				Value: connection.ClusterIdentity,
 			}
 			tags[1] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
-				Key:   "clusteridentityhash",
+				Key:   clusterIdentityHashKey,
 				Value: helpers.AsSHA256(fmt.Sprintf("%s|%s", connection.Url, connection.APIToken)),
 			}
 
@@ -765,7 +767,7 @@ func (h *MockClientConfig) UpdateMultiClusterSearchView(_ context.Context, _ *hu
 		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal {
 			tags := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag, len(connection.Tags)+1)
 			tags[0] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
-				Key:   "clusteridentity",
+				Key:   clusterIdentityKey,
 				Value: connection.ClusterIdentity,
 			}
 
@@ -788,11 +790,11 @@ func (h *MockClientConfig) UpdateMultiClusterSearchView(_ context.Context, _ *hu
 		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeRemote {
 			tags := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag, len(connection.Tags)+2)
 			tags[0] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
-				Key:   "clusteridentity",
+				Key:   clusterIdentityKey,
 				Value: connection.ClusterIdentity,
 			}
 			tags[1] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
-				Key:   "clusteridentityhash",
+				Key:   clusterIdentityHashKey,
 				Value: helpers.AsSHA256(fmt.Sprintf("%s|%s", connection.Url, connection.APIToken)),
 			}
 
@@ -3017,7 +3019,7 @@ func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humio
 
 	return &TelemetryLicenseData{
 		LicenseUID:     "mock-license-uid-123",
-		LicenseType:    "onprem",
+		LicenseType:    LicenseTypeOnPrem,
 		ExpirationDate: time.Now().Add(365 * 24 * time.Hour), // 1 year from now
 		IssuedDate:     time.Now().Add(-30 * 24 * time.Hour), // 30 days ago
 		Owner:          "Test Organization",
@@ -3033,9 +3035,9 @@ func (h *MockClientConfig) CollectLicenseData(ctx context.Context, client *humio
 		JWTExtractionSuccess: true,
 
 		RawLicenseData: map[string]interface{}{
-			"extracted":  false,
-			"mock_phase": 1,
-			"note":       "Mock license data for testing with JWT fields",
+			"extracted":    false,
+			mockPhaseField: 1,
+			mockNoteField:  "Mock license data for testing with JWT fields",
 		},
 	}, nil
 }
@@ -3063,7 +3065,7 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, apiClient *
 		// Try to discover query-capable pods
 		pods := &corev1.PodList{}
 		matchingLabels := map[string]string{
-			"app.kubernetes.io/name":       "humio",
+			"app.kubernetes.io/name":       humioRepoName,
 			"app.kubernetes.io/instance":   hc.Name,
 			"app.kubernetes.io/managed-by": "humio-operator",
 		}
@@ -3114,7 +3116,7 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, apiClient *
 				Timestamp:      timestamp,
 				ClusterID:      clusterID,
 				CollectionType: "license",
-				SourceType:     "json",
+				SourceType:     TelemetrySourceTypeJSON,
 				Data:           licenseData,
 			})
 
@@ -3127,22 +3129,22 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, apiClient *
 				Timestamp:      timestamp,
 				ClusterID:      clusterID,
 				CollectionType: "cluster_info",
-				SourceType:     "json",
+				SourceType:     TelemetrySourceTypeJSON,
 				Data:           clusterInfo,
 			})
 
 		case "user_info":
 			// Mock user info
 			userInfo := map[string]interface{}{
-				"total_users": 15,
-				"mock_phase":  1,
-				"note":        "Mock user info for testing",
+				"total_users":  15,
+				mockPhaseField: 1,
+				mockNoteField:  "Mock user info for testing",
 			}
 			payloads = append(payloads, TelemetryPayload{
 				Timestamp:      timestamp,
 				ClusterID:      clusterID,
 				CollectionType: "user_info",
-				SourceType:     "json",
+				SourceType:     TelemetrySourceTypeJSON,
 				Data:           userInfo,
 			})
 
@@ -3150,14 +3152,14 @@ func (h *MockClientConfig) CollectTelemetryData(ctx context.Context, apiClient *
 			// Mock repository info
 			repoInfo := map[string]interface{}{
 				"total_repositories": 8,
-				"mock_phase":         1,
-				"note":               "Mock repository info for testing",
+				mockPhaseField:       1,
+				mockNoteField:        "Mock repository info for testing",
 			}
 			payloads = append(payloads, TelemetryPayload{
 				Timestamp:      timestamp,
 				ClusterID:      clusterID,
 				CollectionType: "repository_info",
-				SourceType:     "json",
+				SourceType:     TelemetrySourceTypeJSON,
 				Data:           repoInfo,
 			})
 		default:
@@ -3210,13 +3212,13 @@ func (h *MockClientConfig) CollectIngestionMetrics(ctx context.Context, client *
 func (h *MockClientConfig) CollectRepositoryUsage(ctx context.Context, client *humioapi.Client, settings QuerySettings) (*TelemetryRepositoryUsageMetrics, error) {
 	repositories := []RepositoryUsage{
 		{
-			Name:              "humio",
+			Name:              humioRepoName,
 			IngestVolumeGB24h: 8.5,
 			EventCount24h:     850000,
 			RetentionDays:     30,
 			StorageUsageGB:    250.0,
 			LastActivityTime:  time.Now().Add(-1 * time.Hour),
-			Dataspace:         "humio",
+			Dataspace:         humioRepoName,
 		},
 		{
 			Name:              "sandbox",

@@ -22,6 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
+const metricLabelNamespace = "namespace"
+const metricLabelPool = "pool"
+
 var (
 	// ReconcileDurationSeconds tracks reconcile loop duration.
 	ReconcileDurationSeconds *prometheus.HistogramVec
@@ -58,7 +61,7 @@ func init() {
 			Help:    "Duration of reconcile operations in seconds",
 			Buckets: prometheus.DefBuckets,
 		},
-		[]string{"namespace", "controller", "pool"},
+		[]string{metricLabelNamespace, "controller", metricLabelPool},
 	)
 
 	ShadowReadFailuresTotal = prometheus.NewCounterVec(
@@ -66,7 +69,7 @@ func init() {
 			Name: "humio_operator_shadow_read_failures_total",
 			Help: "Total number of shadow node pool read failures",
 		},
-		[]string{"namespace", "pool", "error_type"},
+		[]string{metricLabelNamespace, metricLabelPool, "error_type"},
 	)
 
 	NodeCountUpdates = prometheus.NewCounterVec(
@@ -74,7 +77,7 @@ func init() {
 			Name: "humio_operator_nodecount_updates_total",
 			Help: "Count of nodeCount updates by source (hpa/spec/default) and clamp status",
 		},
-		[]string{"namespace", "pool", "source", "clamped"},
+		[]string{metricLabelNamespace, metricLabelPool, "source", "clamped"},
 	)
 
 	ShadowStaleness = prometheus.NewGaugeVec(
@@ -82,7 +85,7 @@ func init() {
 			Name: "humio_operator_shadow_staleness_consecutive",
 			Help: "Consecutive shadow read failures (real-time staleness indicator)",
 		},
-		[]string{"namespace", "pool"},
+		[]string{metricLabelNamespace, metricLabelPool},
 	)
 
 	ExpireAfterDeletionsTotal = prometheus.NewCounterVec(
@@ -90,7 +93,7 @@ func init() {
 			Name: "humio_operator_expire_after_deletions_total",
 			Help: "Total pods deleted by the expireAfter cycling mechanism (direct DELETE; not the Eviction subresource)",
 		},
-		[]string{"namespace", "pool"},
+		[]string{metricLabelNamespace, metricLabelPool},
 	)
 
 	NextPodExpiryTimestampSeconds = prometheus.NewGaugeVec(
@@ -98,7 +101,7 @@ func init() {
 			Name: "humio_operator_next_pod_expiry_timestamp_seconds",
 			Help: "Unix timestamp of the next pod expiry in a pool (0 if expireAfter not set)",
 		},
-		[]string{"namespace", "pool"},
+		[]string{metricLabelNamespace, metricLabelPool},
 	)
 
 	EvictionProtectionPDBTTLExpiredTotal = prometheus.NewCounterVec(
@@ -106,7 +109,7 @@ func init() {
 			Name: "humio_operator_eviction_protection_pdb_ttl_expired_total",
 			Help: "Times the safety-valve fired: eviction-protection PDB removed after TTL because cluster was wedged",
 		},
-		[]string{"namespace", "pool"},
+		[]string{metricLabelNamespace, metricLabelPool},
 	)
 
 	ExpireAfterSkipsTotal = prometheus.NewCounterVec(
@@ -114,7 +117,7 @@ func init() {
 			Name: "humio_operator_expire_after_skips_total",
 			Help: "Reconciles where expireAfter cycling was skipped; diagnose stalled cycling with reason label",
 		},
-		[]string{"namespace", "pool", "reason"},
+		[]string{metricLabelNamespace, metricLabelPool, "reason"},
 	)
 
 	metrics.Registry.MustRegister(

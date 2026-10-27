@@ -125,7 +125,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			_, err := r.HumioClient.GetRepository(ctx, humioHttpClient, hr)
@@ -136,7 +136,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for HumioFinalizer. If the
@@ -147,7 +147,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -197,7 +197,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create repository")
 			}
 			r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if repository exists")
 	}
@@ -807,7 +807,7 @@ func (r *HumioRepositoryReconciler) detectAndHandleRename(ctx context.Context,
 				"dependents", formatDependents(dependents))
 		}
 
-		return true, reconcile.Result{Requeue: true}, nil
+		return true, reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Perform the rename in LogScale
@@ -869,5 +869,5 @@ func (r *HumioRepositoryReconciler) detectAndHandleRename(ctx context.Context,
 		"updatedDependents", len(dependents))
 
 	// Return true to indicate rename was performed and trigger requeue
-	return true, reconcile.Result{Requeue: true}, nil
+	return true, reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }

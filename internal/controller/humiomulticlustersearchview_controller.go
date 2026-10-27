@@ -128,7 +128,7 @@ func (r *HumioMultiClusterSearchViewReconciler) Reconcile(ctx context.Context, r
 			return reconcile.Result{}, err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 	defer func(ctx context.Context, hv *humiov1alpha1.HumioMultiClusterSearchView) {
 		_, err := r.HumioClient.GetMultiClusterSearchView(ctx, humioHttpClient, hv)
@@ -180,7 +180,7 @@ func (r *HumioMultiClusterSearchViewReconciler) Reconcile(ctx context.Context, r
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create view")
 			}
 			r.Log.Info("created view", "ViewName", hv.Spec.Name)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if view exists")
 	}
@@ -217,7 +217,7 @@ func (r *HumioMultiClusterSearchViewReconciler) handleDeletion(ctx context.Conte
 			if err := r.Update(ctx, hv); err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		_, err := r.HumioClient.GetMultiClusterSearchView(ctx, humioHttpClient, hv)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
@@ -227,14 +227,14 @@ func (r *HumioMultiClusterSearchViewReconciler) handleDeletion(ctx context.Conte
 				return reconcile.Result{}, err
 			}
 			r.Log.Info("Finalizer removed successfully")
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 
 		r.Log.Info("Deleting View")
 		if err := r.HumioClient.DeleteMultiClusterSearchView(ctx, humioHttpClient, hv); err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "Delete view returned error")
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 	return reconcile.Result{}, nil
 }

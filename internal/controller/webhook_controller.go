@@ -43,12 +43,12 @@ var (
 		{
 			Group:   "core.humio.com",
 			Version: "v1alpha1",
-			Kind:    "HumioScheduledSearch",
+			Kind:    humioScheduledSearchKind,
 		},
 		{
 			Group:   "core.humio.com",
 			Version: "v1beta1",
-			Kind:    "HumioScheduledSearch",
+			Kind:    humioScheduledSearchKind,
 		},
 		// Add more GVKs here as needed
 	}
@@ -144,8 +144,8 @@ func (s *ServiceBasedValidatingWebhookProvider) CreateValidatingWebhookConfigura
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ValidatingWebhookConfigurationName,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":     operatorName,
-				"app.kubernetes.io/instance": operatorName,
+				appNameLabelKey:     operatorName,
+				appInstanceLabelKey: operatorName,
 			},
 		},
 		Webhooks: webhooks,
@@ -205,8 +205,8 @@ func (u *URLBasedValidatingWebhookProvider) CreateValidatingWebhookConfiguration
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ValidatingWebhookConfigurationName,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":     operatorName,
-				"app.kubernetes.io/instance": operatorName,
+				appNameLabelKey:     operatorName,
+				appInstanceLabelKey: operatorName,
 			},
 		},
 		Webhooks: webhooks,
@@ -414,8 +414,8 @@ func (r *WebhookSetupReconciler) createOrUpdateWebhookService(ctx context.Contex
 			Name:      serviceName,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":       r.OperatorName,
-				"app.kubernetes.io/instance":   r.OperatorName,
+				appNameLabelKey:                r.OperatorName,
+				appInstanceLabelKey:            r.OperatorName,
 				"app.kubernetes.io/managed-by": r.OperatorName,
 				"app.kubernetes.io/component":  webhookComponentName,
 			},
@@ -430,9 +430,9 @@ func (r *WebhookSetupReconciler) createOrUpdateWebhookService(ctx context.Contex
 				},
 			},
 			Selector: map[string]string{
-				"app.kubernetes.io/instance":  r.OperatorName,
+				appInstanceLabelKey:           r.OperatorName,
 				"app.kubernetes.io/component": webhookComponentName,
-				"app":                         r.OperatorName,
+				appLabelKey:                   r.OperatorName,
 			},
 		},
 	}

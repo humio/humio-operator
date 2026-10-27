@@ -150,7 +150,7 @@ func (r *HumioViewTokenReconciler) handleViewTokenDeletion(ctx context.Context, 
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	_, err := r.HumioClient.GetViewToken(ctx, humioHttpClient, hvt)
@@ -162,7 +162,7 @@ func (r *HumioViewTokenReconciler) handleViewTokenDeletion(ctx context.Context, 
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// first iteration on delete we run the finalize function
@@ -178,7 +178,7 @@ func (r *HumioViewTokenReconciler) handleViewTokenDeletion(ctx context.Context, 
 		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "finalize method returned an error")
 	}
 	// If no error was detected, we need to requeue so that we can remove the finalizer
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // ensureViewTokenExists gets or creates the view token
@@ -270,7 +270,7 @@ func (r *HumioViewTokenReconciler) updateViewTokenFinalStatus(ctx context.Contex
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioViewTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.Recorder = mgr.GetEventRecorderFor("humioviewtoken-controller")
+	r.Recorder = mgr.GetEventRecorderFor("humioviewtoken-controller") //nolint:staticcheck // SA1019: GetEventRecorderFor is deprecated; migration to GetEventRecorder tracked as follow-up
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioViewToken{}).
 		Named("humioviewtoken").

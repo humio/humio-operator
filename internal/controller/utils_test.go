@@ -1,21 +1,20 @@
 package controller
 
 import (
+	"cmp"
 	"errors"
 	"reflect"
 	"testing"
-
-	"golang.org/x/exp/constraints"
 )
 
-type genericMapTestCase[K comparable, V constraints.Ordered] struct {
+type genericMapTestCase[K comparable, V cmp.Ordered] struct {
 	name        string
 	input       map[K]V
 	expectedKey K
 	error       error
 }
 
-func processGenericMapTestCase[K comparable, V constraints.Ordered](t *testing.T, tests []genericMapTestCase[K, V]) {
+func processGenericMapTestCase[K comparable, V cmp.Ordered](t *testing.T, tests []genericMapTestCase[K, V]) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			key, _ := GetKeyWithHighestValue(test.input)

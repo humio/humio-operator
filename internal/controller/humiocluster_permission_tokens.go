@@ -109,7 +109,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 					Labels:    kubernetes.LabelsForHumio(hc.Name),
 				},
 				StringData: map[string]string{
-					"token": desiredAPIToken,
+					TokenFieldName: desiredAPIToken,
 				},
 				Type: corev1.SecretTypeOpaque,
 			}

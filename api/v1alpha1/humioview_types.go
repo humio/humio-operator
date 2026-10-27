@@ -149,7 +149,7 @@ func init() {
 // GetViewConnections returns the HumioView in the same format as we can fetch from GraphQL so that we can compare
 // the custom resource HumioView with humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection.
 func (hv *HumioView) GetViewConnections() []humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection {
-	viewConnections := make([]humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection, 0)
+	viewConnections := make([]humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection, 0, len(hv.Spec.Connections))
 	for _, connection := range hv.Spec.Connections {
 		viewConnections = append(viewConnections, humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection{
 			Repository: humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnectionRepository{

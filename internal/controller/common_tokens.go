@@ -26,6 +26,7 @@ const (
 	TokenFieldName       string        = "token"
 	ResourceFieldName    string        = "resourceName"
 	ResourceFieldID      string        = "humioResourceID"
+	PassphraseFieldName  string        = "passphrase"
 	CriticalErrorRequeue time.Duration = time.Minute * 1
 )
 

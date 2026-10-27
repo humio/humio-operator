@@ -140,7 +140,7 @@ func (r *HumioSystemPermissionRoleReconciler) handleSystemPermissionRoleDeletion
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	_, err := r.HumioClient.GetSystemPermissionRole(ctx, humioHttpClient, hp)
@@ -157,7 +157,7 @@ func (r *HumioSystemPermissionRoleReconciler) handleSystemPermissionRoleDeletion
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	r.Log.Info("SystemPermissionRole contains finalizer so run finalizer method")
@@ -170,7 +170,7 @@ func (r *HumioSystemPermissionRoleReconciler) handleSystemPermissionRoleDeletion
 			"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
 		return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 	}
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // ensureSystemPermissionRole ensures the system permission role exists and is updated

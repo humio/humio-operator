@@ -1593,3 +1593,55 @@ func TestNodePoolServiceEnabled(t *testing.T) {
 		assert.False(t, hnp.NodePoolServiceEnabled())
 	})
 }
+
+func TestNodePoolFilterIsConfigured(t *testing.T) {
+	tests := []struct {
+		name     string
+		pool     *HumioNodePool
+		expected bool
+	}{
+		{
+			name:     "explicit pool with positive count",
+			pool:     &HumioNodePool{nodePoolName: "digest", humioNodeSpec: humiov1alpha1.HumioNodeSpec{NodeCount: ptr.To(int32(3))}},
+			expected: true,
+		},
+		{
+			name:     "explicit pool with zero count",
+			pool:     &HumioNodePool{nodePoolName: "ingest", humioNodeSpec: humiov1alpha1.HumioNodeSpec{NodeCount: ptr.To(int32(0))}},
+			expected: true,
+		},
+		{
+			name:     "explicit pool with nil count",
+			pool:     &HumioNodePool{nodePoolName: "digest", humioNodeSpec: humiov1alpha1.HumioNodeSpec{NodeCount: nil}},
+			expected: true,
+		},
+		{
+			name:     "default pool with explicit count",
+			pool:     &HumioNodePool{nodePoolName: "", humioNodeSpec: humiov1alpha1.HumioNodeSpec{NodeCount: ptr.To(int32(5))}},
+			expected: true,
+		},
+		{
+			name:     "default pool with explicit zero",
+			pool:     &HumioNodePool{nodePoolName: "", humioNodeSpec: humiov1alpha1.HumioNodeSpec{NodeCount: ptr.To(int32(0))}},
+			expected: true,
+		},
+		{
+			name: "default pool with autoscaling",
+			pool: &HumioNodePool{nodePoolName: "", humioNodeSpec: humiov1alpha1.HumioNodeSpec{
+				Autoscaling: &humiov1alpha1.AutoscalingSpec{MinReplicas: ptr.To(int32(1)), MaxReplicas: 5},
+			}},
+			expected: true,
+		},
+		{
+			name:     "phantom default pool",
+			pool:     &HumioNodePool{nodePoolName: "", humioNodeSpec: humiov1alpha1.HumioNodeSpec{NodeCount: nil}},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, NodePoolFilterIsConfigured(tt.pool))
+		})
+	}
+}

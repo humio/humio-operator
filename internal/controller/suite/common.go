@@ -43,6 +43,10 @@ const (
 	DockerRegistryCredentialsSecretName = "regcred"
 	// Default loglevel used for tests
 	LogLevel = "INFO"
+	// bootstrapTokenSecretKey is the secret data key holding the plaintext bootstrap token
+	bootstrapTokenSecretKey = "secret"
+	// bootstrapTokenHashedSecretKey is the secret data key holding the hashed bootstrap token
+	bootstrapTokenHashedSecretKey = "hashedToken"
 )
 
 const TestInterval = time.Second * 1
@@ -720,14 +724,14 @@ func simulateHashedBootstrapTokenCreation(ctx context.Context, k8sClient client.
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
 					},
-					Key: "secret",
+					Key: bootstrapTokenSecretKey,
 				},
 				},
 				HashedTokenSecretKeyRef: humiov1alpha1.HumioHashedTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
 					},
-					Key: "hashedToken",
+					Key: bootstrapTokenHashedSecretKey,
 				}},
 			}
 			UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
@@ -736,7 +740,7 @@ func simulateHashedBootstrapTokenCreation(ctx context.Context, k8sClient client.
 	}
 
 	UsingClusterBy(key.Name, "Simulating the humio bootstrap token controller creating the secret containing the API token")
-	bootstrapSecretData := map[string][]byte{"hashedToken": []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"), "secret": []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj")}
+	bootstrapSecretData := map[string][]byte{bootstrapTokenHashedSecretKey: []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"), bootstrapTokenSecretKey: []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj")}
 	bootstrapTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix)
 	bootstrapSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, bootstrapSecretData, nil, nil)
 	Expect(k8sClient.Create(ctx, bootstrapSecret)).To(Succeed())
@@ -773,25 +777,28 @@ func verifyNumPodsContainerStatusReady(ctx context.Context, k8sClient client.Cli
 }
 
 func verifyInitContainers(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster) []corev1.Pod {
-	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(cluster).GetCommonClusterLabels())
-	humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], controller.HumioContainerName)
-	Expect(err).ToNot(HaveOccurred())
-	humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
-	if cluster.Spec.DisableInitContainer {
-		UsingClusterBy(key.Name, "Confirming pods do not use init container")
-		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(len(cluster.Spec.ExtraInitContainers)))
-		Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
-	} else {
-		UsingClusterBy(key.Name, "Confirming pods have an init container")
-		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1 + len(cluster.Spec.ExtraInitContainers)))
-		Expect(humioContainerArgs).To(ContainSubstring("export ZONE="))
+	var clusterPods []corev1.Pod
+	if controller.NewHumioNodeManagerFromHumioCluster(cluster).GetNodeCount() > 0 {
+		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(cluster).GetPodLabels())
+		humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], controller.HumioContainerName)
+		Expect(err).ToNot(HaveOccurred())
+		humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
+		if cluster.Spec.DisableInitContainer {
+			UsingClusterBy(key.Name, "Confirming pods do not use init container")
+			Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(len(cluster.Spec.ExtraInitContainers)))
+			Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
+		} else {
+			UsingClusterBy(key.Name, "Confirming pods have an init container")
+			Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1 + len(cluster.Spec.ExtraInitContainers)))
+			Expect(humioContainerArgs).To(ContainSubstring("export ZONE="))
+		}
 	}
 
 	for idx := range cluster.Spec.NodePools {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(cluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
-		humioIdx, err = kubernetes.GetContainerIndexByName(clusterPods[0], controller.HumioContainerName)
+		humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], controller.HumioContainerName)
 		Expect(err).ToNot(HaveOccurred())
-		humioContainerArgs = strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
+		humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
 		if cluster.Spec.DisableInitContainer {
 			UsingClusterBy(key.Name, "Confirming pods do not use init container")
 			Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(len(cluster.Spec.NodePools[idx].ExtraInitContainers)))
@@ -911,7 +918,7 @@ func SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx context.Cont
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
 				},
-				Key: "secret",
+				Key: bootstrapTokenSecretKey,
 			},
 		}
 		updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
@@ -919,7 +926,7 @@ func SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx context.Cont
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
 				},
-				Key: "hashedToken",
+				Key: bootstrapTokenHashedSecretKey,
 			},
 		}
 		updatedHumioBootstrapToken.Status.BootstrapImage = bootstrapImage

@@ -126,7 +126,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			_, err := r.HumioClient.GetIngestToken(ctx, humioHttpClient, hit)
@@ -137,7 +137,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for HumioFinalizer. If the
@@ -154,7 +154,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -204,7 +204,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create ingest token")
 			}
 			r.Log.Info("created ingest token")
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if ingest token exists")
 	}
@@ -296,7 +296,7 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 		return fmt.Errorf("failed to get ingest token: %w", err)
 	}
 
-	secretData := map[string][]byte{"token": []byte(ingestToken.Token)}
+	secretData := map[string][]byte{TokenFieldName: []byte(ingestToken.Token)}
 	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hit.Namespace, hit.Spec.TokenSecretName, secretData, hit.Spec.TokenSecretLabels, hit.Spec.TokenSecretAnnotations)
 	if err := controllerutil.SetControllerReference(hit, desiredSecret, r.Scheme()); err != nil {
 		return fmt.Errorf("could not set controller reference: %w", err)

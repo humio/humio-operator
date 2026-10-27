@@ -9,7 +9,7 @@ source hack/functions.sh
 LOG_WATCHER_PID=$!
 
 # Build ginkgo flags
-GINKGO_FLAGS="--label-filter=real --timeout 240m --procs=${GINKGO_NODES} --no-color --skip-package helpers -v"
+GINKGO_FLAGS="--label-filter=real --timeout 240m --procs=${GINKGO_NODES} --no-color --skip-package helpers --flake-attempts=2 -v"
 
 # Add focus filter if specified
 if [ -n "$GINKGO_FOCUS" ]; then

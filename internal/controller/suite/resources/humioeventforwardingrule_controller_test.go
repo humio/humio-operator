@@ -85,6 +85,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 		suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating shared forwarder")
 		Expect(k8sClient.Create(ctx, sharedForwarder)).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, sharedForwarder, testTimeout) })
 
 		// Wait for forwarder to be ready and get its ID
 		fetchedForwarder := &humiov1alpha1.HumioEventForwarder{}
@@ -150,6 +151,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating Event Forwarding Rule")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() string {
@@ -203,6 +205,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating event forwarding rule for deletion test")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() string {
@@ -249,6 +252,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating event forwarding rule")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() string {
@@ -312,6 +316,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating second forwarder for drift test")
 			Expect(k8sClient.Create(ctx, forwarder2)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, forwarder2, testTimeout) })
 
 			// Wait for second forwarder to be ready and get its ID
 			fetchedForwarder2 := &humiov1alpha1.HumioEventForwarder{}
@@ -348,6 +353,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating event forwarding rule")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() string {
@@ -416,6 +422,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating with missing cluster")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() bool {
@@ -462,6 +469,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating event forwarding rule")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() string {
@@ -531,6 +539,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating event forwarding rule")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() string {
@@ -609,6 +618,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating event forwarding rule")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() int {
@@ -666,6 +676,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating forwarder for force-finalize test")
 			Expect(k8sClient.Create(ctx, forwarder)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, forwarder, testTimeout) })
 
 			// Wait for forwarder to be ready
 			fetchedForwarder := &humiov1alpha1.HumioEventForwarder{}
@@ -702,6 +713,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule Force-Finalize: Creating rule with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwardingRule{}
 			Eventually(func() string {
@@ -819,6 +831,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating forwarder")
 			Expect(k8sClient.Create(ctx, forwarder)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, forwarder, testTimeout) })
 
 			// Wait for forwarder to be ready
 			fetchedForwarder := &humiov1alpha1.HumioEventForwarder{}
@@ -854,6 +867,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating rule with forwarder reference")
 			Expect(k8sClient.Create(ctx, rule)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, rule, testTimeout) })
 
 			// Wait for rule to be ready
 			fetchedRule := &humiov1alpha1.HumioEventForwardingRule{}
@@ -918,6 +932,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating rule with missing forwarder reference")
 			Expect(k8sClient.Create(ctx, rule)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, rule, testTimeout) })
 
 			// Wait for rule to have Ready condition set to False
 			fetchedRule := &humiov1alpha1.HumioEventForwardingRule{}
@@ -969,6 +984,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarding: Creating forwarder for repo test")
 			Expect(k8sClient.Create(ctx, forwarder)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, forwarder, testTimeout) })
 
 			// Wait for forwarder to be ready
 			fetchedForwarder := &humiov1alpha1.HumioEventForwarder{}
@@ -1003,6 +1019,7 @@ var _ = Describe("HumioEventForwardingRule Controller", Ordered, Label("envtest"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwardingRule: Creating rule with non-existent repository")
 			Expect(k8sClient.Create(ctx, rule)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, rule, testTimeout) })
 
 			// Verify specific error message about repository
 			fetchedRule := &humiov1alpha1.HumioEventForwardingRule{}

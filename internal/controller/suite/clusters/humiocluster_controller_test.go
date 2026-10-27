@@ -91,7 +91,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if len(clusterPods) > 0 {
 					for idx, entry := range clusterPods[0].GetManagedFields() {
 						if entry.Manager == "humio-operator" {
-							return string(clusterPods[0].GetManagedFields()[idx].FieldsV1.Raw)
+							return string(clusterPods[0].GetManagedFields()[idx].FieldsV1.GetRawBytes())
 						}
 					}
 				}
@@ -4204,7 +4204,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			extraVolume := corev1.Volume{
 				Name: "gcp-storage-account-json-file",
 				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
+					Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: this is a k8s Secret volume reference, not a credential literal
 						SecretName:  "gcp-storage-account-json-file",
 						DefaultMode: &mode,
 					},

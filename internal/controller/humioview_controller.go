@@ -120,7 +120,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				if err := r.Update(ctx, hv); err != nil {
 					return reconcile.Result{}, err
 				}
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 			_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv, false)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
@@ -130,7 +130,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for HumioFinalizer. If the
@@ -158,7 +158,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			r.Log.Info("Successfully deleted view", "viewName", hv.Spec.Name)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -172,7 +172,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return reconcile.Result{}, err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 	defer func(ctx context.Context, hv *humiov1alpha1.HumioView) {
 		_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv, false)
@@ -213,7 +213,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create view")
 			}
 			r.Log.Info("created view", "ViewName", hv.Spec.Name)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if view exists")
 	}
@@ -661,7 +661,7 @@ func (r *HumioViewReconciler) updateSingleDependent(ctx context.Context,
 		return updateSimpleViewName(&humiov1alpha1.HumioFilterAlert{})
 	case "HumioAggregateAlert":
 		return updateSimpleViewName(&humiov1alpha1.HumioAggregateAlert{})
-	case "HumioScheduledSearch":
+	case humioScheduledSearchKind:
 		return updateSimpleViewName(&humiov1alpha1.HumioScheduledSearch{})
 	case "HumioSavedQuery":
 		return updateSimpleViewName(&humiov1alpha1.HumioSavedQuery{})
@@ -890,7 +890,7 @@ func (r *HumioViewReconciler) detectAndHandleRename(ctx context.Context,
 				"dependentCount", len(dependents))
 		}
 
-		return true, reconcile.Result{Requeue: true}, nil
+		return true, reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Perform the rename in LogScale
@@ -943,5 +943,5 @@ func (r *HumioViewReconciler) detectAndHandleRename(ctx context.Context,
 		"updatedDependents", len(dependents))
 
 	// Return true to indicate rename was performed and trigger requeue
-	return true, reconcile.Result{Requeue: true}, nil
+	return true, reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }

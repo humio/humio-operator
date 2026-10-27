@@ -91,7 +91,7 @@ func (r *HumioTelemetryExportReconciler) Reconcile(ctx context.Context, req ctrl
 		if err := r.Update(ctx, hte); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Validate configuration
@@ -329,7 +329,7 @@ func (r *HumioTelemetryExportReconciler) cleanupTelemetryExport(ctx context.Cont
 			if err := r.Update(ctx, hte); err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 	}
 
@@ -340,7 +340,7 @@ func (r *HumioTelemetryExportReconciler) cleanupTelemetryExport(ctx context.Cont
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioTelemetryExportReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.Recorder = mgr.GetEventRecorderFor("humiotelemetryexport-controller")
+	r.Recorder = mgr.GetEventRecorderFor("humiotelemetryexport-controller") //nolint:staticcheck // SA1019: GetEventRecorderFor is deprecated; migration to GetEventRecorder tracked as follow-up
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioTelemetryExport{}).
 		Complete(r)

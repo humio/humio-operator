@@ -41,6 +41,13 @@ const (
 
 	// Source Types for TelemetryPayload.SourceType
 	TelemetrySourceTypeJSON = "json"
+
+	// License Types for TelemetryLicenseData.LicenseType
+	LicenseTypeOnPrem = "onprem"
+
+	// Field names used in telemetry payload maps
+	telemetryFieldEventType        = "event_type"
+	telemetryFieldLastActivityTime = "last_activity_time"
 )
 
 // TelemetryLicenseData represents license information for telemetry

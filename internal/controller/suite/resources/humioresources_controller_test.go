@@ -93,6 +93,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating the ingest token with token secret successfully")
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIngestToken, testTimeout) })
 
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Verifying Ready condition is set")
@@ -214,6 +215,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating the ingest token without token secret successfully")
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIngestToken, testTimeout) })
 
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
@@ -292,6 +294,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating the ingest token without parser successfully")
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIngestToken, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Checking we do not have a parser assigned")
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
@@ -351,6 +354,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIngestToken, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioIngestToken: Validates resource enters state %s", humiov1alpha1.HumioIngestTokenStateConfigError))
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
@@ -385,6 +389,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIngestToken, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioIngestToken: Validates resource enters state %s", humiov1alpha1.HumioIngestTokenStateConfigError))
 			fetchedIngestToken = &humiov1alpha1.HumioIngestToken{}
@@ -423,6 +428,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating ingest token")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioIngestToken{}
 				Eventually(func() string {
@@ -475,6 +481,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating ingest token")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioIngestToken{}
 				Eventually(func() string {
@@ -534,6 +541,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Creating token with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIngestToken, testTimeout) })
 
 			fetchedToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
@@ -599,6 +607,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken AllowDataDeletion: Creating token with allowDataDeletion=true")
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIngestToken, testTimeout) })
 
 			fetchedToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
@@ -641,6 +650,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken Force-Finalize: Creating token with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIngestToken, testTimeout) })
 
 			fetchedToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
@@ -714,6 +724,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Creating the repository successfully")
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateRepository, testTimeout) })
 
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
@@ -864,7 +875,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections := make([]humiov1alpha1.HumioViewConnection, 0, 1)
 			connections = append(connections, humiov1alpha1.HumioViewConnection{
 				RepositoryName: "example-repository-view",
 				Filter:         "*",
@@ -885,6 +896,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the repository successfully")
 			Expect(k8sClient.Create(ctx, repositoryToCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, repositoryToCreate, testTimeout) })
 
 			fetchedRepo := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
@@ -894,6 +906,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in k8s")
 			Expect(k8sClient.Create(ctx, viewToCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, viewToCreate, testTimeout) })
 
 			fetchedView := &humiov1alpha1.HumioView{}
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Verifying Ready condition is set")
@@ -1036,6 +1049,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Creating the repository")
 			Expect(k8sClient.Create(ctx, repositoryToCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, repositoryToCreate, testTimeout) })
 
 			fetchedRepo := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
@@ -1064,6 +1078,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Creating the view with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateView, testTimeout) })
 
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
@@ -1140,6 +1155,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Creating the repository")
 			Expect(k8sClient.Create(ctx, repositoryToCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, repositoryToCreate, testTimeout) })
 
 			fetchedRepo := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
@@ -1168,6 +1184,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioView AllowDataDeletion: Creating the view with allowDataDeletion=true")
 			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateView, testTimeout) })
 
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
@@ -1223,6 +1240,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Creating the parser successfully")
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateParser, testTimeout) })
 
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Verifying Ready condition is set")
@@ -1340,6 +1358,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Creating parser")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioParser{}
 				Eventually(func() string {
@@ -1393,6 +1412,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Creating parser")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioParser{}
 				Eventually(func() string {
@@ -1455,6 +1475,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Creating parser with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateParser, testTimeout) })
 
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
@@ -1522,6 +1543,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser AllowDataDeletion: Creating parser with allowDataDeletion=true")
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateParser, testTimeout) })
 
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
@@ -1565,6 +1587,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser Force-Finalize: Creating parser with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateParser, testTimeout) })
 
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
@@ -1645,6 +1668,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Creating the external cluster successfully")
 			Expect(k8sClient.Create(ctx, toCreateExternalCluster)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateExternalCluster, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Confirming external cluster gets marked as ready")
 			fetchedExternalCluster := &humiov1alpha1.HumioExternalCluster{}
@@ -1698,6 +1722,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateParser, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioParser: Validates resource enters state %s", humiov1alpha1.HumioParserStateConfigError))
 			fetchedParser := &humiov1alpha1.HumioParser{}
@@ -1733,6 +1758,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateParser, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioParser: Validates resource enters state %s", humiov1alpha1.HumioParserStateConfigError))
 			fetchedParser := &humiov1alpha1.HumioParser{}
@@ -1767,6 +1793,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateRepository, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioRepository: Validates resource enters state %s", humiov1alpha1.HumioRepositoryStateConfigError))
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
@@ -1801,6 +1828,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateRepository, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioRepository: Validates resource enters state %s", humiov1alpha1.HumioRepositoryStateConfigError))
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
@@ -1840,6 +1868,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateView, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioView: Validates resource enters state %s", humiov1alpha1.HumioViewStateConfigError))
 			fetchedView := &humiov1alpha1.HumioView{}
@@ -1879,6 +1908,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateView, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioView: Validates resource enters state %s", humiov1alpha1.HumioViewStateConfigError))
 			fetchedView := &humiov1alpha1.HumioView{}
@@ -1925,6 +1955,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2037,6 +2068,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the humio repo action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2127,6 +2159,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the ops genie action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2222,6 +2255,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the pagerduty action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2318,6 +2352,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the slack post message action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2423,6 +2458,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the slack action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2524,6 +2560,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the victor ops action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2620,6 +2657,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the web hook action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2782,7 +2820,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2854,7 +2894,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2909,6 +2951,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -2980,7 +3023,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3035,6 +3080,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3109,7 +3155,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3166,6 +3214,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3239,7 +3288,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3296,6 +3347,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3367,7 +3419,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3422,6 +3476,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3477,6 +3532,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3549,7 +3605,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3610,6 +3668,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3708,7 +3767,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3807,7 +3868,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, secret, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -3875,6 +3938,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating action")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioAction{}
 				Eventually(func() string {
@@ -3930,6 +3994,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating action")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioAction{}
 				Eventually(func() string {
@@ -4007,6 +4072,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Creating action with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -4072,6 +4138,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction AllowDataDeletion: Creating action with allowDataDeletion=true")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -4130,6 +4197,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the action required by the alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateDependentAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -4196,7 +4264,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlert, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateAlertNoLabels)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlertNoLabels, testTimeout) })
 
 			fetchedAlert := &humiov1alpha1.HumioAlert{}
 			fetchedAlertNoLabels := &humiov1alpha1.HumioAlert{}
@@ -4396,6 +4466,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating alert")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioAlert{}
 				Eventually(func() string {
@@ -4454,6 +4525,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating alert")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioAlert{}
 				Eventually(func() string {
@@ -4519,6 +4591,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Creating alert with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlert, testTimeout) })
 
 			fetchedAlert := &humiov1alpha1.HumioAlert{}
 			Eventually(func() string {
@@ -4583,6 +4656,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert AllowDataDeletion: Creating alert with allowDataDeletion=true")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlert, testTimeout) })
 
 			fetchedAlert := &humiov1alpha1.HumioAlert{}
 			Eventually(func() string {
@@ -4641,6 +4715,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Creating the action required by the filter alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateDependentAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -4677,6 +4752,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Creating the filter alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateFilterAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateFilterAlert, testTimeout) })
 
 			fetchedFilterAlert := &humiov1alpha1.HumioFilterAlert{}
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying Ready condition is set")
@@ -4883,6 +4959,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Creating filter alert")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioFilterAlert{}
 				Eventually(func() string {
@@ -4940,6 +5017,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Creating filter alert")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioFilterAlert{}
 				Eventually(func() string {
@@ -5003,6 +5081,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Creating filter alert with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlert, testTimeout) })
 
 			fetchedAlert := &humiov1alpha1.HumioFilterAlert{}
 			Eventually(func() string {
@@ -5065,6 +5144,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert AllowDataDeletion: Creating filter alert with allowDataDeletion=true")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlert, testTimeout) })
 
 			fetchedAlert := &humiov1alpha1.HumioFilterAlert{}
 			Eventually(func() string {
@@ -5105,6 +5185,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Enabling feature flag")
 			Expect(k8sClient.Create(ctx, toSetFeatureFlag)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toSetFeatureFlag, testTimeout) })
 
 			fetchedFeatureFlag := &humiov1alpha1.HumioFeatureFlag{}
 			Eventually(func() string {
@@ -5186,6 +5267,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Trying to create a feature flag with an invalid name")
 			Expect(k8sClient.Create(ctx, toCreateInvalidFeatureFlag)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateInvalidFeatureFlag, testTimeout) })
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, key, toCreateInvalidFeatureFlag)
 				return toCreateInvalidFeatureFlag.Status.State
@@ -5232,6 +5314,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the action required by the aggregate alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateDependentAction, testTimeout) })
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
@@ -5271,6 +5354,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the aggregate alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateAggregateAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAggregateAlert, testTimeout) })
 
 			fetchedAggregateAlert := &humiov1alpha1.HumioAggregateAlert{}
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying Ready condition is set")
@@ -5484,6 +5568,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating aggregate alert")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioAggregateAlert{}
 				Eventually(func() string {
@@ -5543,6 +5628,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating aggregate alert")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioAggregateAlert{}
 				Eventually(func() string {
@@ -5609,6 +5695,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Creating aggregate alert with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlert, testTimeout) })
 
 			fetchedAlert := &humiov1alpha1.HumioAggregateAlert{}
 			Eventually(func() string {
@@ -5674,6 +5761,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert AllowDataDeletion: Creating aggregate alert with allowDataDeletion=true")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlert, testTimeout) })
 
 			fetchedAlert := &humiov1alpha1.HumioAggregateAlert{}
 			Eventually(func() string {
@@ -5721,6 +5809,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the group custom resource")
 			Expect(k8sClient.Create(ctx, toCreateGroup)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateGroup, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for group should be marked with Exists")
 			var updatedHumioGroup humiov1alpha1.HumioGroup
@@ -5833,6 +5922,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Creating group")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioGroup{}
 				Eventually(func() string {
@@ -5884,6 +5974,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioGroup: Creating group")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioGroup{}
 				Eventually(func() string {
@@ -5945,6 +6036,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Creating the user successfully with isRoot=nil")
 			Expect(k8sClient.Create(ctx, toCreateUser)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateUser, testTimeout) })
 
 			fetchedUser := &humiov1alpha1.HumioUser{}
 			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Verifying Ready condition is set")
@@ -6070,6 +6162,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Creating user")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioUser{}
 				Eventually(func() string {
@@ -6121,6 +6214,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioUser: Creating user")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioUser{}
 				Eventually(func() string {
@@ -6263,6 +6357,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the system permission role custom resource")
 			Expect(k8sClient.Create(ctx, toCreateSystemPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateSystemPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for system permission role should be marked with Exists")
 			var updatedHumioSystemPermissionRole humiov1alpha1.HumioSystemPermissionRole
@@ -6383,6 +6478,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the system permission role with unknown permission")
 			Expect(k8sClient.Create(ctx, toCreateInvalidSystemPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateInvalidSystemPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "System permission role should be marked with NotFound")
 			Eventually(func() string {
@@ -6464,7 +6560,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the system permission role custom resource")
 			Expect(k8sClient.Create(ctx, toCreateGroup)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateGroup, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateSystemPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateSystemPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for system permission group should be marked with Exists")
 			Eventually(func() string {
@@ -6569,6 +6667,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Creating system permission role")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioSystemPermissionRole{}
 				Eventually(func() string {
@@ -6632,6 +6731,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole: Creating system permission role")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioSystemPermissionRole{}
 				Eventually(func() string {
@@ -6699,6 +6799,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the organization permission role custom resource")
 			Expect(k8sClient.Create(ctx, toCreateOrganizationPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateOrganizationPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for organization permission role should be marked with Exists")
 			var updatedHumioOrganizationPermissionRole humiov1alpha1.HumioOrganizationPermissionRole
@@ -6819,6 +6920,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the organization permission role with unknown permission")
 			Expect(k8sClient.Create(ctx, toCreateInvalidOrganizationPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateInvalidOrganizationPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Organization permission role should be marked with NotFound")
 			Eventually(func() string {
@@ -6901,7 +7003,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the organization permission role custom resource")
 			Expect(k8sClient.Create(ctx, toCreateGroup)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateGroup, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateOrganizationPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateOrganizationPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for organization permission group should be marked with Exists")
 			Eventually(func() string {
@@ -7006,6 +7110,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Creating organization permission role")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioOrganizationPermissionRole{}
 				Eventually(func() string {
@@ -7060,6 +7165,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole: Creating organization permission role")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioOrganizationPermissionRole{}
 				Eventually(func() string {
@@ -7127,6 +7233,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the view permission role custom resource")
 			Expect(k8sClient.Create(ctx, toCreateViewPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateViewPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for view permission role should be marked with Exists")
 			var updatedHumioViewPermissionRole humiov1alpha1.HumioViewPermissionRole
@@ -7247,6 +7354,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the view permission role with unknown permission")
 			Expect(k8sClient.Create(ctx, toCreateInvalidViewPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateInvalidViewPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Organization permission role should be marked with NotFound")
 			Eventually(func() string {
@@ -7343,8 +7451,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the view permission role custom resource")
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateRepository, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateGroup)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateGroup, testTimeout) })
 			Expect(k8sClient.Create(ctx, toCreateViewPermissionRole)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateViewPermissionRole, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "Custom resource for repository should be marked with Exists")
 			Eventually(func() string {
@@ -7464,6 +7575,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Creating view permission role")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioViewPermissionRole{}
 				Eventually(func() string {
@@ -7518,6 +7630,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole: Creating view permission role")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioViewPermissionRole{}
 				Eventually(func() string {
@@ -7593,6 +7706,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating the IPFilter successfully")
 			Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateIPFilter, testTimeout) })
 
 			fetchedIPFilter := &humiov1alpha1.HumioIPFilter{}
 			Eventually(func() string {
@@ -7695,6 +7809,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating IP filter")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioIPFilter{}
 				Eventually(func() string {
@@ -7749,6 +7864,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating IP filter")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				fetched := &humiov1alpha1.HumioIPFilter{}
 				Eventually(func() string {
@@ -7811,6 +7927,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter Force-Finalize: Creating IP filter with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioIPFilter{}
 			Eventually(func() string {
@@ -7878,6 +7995,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationPermissionRole Force-Finalize: Creating role with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioOrganizationPermissionRole{}
 			Eventually(func() string {
@@ -7958,6 +8076,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioPackage Force-Finalize: Creating package with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
@@ -8026,6 +8145,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSystemPermissionRole Force-Finalize: Creating role with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioSystemPermissionRole{}
 			Eventually(func() string {
@@ -8093,6 +8213,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioUser Force-Finalize: Creating user with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioUser{}
 			Eventually(func() string {
@@ -8160,6 +8281,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioViewPermissionRole Force-Finalize: Creating role with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioViewPermissionRole{}
 			Eventually(func() string {

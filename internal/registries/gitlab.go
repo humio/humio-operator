@@ -65,8 +65,8 @@ func (g *GitlabRegistryClient) CheckConnection(ctx context.Context) error {
 
 	// build auth headers
 	headers := map[string]string{
-		"PRIVATE-TOKEN": token,
-		"Content-Type":  "application/json",
+		headerPrivateToken: token,
+		headerContentType:  contentTypeJSON,
 	}
 	endpoint, err := helpers.SafeURLJoin(g.Config.URL, "/version")
 	if err != nil {
@@ -134,7 +134,7 @@ func (g *GitlabRegistryClient) CheckPackageExists(humioPackage *humiov1alpha1.Hu
 
 	endpoint = endpoint + path
 	headers := map[string]string{
-		"PRIVATE-TOKEN": token,
+		headerPrivateToken: token,
 	}
 
 	// Make HEAD request to check if package exists
@@ -180,7 +180,7 @@ func (g *GitlabRegistryClient) DownloadPackage(ctx context.Context, humioPackage
 
 	endpoint = endpoint + path
 	headers := map[string]string{
-		"PRIVATE-TOKEN": token,
+		headerPrivateToken: token,
 	}
 	resp, err := g.HTTPClient.GetWithHeadersAndContext(ctx, endpoint, headers)
 	if err != nil {

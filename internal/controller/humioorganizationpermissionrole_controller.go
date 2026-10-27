@@ -122,7 +122,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			_, err := r.HumioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, hp)
@@ -133,7 +133,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for HumioFinalizer. If the
@@ -150,7 +150,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -188,7 +188,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create organizationPermissionRole")
 			}
 			r.Log.Info("created organizationPermissionRole")
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if organizationPermissionRole exists")
 	}

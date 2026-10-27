@@ -44,15 +44,19 @@ import (
 )
 
 const (
-	humioAppPath             = "/app/humio"
-	HumioDataPath            = "/data/humio-data"
-	HumioDataVolumeName      = "humio-data"
-	sharedPath               = "/shared"
-	waitForPodTimeoutSeconds = 10
+	humioAppPath                       = "/app/humio"
+	HumioDataPath                      = "/data/humio-data"
+	HumioDataVolumeName                = "humio-data"
+	sharedPath                         = "/shared"
+	sharedVolumeName                   = "shared"
+	waitForPodTimeoutSeconds           = 10
+	externalURLEnvVarName              = "EXTERNAL_URL"
+	initServiceAccountSecretVolumeName = "init-service-account-secret"
+	tlsCertVolumeName                  = "tls-cert"
 )
 
 var (
-	environmentVariablesRequiringSimultaneousRestartRestart = []string{"EXTERNAL_URL"}
+	environmentVariablesRequiringSimultaneousRestartRestart = []string{externalURLEnvVarName}
 
 	// Init container resource limits; increased when dependency checks are active
 	// (Kafka/S3/GCS clients need more memory and CPU).
@@ -158,12 +162,12 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 						{
 							Name:          HumioPortName,
 							ContainerPort: HumioPort,
-							Protocol:      "TCP",
+							Protocol:      corev1.ProtocolTCP,
 						},
 						{
 							Name:          ElasticPortName,
 							ContainerPort: ElasticPort,
-							Protocol:      "TCP",
+							Protocol:      corev1.ProtocolTCP,
 						},
 					},
 					Env: hnp.GetEnvironmentVariables(),
@@ -173,7 +177,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 							MountPath: HumioDataPath,
 						},
 						{
-							Name:      "shared",
+							Name:      sharedVolumeName,
 							MountPath: sharedPath,
 							ReadOnly:  true,
 						},
@@ -188,7 +192,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 			},
 			Volumes: []corev1.Volume{
 				{
-					Name:         "shared",
+					Name:         sharedVolumeName,
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
 			},
@@ -218,7 +222,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 		pod.Spec.Containers[humioIdx].Ports = append(pod.Spec.Containers[humioIdx].Ports, corev1.ContainerPort{
 			Name:          PrometheusMetricsPortName,
 			ContainerPort: int32(promPort),
-			Protocol:      "TCP",
+			Protocol:      corev1.ProtocolTCP,
 		})
 	}
 
@@ -311,11 +315,11 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 				Env:             initEnv, // Use enhanced environment
 				VolumeMounts: []corev1.VolumeMount{
 					{
-						Name:      "shared",
+						Name:      sharedVolumeName,
 						MountPath: sharedPath,
 					},
 					{
-						Name:      "init-service-account-secret",
+						Name:      initServiceAccountSecretVolumeName,
 						MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
 						ReadOnly:  true,
 					},
@@ -337,14 +341,14 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 					RunAsUser:                &userID,
 					Capabilities: &corev1.Capabilities{
 						Drop: []corev1.Capability{
-							"ALL",
+							capabilityDropAll,
 						},
 					},
 				},
 			},
 		}
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: "init-service-account-secret",
+			Name: initServiceAccountSecretVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  attachments.initServiceAccountSecretName,
@@ -389,7 +393,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 	if hnp.GetViewGroupPermissions() != "" {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
-			Value: "true",
+			Value: helpers.TrueStr,
 		})
 		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
 			Name:      "view-group-permissions",
@@ -413,7 +417,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 	if hnp.GetRolePermissions() != "" {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
-			Value: "true",
+			Value: helpers.TrueStr,
 		})
 		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
 			Name:      "role-permissions",
@@ -491,7 +495,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: fmt.Sprintf("%s-keystore-passphrase", hnp.GetClusterName()),
 					},
-					Key: "passphrase",
+					Key: PassphraseFieldName,
 				},
 			},
 		})
@@ -502,7 +506,7 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: fmt.Sprintf("%s-keystore-passphrase", hnp.GetClusterName()),
 					},
-					Key: "passphrase",
+					Key: PassphraseFieldName,
 				},
 			},
 		})
@@ -513,19 +517,19 @@ func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *pod
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: fmt.Sprintf("%s-keystore-passphrase", hnp.GetClusterName()),
 					},
-					Key: "passphrase",
+					Key: PassphraseFieldName,
 				},
 			},
 		})
 		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
-			Name:      "tls-cert",
+			Name:      tlsCertVolumeName,
 			ReadOnly:  true,
 			MountPath: "/var/lib/humio/tls-certificate-secret",
 		})
 
 		// Common configuration for all containers
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: "tls-cert",
+			Name: tlsCertVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  humioNodeName,
@@ -796,9 +800,9 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 		sanitizedEnvVars := make([]corev1.EnvVar, 0)
 		if container.Name == HumioContainerName {
 			for _, envVar := range container.Env {
-				if envVar.Name == "EXTERNAL_URL" {
+				if envVar.Name == externalURLEnvVarName {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
-						Name:  "EXTERNAL_URL",
+						Name:  externalURLEnvVarName,
 						Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace(), HumioPort),
 					})
 				} else {
@@ -823,9 +827,9 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 				Name:         HumioDataVolumeName,
 				VolumeSource: hnp.GetDataVolumePersistentVolumeClaimSpecTemplate(""),
 			})
-		} else if volume.Name == "tls-cert" {
+		} else if volume.Name == tlsCertVolumeName {
 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name: "tls-cert",
+				Name: tlsCertVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
 						SecretName:  hostname,
@@ -833,9 +837,9 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 					},
 				},
 			})
-		} else if volume.Name == "init-service-account-secret" {
+		} else if volume.Name == initServiceAccountSecretVolumeName {
 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name: "init-service-account-secret",
+				Name: initServiceAccountSecretVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
 						SecretName:  fmt.Sprintf("%s-init-%s", hnp.GetNodePoolName(), ""),
@@ -921,7 +925,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	if hnp.TLSEnabled() {
 		pod.Annotations[CertificateHashAnnotation] = podNameAndCertHash.certificateHash
 	}
-	pod.Labels[kubernetes.PodMarkedForDataEviction] = "false"
+	pod.Labels[kubernetes.PodMarkedForDataEviction] = helpers.FalseStr
 
 	r.Log.Info(fmt.Sprintf("creating pod %s with podRevision=%d and podHash=%s and managedFieldsTracker=%v",
 		pod.Name, hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), pod.GetManagedFields()))

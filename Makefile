@@ -200,6 +200,12 @@ deploy: manifests kustomize  ## Deploy controller to the K8s cluster specified i
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
+.PHONY: deploy-debug
+deploy-debug: manifests kustomize ## Deploy a Delve-enabled controller to the K8s cluster specified in ~/.kube/config. See docs/debugging-with-delve.md.
+	$(MAKE) uninstall ignore-not-found=true
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/debug | $(KUBECTL) create -f -
+
 ##@ Dependencies
 
 ## Location to install dependencies to
@@ -288,7 +294,7 @@ test: manifests generate fmt vet setup-envtest ginkgo ## Run tests.
 run-e2e-tests: manifests generate fmt vet setup-envtest ginkgo
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 30m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all --flake-attempts=2 -timeout 30m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
 
 .PHONY: run-e2e-tests-local-kind
 run-e2e-tests-local-kind: manifests generate fmt vet ## Run tests.
@@ -328,10 +334,20 @@ fmt-simple:
 docker-build-operator:
 	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.operator .
 
+# Build a debug operator docker image with Delve baked in. See docs/debugging-with-delve.md.
+.PHONY: docker-build-operator-debug
+docker-build-operator-debug:
+	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.operator.debug .
+
 # Build the webhook operator docker image
 .PHONY: docker-build-operator-webhook
 docker-build-operator-webhook:
 	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.webhook .
+
+# Build a debug webhook operator docker image with Delve baked in. See docs/debugging-with-delve.md.
+.PHONY: docker-build-operator-webhook-debug
+docker-build-operator-webhook-debug:
+	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.webhook.debug .
 
 .PHONY: docker-buildx-operator-webhook
 docker-buildx-operator-webhook: ## Build and push docker image for the webhook operator for cross-platform support

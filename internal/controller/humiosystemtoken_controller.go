@@ -153,7 +153,7 @@ func (r *HumioSystemTokenReconciler) handleSystemTokenDeletion(ctx context.Conte
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	_, err := r.HumioClient.GetSystemToken(ctx, humioHttpClient, hst)
@@ -165,7 +165,7 @@ func (r *HumioSystemTokenReconciler) handleSystemTokenDeletion(ctx context.Conte
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// first iteration on delete we run the finalize function which includes delete
@@ -181,7 +181,7 @@ func (r *HumioSystemTokenReconciler) handleSystemTokenDeletion(ctx context.Conte
 		return reconcile.Result{}, logErrorAndReturn(r.Log, err, "Finalize method returned an error")
 	}
 	// If no error was detected, we need to requeue so that we can remove the finalizer
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // ensureSystemTokenExists gets or creates the system token
@@ -273,7 +273,7 @@ func (r *HumioSystemTokenReconciler) updateSystemTokenFinalStatus(ctx context.Co
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioSystemTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.Recorder = mgr.GetEventRecorderFor("humiosystemtoken-controller")
+	r.Recorder = mgr.GetEventRecorderFor("humiosystemtoken-controller") //nolint:staticcheck // SA1019: GetEventRecorderFor is deprecated; migration to GetEventRecorder tracked as follow-up
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioSystemToken{}).
 		Named("humioSystemToken").

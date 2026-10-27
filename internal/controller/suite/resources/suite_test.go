@@ -171,7 +171,7 @@ var _ = SynchronizedBeforeSuite(func() {
 	}, 30*time.Second, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
 
-	var tlsOpts []func(*tls.Config)
+	tlsOpts := make([]func(*tls.Config), 0, 2)
 	tlsVersion := func(c *tls.Config) {
 		c.MinVersion = tls.VersionTLS12
 	}
@@ -641,6 +641,32 @@ var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
 	fmt.Println(string(u))
 })
 
+func cleanupK8sResource(c client.Client, obj client.Object, timeout time.Duration) {
+	cleanupCtx := context.Background()
+	err := c.Delete(cleanupCtx, obj)
+	if err != nil {
+		return
+	}
+	if timeout > 30*time.Second {
+		timeout = 30 * time.Second
+	}
+	key := client.ObjectKeyFromObject(obj)
+	fresh := obj.DeepCopyObject().(client.Object)
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(suite.TestInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-deadline:
+			return
+		case <-ticker.C:
+			if k8serrors.IsNotFound(c.Get(cleanupCtx, key, fresh)) {
+				return
+			}
+		}
+	}
+}
+
 func registerSchemes(scheme *runtime.Scheme) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
@@ -1011,9 +1037,8 @@ func registerWebhooks(k8sWebhookManager ctrl.Manager, log logr.Logger) {
 	}
 	utilruntime.Must(k8sWebhookManager.Add(webhookSetupReconciler))
 
-	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager).
-		For(&corev1alpha1.HumioScheduledSearch{}).
-		WithValidator(&webhooks.HumioScheduledSearchValidator{
+	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager, &corev1alpha1.HumioScheduledSearch{}).
+		WithValidator(&webhooks.HumioScheduledSearchValidator[*corev1alpha1.HumioScheduledSearch]{
 			BaseLogger:  log,
 			Client:      k8sWebhookManager.GetClient(),
 			HumioClient: humioClient,
@@ -1023,9 +1048,8 @@ func registerWebhooks(k8sWebhookManager ctrl.Manager, log logr.Logger) {
 		ctrl.Log.Error(err, "unable to create conversion webhook for corev1alpha1.HumioScheduledSearch", "webhook", "HumioScheduledSearch")
 		os.Exit(1)
 	}
-	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager).
-		For(&corev1beta1.HumioScheduledSearch{}).
-		WithValidator(&webhooks.HumioScheduledSearchValidator{
+	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager, &corev1beta1.HumioScheduledSearch{}).
+		WithValidator(&webhooks.HumioScheduledSearchValidator[*corev1beta1.HumioScheduledSearch]{
 			BaseLogger:  log,
 			Client:      k8sWebhookManager.GetClient(),
 			HumioClient: humioClient,

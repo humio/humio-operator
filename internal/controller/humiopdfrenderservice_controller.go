@@ -61,6 +61,9 @@ const (
 
 	// Common unknown status value
 	unknownStatus = "unknown"
+
+	// pdfRenderServiceName is the container/label name used for the PDF render service
+	pdfRenderServiceName = "humio-pdf-render-service"
 )
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiopdfrenderservices,verbs=get;list;watch;create;update;patch;delete
@@ -596,7 +599,7 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 				cluster := obj.(*humiov1alpha1.HumioCluster)
 				hprsList := &humiov1alpha1.HumioPdfRenderServiceList{}
 				_ = mgr.GetClient().List(ctx, hprsList, client.InNamespace(cluster.Namespace))
-				var reqs []reconcile.Request
+				reqs := make([]reconcile.Request, 0, len(hprsList.Items))
 				for _, hprs := range hprsList.Items {
 					// Enqueue all HPRS in the namespace so they can reconsider TLS sync
 					// and auto scale-down/up based on ENABLE_SCHEDULED_REPORT.
@@ -1136,7 +1139,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(
 		// When the object exists we arrive here with the *live* object in `svc`.
 		// Preserve immutable fields:
 		if svc.Spec.ClusterIP != "" &&
-			svc.Spec.ClusterIP != "None" &&
+			svc.Spec.ClusterIP != corev1.ClusterIPNone &&
 			desired.Spec.Type == corev1.ServiceTypeClusterIP {
 			desired.Spec.ClusterIP = svc.Spec.ClusterIP
 		}
@@ -1236,7 +1239,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredHPA(
 	hpaName := helpers.PdfRenderServiceHpaName(hprs.Name)
 
 	labels := map[string]string{
-		"app":                 "pdf-render-service",
+		appLabelKey:           "pdf-render-service",
 		"humio.com/component": "pdf-render-service",
 	}
 
@@ -1527,11 +1530,11 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 	mounts []corev1.VolumeMount,
 ) corev1.Container {
 	container := corev1.Container{
-		Name:  "humio-pdf-render-service",
+		Name:  pdfRenderServiceName,
 		Image: image,
 		Args:  []string{"--port", fmt.Sprintf("%d", port)},
 		Ports: []corev1.ContainerPort{
-			{Name: "http", ContainerPort: port, Protocol: corev1.ProtocolTCP},
+			{Name: HumioPortName, ContainerPort: port, Protocol: corev1.ProtocolTCP},
 		},
 		Env:          envVars,
 		VolumeMounts: mounts,
@@ -1696,7 +1699,7 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 
 	// Always set TLS_ENABLED env to make the container contract explicit
 	if !helpers.TLSEnabledForHPRS(hprs) {
-		*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSEnabledEnvVar, Value: "false"})
+		*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSEnabledEnvVar, Value: helpers.FalseStr})
 		return vols, mounts
 	}
 
@@ -1704,7 +1707,7 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	serverCertSecretName := fmt.Sprintf("%s-tls", childName(hprs))
 
 	// Add new TLS environment variables for the PDF render service
-	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSEnabledEnvVar, Value: "true"})
+	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSEnabledEnvVar, Value: helpers.TrueStr})
 	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSCertPathEnvVar, Value: pdfTLSCertMountPath + "/tls.crt"})
 	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSKeyPathEnvVar, Value: pdfTLSCertMountPath + "/tls.key"})
 
@@ -1900,7 +1903,7 @@ func (r *HumioPdfRenderServiceReconciler) constructHprsCertificate(hprs *humiov1
 						LocalObjectReference: cmmeta.LocalObjectReference{
 							Name: fmt.Sprintf("%s-keystore-passphrase", childName(hprs)),
 						},
-						Key: "passphrase",
+						Key: PassphraseFieldName,
 					},
 				},
 			},
@@ -2075,7 +2078,7 @@ func labelsForHumioPdfRenderService(name string) map[string]string {
 	if len(labelValue) > maxLabelLength {
 		labelValue = labelValue[:maxLabelLength]
 	}
-	return map[string]string{"app": "humio-pdf-render-service", "humio-pdf-render-service": labelValue}
+	return map[string]string{appLabelKey: pdfRenderServiceName, pdfRenderServiceName: labelValue}
 }
 
 // getCASecretNameForHPRS returns the name of the CA secret for the PDF render service
@@ -2099,7 +2102,7 @@ func (r *HumioPdfRenderServiceReconciler) ensureKeystorePassphraseSecretForHPRS(
 		if k8serrors.IsNotFound(err) {
 			randomPass := kubernetes.RandomString()
 			secretData := map[string][]byte{
-				"passphrase": []byte(randomPass),
+				PassphraseFieldName: []byte(randomPass),
 			}
 			secret := kubernetes.ConstructSecret(childName(hprs), hprs.Namespace, secretName, secretData, labelsForHumioPdfRenderService(hprs.Name), nil)
 			if err := controllerutil.SetControllerReference(hprs, secret, r.Scheme); err != nil {
