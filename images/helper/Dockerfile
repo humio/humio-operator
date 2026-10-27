@@ -1,5 +1,8 @@
 FROM golang:1.24.9-alpine AS builder
 
+# The CA bundle is copied from this stage into the final image, so keep it current
+RUN apk upgrade --no-cache ca-certificates
+
 ARG RELEASE_VERSION=master
 ARG RELEASE_COMMIT=none
 ARG RELEASE_DATE=unknown
