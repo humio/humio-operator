@@ -102,6 +102,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 			err = k8sClient.Create(ctx, crIPFilter)
 		}
 		Expect(err).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, crIPFilter, testTimeout) })
 		Eventually(func() string {
 			_ = k8sClient.Get(ctx, keyIPFilter, k8sIPFilter)
 			return k8sIPFilter.Status.State
@@ -147,6 +148,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 			Spec: specView,
 		}
 		Expect(k8sClient.Create(ctx, crView)).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, crView, testTimeout) })
 		// wait for View to be ready
 		k8sView = &humiov1alpha1.HumioView{}
 		Eventually(func() string {
@@ -228,6 +230,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 
 		It("should create the k8s HumioViewToken cr", func() {
 			Expect(k8sClient.Create(ctx, crViewToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crViewToken, testTimeout) })
 			k8sViewToken = &humiov1alpha1.HumioViewToken{}
 
 			// Verify Ready condition is set
@@ -255,6 +258,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 
 		It("should create the humio view token", func() {
 			Expect(k8sClient.Create(ctx, crViewToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crViewToken, testTimeout) })
 			k8sViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
@@ -278,6 +282,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 
 		It("should create the k8s HumioViewToken associated secret", func() {
 			Expect(k8sClient.Create(ctx, crViewToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crViewToken, testTimeout) })
 			k8sViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
@@ -308,6 +313,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 		It("should ConfigError on missing view", func() {
 			crViewToken.Spec.ViewNames = append(crViewToken.Spec.ViewNames, "missing-view")
 			Expect(k8sClient.Create(ctx, crViewToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crViewToken, testTimeout) })
 			k8sViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
@@ -318,6 +324,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 		It("should ConfigError on bad IPFilterName", func() {
 			crViewToken.Spec.IPFilterName = "missing-ipfilter-viewtoken"
 			Expect(k8sClient.Create(ctx, crViewToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crViewToken, testTimeout) })
 			k8sViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
@@ -355,6 +362,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 				Spec: specViewToken,
 			}
 			Expect(k8sClient.Create(ctx, crViewToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crViewToken, testTimeout) })
 			k8sViewToken = &humiov1alpha1.HumioViewToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
@@ -500,6 +508,7 @@ var _ = Describe("Humio ViewToken Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioViewToken Force-Finalize: Creating token with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateViewToken, testTimeout) })
 
 			fetchedViewToken := &humiov1alpha1.HumioViewToken{}
 			Eventually(func() string {
@@ -609,6 +618,7 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 			err = k8sClient.Create(ctx, crIPFilter)
 		}
 		Expect(err).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, crIPFilter, testTimeout) })
 		Eventually(func() string {
 			_ = k8sClient.Get(ctx, keyIPFilter, k8sIPFilter)
 			return k8sIPFilter.Status.State
@@ -690,6 +700,7 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 
 		It("should create the k8s HumioSystemToken cr", func() {
 			Expect(k8sClient.Create(ctx, crSystemToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crSystemToken, testTimeout) })
 			k8sSystemToken = &humiov1alpha1.HumioSystemToken{}
 
 			// Verify Ready condition is set
@@ -717,6 +728,7 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 
 		It("should create the humio system token", func() {
 			Expect(k8sClient.Create(ctx, crSystemToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crSystemToken, testTimeout) })
 			k8sSystemToken = &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, k8sSystemToken)
@@ -740,6 +752,7 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 
 		It("should create the k8s HumioSystemToken associated secret", func() {
 			Expect(k8sClient.Create(ctx, crSystemToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crSystemToken, testTimeout) })
 			k8sSystemToken = &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, k8sSystemToken)
@@ -770,6 +783,7 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 		It("should ConfigError on bad IPFilterName", func() {
 			crSystemToken.Spec.IPFilterName = "missing-ipfilter-systemtoken"
 			Expect(k8sClient.Create(ctx, crSystemToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crSystemToken, testTimeout) })
 			k8sSystemToken = &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, k8sSystemToken)
@@ -806,6 +820,7 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 				Spec: specSystemToken,
 			}
 			Expect(k8sClient.Create(ctx, crSystemToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crSystemToken, testTimeout) })
 			k8sSystemToken = &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keySystemToken, k8sSystemToken)
@@ -945,6 +960,7 @@ var _ = Describe("Humio SystemToken Controller", Label("envtest", "dummy", "real
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSystemToken Force-Finalize: Creating token with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateSystemToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateSystemToken, testTimeout) })
 
 			fetchedSystemToken := &humiov1alpha1.HumioSystemToken{}
 			Eventually(func() string {
@@ -1054,6 +1070,7 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 			err = k8sClient.Create(ctx, crIPFilter)
 		}
 		Expect(err).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, crIPFilter, testTimeout) })
 		Eventually(func() string {
 			_ = k8sClient.Get(ctx, keyIPFilter, k8sIPFilter)
 			return k8sIPFilter.Status.State
@@ -1135,6 +1152,7 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 
 		It("should create the k8s HumioOrganizationToken cr", func() {
 			Expect(k8sClient.Create(ctx, crOrgToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crOrgToken, testTimeout) })
 			k8sOrgToken = &humiov1alpha1.HumioOrganizationToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyOrgToken, k8sOrgToken)
@@ -1144,6 +1162,7 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 
 		It("should create the humio organization token", func() {
 			Expect(k8sClient.Create(ctx, crOrgToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crOrgToken, testTimeout) })
 			k8sOrgToken = &humiov1alpha1.HumioOrganizationToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyOrgToken, k8sOrgToken)
@@ -1167,6 +1186,7 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 
 		It("should create the k8s HumioOrganizationToken associated secret", func() {
 			Expect(k8sClient.Create(ctx, crOrgToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crOrgToken, testTimeout) })
 			k8sOrgToken = &humiov1alpha1.HumioOrganizationToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyOrgToken, k8sOrgToken)
@@ -1197,6 +1217,7 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 		It("should ConfigError on bad IPFilterName", func() {
 			crOrgToken.Spec.IPFilterName = "missing-ipfilter-orgtoken"
 			Expect(k8sClient.Create(ctx, crOrgToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crOrgToken, testTimeout) })
 			k8sOrgToken = &humiov1alpha1.HumioOrganizationToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyOrgToken, k8sOrgToken)
@@ -1233,6 +1254,7 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 				Spec: specOrgToken,
 			}
 			Expect(k8sClient.Create(ctx, crOrgToken)).To(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, crOrgToken, testTimeout) })
 			k8sOrgToken = &humiov1alpha1.HumioOrganizationToken{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, keyOrgToken, k8sOrgToken)
@@ -1370,6 +1392,7 @@ var _ = Describe("Humio OrganizationToken Controller", Label("envtest", "dummy",
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioOrganizationToken Force-Finalize: Creating token with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateOrgToken)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateOrgToken, testTimeout) })
 
 			fetchedOrgToken := &humiov1alpha1.HumioOrganizationToken{}
 			Eventually(func() string {

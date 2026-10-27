@@ -115,7 +115,7 @@ func (r *HumioFeatureFlagReconciler) handleFeatureFlagDeletion(ctx context.Conte
 		if err := r.Update(ctx, featureFlag); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Check if resource is in ConfigError state - if so, skip LogScale cleanup
@@ -130,7 +130,7 @@ func (r *HumioFeatureFlagReconciler) handleFeatureFlagDeletion(ctx context.Conte
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
@@ -142,7 +142,7 @@ func (r *HumioFeatureFlagReconciler) handleFeatureFlagDeletion(ctx context.Conte
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Run finalization logic - disable the feature flag
@@ -151,7 +151,7 @@ func (r *HumioFeatureFlagReconciler) handleFeatureFlagDeletion(ctx context.Conte
 		return reconcile.Result{}, r.logErrorAndReturn(err, "disable feature flag returned error")
 	}
 	// If no error was detected, we need to requeue so that we can remove the finalizer
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // validateFeatureFlagName validates that the specified feature flag name exists in LogScale

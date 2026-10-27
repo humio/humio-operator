@@ -57,8 +57,8 @@ func (g *GcloudRegistryClient) CheckConnection(ctx context.Context) error {
 	}
 
 	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", token),
-		"Content-Type":  "application/json",
+		headerAuthorization: fmt.Sprintf("Bearer %s", token),
+		headerContentType:   contentTypeJSON,
 	}
 
 	resp, err := g.HTTPClient.GetWithHeadersAndContext(ctx, endpoint, headers)
@@ -110,8 +110,8 @@ func (g *GcloudRegistryClient) CheckPackageExists(humioPackage *humiov1alpha1.Hu
 	}
 
 	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", token),
-		"Range":         "bytes=0-0",
+		headerAuthorization: fmt.Sprintf("Bearer %s", token),
+		"Range":             "bytes=0-0",
 	}
 
 	// Make request with context to check if artifact exists
@@ -162,7 +162,7 @@ func (g *GcloudRegistryClient) DownloadPackage(ctx context.Context, humioPackage
 	}
 
 	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", token),
+		headerAuthorization: fmt.Sprintf("Bearer %s", token),
 	}
 
 	resp, err := g.HTTPClient.GetWithHeadersAndContext(ctx, endpoint, headers)

@@ -130,7 +130,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 				if err := r.Update(ctx, hfa); err != nil {
 					return reconcile.Result{}, err
 				}
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 			_, err := r.HumioClient.GetFilterAlert(ctx, client, hfa)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
@@ -140,7 +140,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for humioFinalizer. If the
@@ -169,7 +169,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 
 			r.Log.Info("Successfully deleted filter alert", "alertName", hfa.Spec.Name)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -184,7 +184,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 			return reconcile.Result{}, err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	if hfa.Spec.ThrottleTimeSeconds > 0 && hfa.Spec.ThrottleTimeSeconds < 60 {
@@ -208,7 +208,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 			r.Log.Info("Created filter alert",
 				"FilterAlert", hfa.Spec.Name,
 			)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if alert exists")
 	}

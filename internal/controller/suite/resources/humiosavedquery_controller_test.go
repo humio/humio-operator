@@ -67,6 +67,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query")
 			Expect(k8sClient.Create(ctx, toCreateSavedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateSavedQuery, testTimeout) })
 
 			fetchedSavedQuery := &humiov1alpha1.HumioSavedQuery{}
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying Ready condition is set")
@@ -127,6 +128,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query for update test")
 			Expect(k8sClient.Create(ctx, toCreateSavedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateSavedQuery, testTimeout) })
 
 			fetchedSavedQuery := &humiov1alpha1.HumioSavedQuery{}
 			Eventually(func() string {
@@ -183,6 +185,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query with invalid view")
 			Expect(k8sClient.Create(ctx, toCreateSavedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateSavedQuery, testTimeout) })
 
 			// In dummy mode, this may still succeed, so we just verify the resource was created
 			fetchedSavedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -207,6 +210,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying Ready=True")
 			waitForCondition(ctx, key, "Ready")
@@ -241,6 +245,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying Synced=True")
 			waitForCondition(ctx, key, "Synced")
@@ -288,6 +293,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=True")
 			waitForCondition(ctx, key, "Ready")
@@ -331,6 +337,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=True")
 			waitForCondition(ctx, key, "Ready")
@@ -386,6 +393,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query with non-existent cluster")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			// The resource should be created but may not reach Ready=True
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -410,6 +418,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=True")
 			waitForCondition(ctx, key, "Ready")
@@ -463,6 +472,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating saved query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=True")
 			waitForCondition(ctx, key, "Ready")
@@ -588,6 +598,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 			toCreateQuery := createTestSavedQuery(key.Name, testRepo.Spec.Name, "#type=adoption | count()")
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating K8s resource to adopt existing query")
 			Expect(k8sClient.Create(ctx, toCreateQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying adoption success")
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -652,6 +663,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating K8s resource with conflicting config")
 			Expect(k8sClient.Create(ctx, toCreateQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying adoption rejection")
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -723,6 +735,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating K8s resource")
 			Expect(k8sClient.Create(ctx, toCreateQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for adoption rejection")
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -762,6 +775,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating managed query")
 			Expect(k8sClient.Create(ctx, toCreateQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=True")
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -807,6 +821,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating new query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying ManagedByOperator is true")
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -832,6 +847,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating query with invalid view")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=False")
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -873,6 +889,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating query with valid view")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=True")
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -921,6 +938,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating query without description/labels")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying Ready=True")
 			waitForCondition(ctx, key, "Ready")
@@ -956,6 +974,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=True")
 			waitForCondition(ctx, key, "Ready")
@@ -1002,6 +1021,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating K8s resource")
 			Expect(k8sClient.Create(ctx, toCreateQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Verifying adoption success")
 			fetchedQuery := &humiov1alpha1.HumioSavedQuery{}
@@ -1039,6 +1059,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Creating query")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery: Waiting for Ready=True")
 			waitForCondition(ctx, key, "Ready")
@@ -1089,6 +1110,7 @@ var _ = Describe("HumioSavedQuery Controller", Label("envtest", "dummy", "real")
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery Force-Finalize: Creating query with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, savedQuery)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, savedQuery, testTimeout) })
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioSavedQuery Force-Finalize: Waiting for Ready=True")
 			waitForCondition(ctx, key, "Ready")

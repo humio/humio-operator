@@ -144,7 +144,7 @@ func (r *HumioViewPermissionRoleReconciler) handleViewPermissionRoleDeletion(ctx
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	_, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
@@ -161,7 +161,7 @@ func (r *HumioViewPermissionRoleReconciler) handleViewPermissionRoleDeletion(ctx
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	r.Log.Info("ViewPermissionRole contains finalizer so run finalizer method")
@@ -174,7 +174,7 @@ func (r *HumioViewPermissionRoleReconciler) handleViewPermissionRoleDeletion(ctx
 			"add the annotation 'humio.com/force-finalize: \"true\"' to remove the finalizer")
 		return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 	}
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // ensureViewPermissionRole ensures the view permission role exists and is updated

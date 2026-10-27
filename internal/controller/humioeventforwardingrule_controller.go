@@ -376,7 +376,7 @@ func (r *HumioEventForwardingRuleReconciler) ensureFinalizer(
 				return reconcile.Result{}, err, true
 			}
 			r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-			return reconcile.Result{Requeue: true}, nil, true
+			return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 
 		return reconcile.Result{}, nil, false // Finalizer already present
@@ -389,7 +389,7 @@ func (r *HumioEventForwardingRuleReconciler) ensureFinalizer(
 		return reconcile.Result{}, err, true
 	}
 
-	return reconcile.Result{Requeue: true}, nil, true
+	return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // transitionLifecycleCondition transitions one-time lifecycle event reasons
@@ -454,7 +454,7 @@ func (r *HumioEventForwardingRuleReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	_, err := r.HumioClient.GetEventForwardingRule(ctx, client, hefr)
@@ -473,7 +473,7 @@ func (r *HumioEventForwardingRuleReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 	if err != nil {
 		// Error checking if rule exists during deletion
@@ -509,7 +509,7 @@ func (r *HumioEventForwardingRuleReconciler) handleResourceDeletion(
 		return reconcile.Result{}, r.logErrorAndReturn(err, "Delete Event Forwarding Rule returned error"), true
 	}
 	// If no error was detected, we need to requeue so that we can remove the finalizer
-	return reconcile.Result{Requeue: true}, nil, true
+	return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 func (r *HumioEventForwardingRuleReconciler) reconcileHumioEventForwardingRule(ctx context.Context, client *humioapi.Client, hefr *humiov1alpha1.HumioEventForwardingRule) (reconcile.Result, error) {
@@ -568,12 +568,12 @@ func (r *HumioEventForwardingRuleReconciler) reconcileHumioEventForwardingRule(c
 			// Handle conflict errors by requeuing immediately
 			if k8serrors.IsConflict(err) {
 				r.Log.V(1).Info("conflict updating status with resolved forwarder details, requeuing", "error", err)
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 			return reconcile.Result{}, r.logErrorAndReturn(err, "failed to update status with resolved forwarder details")
 		}
 		// Requeue to continue with updated status
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	r.Log.Info("Checking if Event Forwarding Rule needs to be created")
@@ -643,7 +643,7 @@ func (r *HumioEventForwardingRuleReconciler) reconcileHumioEventForwardingRule(c
 			_ = r.setCondition(ctx, hefr, humiov1alpha1.EventForwardingRuleConditionTypeSynced,
 				metav1.ConditionTrue, humiov1alpha1.EventForwardingRuleReasonConfigurationSynced,
 				"Event Forwarding Rule created")
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("could not check if Event Forwarding Rule exists for repository %s", hefr.Spec.RepositoryName))
 	}
@@ -684,7 +684,7 @@ func (r *HumioEventForwardingRuleReconciler) reconcileHumioEventForwardingRule(c
 			"Configuration has been synchronized with LogScale"); err != nil {
 			r.Log.V(1).Info("failed to update synced condition after update", "error", err)
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	} else {
 		// Set synced condition if already as expected
 		if err := r.setCondition(ctx, hefr, humiov1alpha1.EventForwardingRuleConditionTypeSynced,
@@ -772,7 +772,7 @@ func (r *HumioEventForwardingRuleReconciler) detectAndHandleRename(ctx context.C
 		"newName", hefr.Spec.Name)
 
 	// Requeue so the normal reconcile logic creates the event forwarding rule with the new name
-	return true, reconcile.Result{Requeue: true}, nil
+	return true, reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // SetupWithManager sets up the controller with the Manager.

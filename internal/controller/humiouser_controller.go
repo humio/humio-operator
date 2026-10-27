@@ -120,7 +120,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			_, err := r.HumioClient.GetUser(ctx, humioHttpClient, hp)
@@ -131,7 +131,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for HumioFinalizer. If the
@@ -148,7 +148,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -186,7 +186,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create user")
 			}
 			r.Log.Info("created user")
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if user exists")
 	}

@@ -68,7 +68,7 @@ func (err *GraphqlError) Error() string {
 	}
 
 	for key, value := range err.State {
-		res.WriteString(fmt.Sprintf("(%s: %s) ", key, value))
+		fmt.Fprintf(&res, "(%s: %s) ", key, value)
 	}
 
 	res.WriteString(err.Message)

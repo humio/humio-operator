@@ -62,11 +62,13 @@ var _ = Describe("Resource Renaming", Label("envtest", "dummy", "real"), func() 
 						ManagedClusterName: clusterKey.Name,
 						Name:               "original-repo",
 						CascadeRenames:     true, // Enable cascade renaming for this test
+						AllowDataDeletion:  true,
 					},
 				}
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Creating repository")
 				Expect(k8sClient.Create(ctx, toCreateRepo)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateRepo, testTimeout) })
 
 				fetchedRepo := &humiov1alpha1.HumioRepository{}
 				suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Waiting for LastSyncedName to be set")
@@ -88,11 +90,13 @@ var _ = Describe("Resource Renaming", Label("envtest", "dummy", "real"), func() 
 						ParserScript:       "kvParse()",
 						TagFields:          []string{"@testfield"},
 						TestData:           []string{"test data"},
+						AllowDataDeletion:  true,
 					},
 				}
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Creating dependent parser")
 				Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateParser, testTimeout) })
 
 				fetchedParser := &humiov1alpha1.HumioParser{}
 				suite.UsingClusterBy(clusterKey.Name, "HumioParser: Waiting for parser to exist")
@@ -175,6 +179,7 @@ var _ = Describe("Resource Renaming", Label("envtest", "dummy", "real"), func() 
 						ManagedClusterName: clusterKey.Name,
 						Name:               "original-view",
 						CascadeRenames:     true, // Enable cascade renaming for this test
+						AllowDataDeletion:  true,
 						Connections: []humiov1alpha1.HumioViewConnection{
 							{
 								RepositoryName: testRepo.Spec.Name,
@@ -186,6 +191,7 @@ var _ = Describe("Resource Renaming", Label("envtest", "dummy", "real"), func() 
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating view")
 				Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateView, testTimeout) })
 
 				fetchedView := &humiov1alpha1.HumioView{}
 				suite.UsingClusterBy(clusterKey.Name, "HumioView: Waiting for view to exist")
@@ -217,6 +223,7 @@ var _ = Describe("Resource Renaming", Label("envtest", "dummy", "real"), func() 
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating dependent alert")
 				Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateAlert, testTimeout) })
 
 				fetchedAlert := &humiov1alpha1.HumioAlert{}
 				suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Waiting for alert to exist")
@@ -300,6 +307,7 @@ var _ = Describe("Resource Renaming", Label("envtest", "dummy", "real"), func() 
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioRepository Force-Finalize: Creating repository with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateRepository, testTimeout) })
 
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {

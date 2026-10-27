@@ -53,7 +53,7 @@ func nodeCountOrDefault(nc *int32, autoscaling *humiov1alpha1.AutoscalingSpec) i
 	return *nc
 }
 
-func (r *HumioClusterReconciler) ensureNodePoolResources(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensureNodePoolResources(ctx context.Context, hc *humiov1alpha1.HumioCluster, pods []corev1.Pod) error {
 	if hc.DeletionTimestamp != nil {
 		return nil
 	}
@@ -108,7 +108,7 @@ func (r *HumioClusterReconciler) ensureNodePoolResources(ctx context.Context, hc
 		}
 	}
 
-	return r.cleanupOrphanedShadowNodePools(ctx, hc, r.stalenessCounters)
+	return r.cleanupOrphanedShadowNodePools(ctx, hc, pods, r.stalenessCounters)
 }
 
 func (r *HumioClusterReconciler) ensureShadowNodePool(ctx context.Context, hc *humiov1alpha1.HumioCluster, poolName string, nodeSpec humiov1alpha1.HumioNodeSpec) error {
@@ -219,7 +219,7 @@ func (r *HumioClusterReconciler) cleanupAllShadowNodePools(ctx context.Context, 
 	return nil
 }
 
-func (r *HumioClusterReconciler) cleanupOrphanedShadowNodePools(ctx context.Context, hc *humiov1alpha1.HumioCluster, counter *stalenessCounter) error {
+func (r *HumioClusterReconciler) cleanupOrphanedShadowNodePools(ctx context.Context, hc *humiov1alpha1.HumioCluster, pods []corev1.Pod, counter *stalenessCounter) error {
 	nodePoolList := &humiov1alpha1.HumioNodePoolList{}
 	err := r.List(ctx, nodePoolList,
 		client.InNamespace(hc.Namespace),
@@ -243,12 +243,32 @@ func (r *HumioClusterReconciler) cleanupOrphanedShadowNodePools(ctx context.Cont
 			continue
 		}
 		if !expectedNames[np.Name] {
+			poolName := np.Spec.Name
+
+			// Guard clause: check remaining pods before deleting shadow CR
+			if pods == nil {
+				r.Log.Info("deferring shadow CR deletion, pod list unavailable", "pool", poolName, "component", "shadow-node-pool-sync")
+				continue
+			}
+
+			remainingCount := 0
+			for _, pod := range pods {
+				if pod.Labels[kubernetes.NodePoolLabelName] == np.Name && isRemainingPod(pod) {
+					remainingCount++
+				}
+			}
+
+			if remainingCount > 0 {
+				r.Log.Info("deferring shadow CR deletion, eviction in progress", "pool", poolName, "remaining", remainingCount, "component", "shadow-node-pool-sync")
+				continue
+			}
+
+			// Zero remaining pods — proceed with shadow CR deletion
 			r.Log.Info("deleting orphaned shadow HumioNodePool resource", "name", np.Name, "clusterName", hc.Name, "component", "shadow-node-pool-sync")
 			if err := r.Delete(ctx, np); err != nil && !k8serrors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete orphaned shadow HumioNodePool %s: %w", np.Name, err)
 			}
 			// Cleanup staleness counter and metric
-			poolName := np.Spec.Name
 			if counter != nil {
 				counter.mu.Lock()
 				delete(counter.counts, poolName)
@@ -268,8 +288,8 @@ func shadowNodePoolResourceName(clusterName, poolName string) string {
 	return fmt.Sprintf("%s-%s", clusterName, poolName)
 }
 
-func isOwnedBy(resource *humiov1alpha1.HumioNodePool, owner *humiov1alpha1.HumioCluster) bool {
-	for _, ownerRef := range resource.OwnerReferences {
+func isOwnedBy(obj client.Object, owner *humiov1alpha1.HumioCluster) bool {
+	for _, ownerRef := range obj.GetOwnerReferences() {
 		if ownerRef.UID == owner.UID {
 			return true
 		}

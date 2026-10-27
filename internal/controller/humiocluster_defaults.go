@@ -47,6 +47,7 @@ const (
 	RolePermissionsFilename      = "role-permissions.json"
 	HumioContainerName           = "humio"
 	InitContainerName            = "humio-init"
+	isNodeUpPath                 = "/api/v1/is-node-up"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
@@ -476,7 +477,7 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 
 	scheme := "https"
 	if !hnp.TLSEnabled() {
-		scheme = "http"
+		scheme = "http" //nolint:goconst // URL scheme literal, unrelated to the HumioPortName port-name constant despite the coincidental value match
 	}
 
 	envDefaults := []corev1.EnvVar{
@@ -515,7 +516,7 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hnp.GetDigestPartitionsCount())},
 		{Name: "HUMIO_LOG4J_CONFIGURATION", Value: "log4j2-json-stdout.xml"},
 		{
-			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
+			Name:  externalURLEnvVarName, // URL used by other Humio hosts.
 			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), headlessServiceName(hnp.GetClusterName())),
 		},
 		{
@@ -576,7 +577,7 @@ func (hnp *HumioNodePool) GetContainerSecurityContext() *corev1.SecurityContext 
 					"SYS_NICE",
 				},
 				Drop: []corev1.Capability{
-					"ALL",
+					capabilityDropAll,
 				},
 			},
 		}
@@ -608,7 +609,7 @@ func (hnp *HumioNodePool) GetPodLabels() map[string]string {
 	}
 	if hnp.workloadServicesEnabled {
 		for _, wt := range hnp.GetWorkloadTypes() {
-			labels[kubernetes.WorkloadTypeLabelPrefix+wt] = "true"
+			labels[kubernetes.WorkloadTypeLabelPrefix+wt] = helpers.TrueStr
 		}
 	}
 	return labels
@@ -735,7 +736,7 @@ func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 		probe := &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/api/v1/is-node-up",
+					Path:   isNodeUpPath,
 					Port:   intstr.IntOrString{IntVal: HumioPort},
 					Scheme: hnp.GetProbeScheme(),
 				},
@@ -763,7 +764,7 @@ func (hnp *HumioNodePool) GetContainerLivenessProbe() *corev1.Probe {
 		return &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/api/v1/is-node-up",
+					Path:   isNodeUpPath,
 					Port:   intstr.IntOrString{IntVal: HumioPort},
 					Scheme: hnp.GetProbeScheme(),
 				},
@@ -787,7 +788,7 @@ func (hnp *HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
 		return &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/api/v1/is-node-up",
+					Path:   isNodeUpPath,
 					Port:   intstr.IntOrString{IntVal: HumioPort},
 					Scheme: hnp.GetProbeScheme(),
 				},
@@ -1030,7 +1031,7 @@ func (hnp *HumioNodePool) validateExtraKafkaConfigsForVersion() error {
 	msg.WriteString("extraKafkaConfigs is not supported in LogScale 1.225.0+. Please migrate to environment variables.\n\n")
 	msg.WriteString("Add these to spec.commonEnvironmentVariables:\n")
 	for _, env := range convertedEnvVars {
-		msg.WriteString(fmt.Sprintf("- name: %s\n  value: %s\n", env.Name, env.Value))
+		fmt.Fprintf(&msg, "- name: %s\n  value: %s\n", env.Name, env.Value)
 	}
 	msg.WriteString("\nThen remove spec.extraKafkaConfigs from your HumioCluster.\n")
 	msg.WriteString("See release notes for operator 0.34.0 for more details.")
@@ -1370,6 +1371,21 @@ func NodePoolFilterHasNode(nodePool *HumioNodePool) bool {
 
 func NodePoolFilterDoesNotHaveNodes(nodePool *HumioNodePool) bool {
 	return !NodePoolFilterHasNode(nodePool)
+}
+
+// NodePoolFilterIsConfigured returns true when the pool represents user intent:
+// explicit pools from spec.NodePools (even at nodeCount 0), or the default
+// cluster-level pool when nodeCount is explicitly set or autoscaling is
+// configured. Returns false only for the phantom default pool that exists
+// because getHumioNodePoolManagers always creates one — when the user has not
+// set nodeCount and has not configured autoscaling, that pool carries no intent
+// and must be excluded from reconcile loops that create or update status entries
+// (the source of the empty-pool reconcile storm).
+func NodePoolFilterIsConfigured(nodePool *HumioNodePool) bool {
+	if nodePool.GetRawNodePoolName() != "" {
+		return true
+	}
+	return nodePool.humioNodeSpec.NodeCount != nil || nodePool.humioNodeSpec.Autoscaling != nil
 }
 
 func MergeContainerIntoPod(podSpec *corev1.PodSpec, newContainer corev1.Container) *corev1.PodSpec {

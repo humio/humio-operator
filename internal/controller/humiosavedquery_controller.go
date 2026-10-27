@@ -339,7 +339,7 @@ func (r *HumioSavedQueryReconciler) ensureFinalizer(
 				return reconcile.Result{}, err, true
 			}
 			r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-			return reconcile.Result{Requeue: true}, nil, true
+			return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 
 		return reconcile.Result{}, nil, false // Finalizer already present
@@ -352,7 +352,7 @@ func (r *HumioSavedQueryReconciler) ensureFinalizer(
 		return reconcile.Result{}, err, true
 	}
 
-	return reconcile.Result{Requeue: true}, nil, true
+	return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // transitionLifecycleCondition transitions one-time lifecycle event reasons
@@ -417,7 +417,7 @@ func (r *HumioSavedQueryReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Only delete from LogScale if we actually manage this query
@@ -438,7 +438,7 @@ func (r *HumioSavedQueryReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	r.Log.Info("Resource is managed by operator, checking if query exists in LogScale")
@@ -459,7 +459,7 @@ func (r *HumioSavedQueryReconciler) handleResourceDeletion(
 			return reconcile.Result{}, err, true
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil, true
+		return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 	if err != nil {
 		// Error checking if saved query exists during deletion
@@ -499,7 +499,7 @@ func (r *HumioSavedQueryReconciler) handleResourceDeletion(
 	}
 	r.Log.Info("Successfully deleted saved query from LogScale")
 	// If no error was detected, we need to requeue so that we can remove the finalizer
-	return reconcile.Result{Requeue: true}, nil, true
+	return reconcile.Result{Requeue: true}, nil, true //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 func (r *HumioSavedQueryReconciler) reconcileHumioSavedQuery(ctx context.Context, client *humioapi.Client, hsq *humiov1alpha1.HumioSavedQuery) (reconcile.Result, error) {
@@ -580,7 +580,7 @@ func (r *HumioSavedQueryReconciler) reconcileHumioSavedQuery(ctx context.Context
 		_ = r.setCondition(ctx, hsq, SavedQueryConditionTypeSynced, metav1.ConditionTrue, SavedQueryReasonConfigurationSynced, "Saved query created")
 		_ = r.updateLastSyncedViewName(ctx, hsq)
 		_ = r.setManagedByOperator(ctx, hsq, true)
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 	if err != nil {
 		_ = r.setCondition(ctx, hsq, SavedQueryConditionTypeReady, metav1.ConditionFalse, SavedQueryReasonConfigurationError, fmt.Sprintf("Could not check if saved query exists: %v", err))
@@ -628,7 +628,7 @@ func (r *HumioSavedQueryReconciler) reconcileHumioSavedQuery(ctx context.Context
 		if hsq.Status.ManagedByOperator == nil || !*hsq.Status.ManagedByOperator {
 			_ = r.setManagedByOperator(ctx, hsq, true)
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Transition lifecycle events to steady state
@@ -668,7 +668,7 @@ func (r *HumioSavedQueryReconciler) handleSavedQueryAdoption(
 			"Configuration matches existing saved query")
 		_ = r.updateLastSyncedViewName(ctx, hsq)
 		_ = r.setManagedByOperator(ctx, hsq, true)
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Adoption rejected - configuration doesn't match

@@ -146,7 +146,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 				if err := r.Update(ctx, ha); err != nil {
 					return reconcile.Result{}, err
 				}
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 			_, err := r.HumioClient.GetAction(ctx, client, ha)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
@@ -156,7 +156,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for humioFinalizer. If the
@@ -185,7 +185,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 
 			r.Log.Info("Successfully deleted action", "actionName", ha.Spec.Name)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -200,7 +200,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 			return reconcile.Result{}, err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	if err := r.resolveSecrets(ctx, ha); err != nil {
@@ -233,7 +233,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 			r.Log.Info("Created action",
 				"Action", ha.Spec.Name,
 			)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if action exists")
 	}

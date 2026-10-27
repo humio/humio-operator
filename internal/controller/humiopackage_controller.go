@@ -157,7 +157,7 @@ func (p *HumioPackageReconciler) handlePackageDeletion(ctx context.Context, humi
 			return reconcile.Result{}, err
 		}
 		p.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Check if data deletion is allowed

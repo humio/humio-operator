@@ -572,7 +572,7 @@ func (r *HumioBootstrapTokenReconciler) constructBootstrapPod(ctx context.Contex
 						RunAsUser:                &userID,
 						Capabilities: &corev1.Capabilities{
 							Drop: []corev1.Capability{
-								"ALL",
+								capabilityDropAll,
 							},
 						},
 					},

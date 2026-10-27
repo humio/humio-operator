@@ -50,6 +50,9 @@ const (
 	PackageResponseTypeErrorReport    = "PackageErrorReport"
 	PackagePolicyOverwrite            = "overwrite"
 	EventForwardingRuleAnnotation     = "core.humio.com/event-forwarding-rule-id"
+	clusterIdentityKey                = "clusteridentity"
+	clusterIdentityHashKey            = "clusteridentityhash"
+	humioRepoName                     = "humio"
 )
 
 // Client is the interface that can be mocked
@@ -1369,7 +1372,7 @@ func (h *ClientConfig) AddMultiClusterSearchView(ctx context.Context, client *hu
 		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal {
 			tags := make([]humiographql.ClusterConnectionInputTag, len(connection.Tags)+1)
 			tags[0] = humiographql.ClusterConnectionInputTag{
-				Key:   "clusteridentity",
+				Key:   clusterIdentityKey,
 				Value: connection.ClusterIdentity,
 			}
 			for tagIdx, tag := range connection.Tags {
@@ -1392,11 +1395,11 @@ func (h *ClientConfig) AddMultiClusterSearchView(ctx context.Context, client *hu
 		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeRemote {
 			tags := make([]humiographql.ClusterConnectionInputTag, len(connection.Tags)+2)
 			tags[0] = humiographql.ClusterConnectionInputTag{
-				Key:   "clusteridentity",
+				Key:   clusterIdentityKey,
 				Value: connection.ClusterIdentity,
 			}
 			tags[1] = humiographql.ClusterConnectionInputTag{
-				Key:   "clusteridentityhash",
+				Key:   clusterIdentityHashKey,
 				Value: helpers.AsSHA256(fmt.Sprintf("%s|%s", connection.Url, connection.APIToken)),
 			}
 			for tagIdx, tag := range connection.Tags {
@@ -1565,7 +1568,7 @@ func (h *ClientConfig) createRemoteConnection(ctx context.Context, client *humio
 func (h *ClientConfig) buildLocalConnectionTags(expectedConnection ConnectionDetailsIncludingAPIToken) []humiographql.ClusterConnectionInputTag {
 	tags := make([]humiographql.ClusterConnectionInputTag, len(expectedConnection.Tags)+1)
 	tags[0] = humiographql.ClusterConnectionInputTag{
-		Key:   "clusteridentity",
+		Key:   clusterIdentityKey,
 		Value: expectedConnection.ClusterIdentity,
 	}
 	for tagIdx, tag := range expectedConnection.Tags {
@@ -1577,11 +1580,11 @@ func (h *ClientConfig) buildLocalConnectionTags(expectedConnection ConnectionDet
 func (h *ClientConfig) buildRemoteConnectionTags(expectedConnection ConnectionDetailsIncludingAPIToken) []humiographql.ClusterConnectionInputTag {
 	tags := make([]humiographql.ClusterConnectionInputTag, len(expectedConnection.Tags)+2)
 	tags[0] = humiographql.ClusterConnectionInputTag{
-		Key:   "clusteridentityhash",
+		Key:   clusterIdentityHashKey,
 		Value: helpers.AsSHA256(fmt.Sprintf("%s|%s", expectedConnection.Url, expectedConnection.APIToken)),
 	}
 	tags[1] = humiographql.ClusterConnectionInputTag{
-		Key:   "clusteridentity",
+		Key:   clusterIdentityKey,
 		Value: expectedConnection.ClusterIdentity,
 	}
 	for tagIdx, tag := range expectedConnection.Tags {

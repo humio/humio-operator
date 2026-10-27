@@ -1136,6 +1136,11 @@ func (in *HumioClusterStatus) DeepCopyInto(out *HumioClusterStatus) {
 		*out = make([]int, len(*in))
 		copy(*out, *in)
 	}
+	if in.OrphanedNodePools != nil {
+		in, out := &in.OrphanedNodePools, &out.OrphanedNodePools
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.TelemetryStatus != nil {
 		in, out := &in.TelemetryStatus, &out.TelemetryStatus
 		*out = new(HumioTelemetryStatus)

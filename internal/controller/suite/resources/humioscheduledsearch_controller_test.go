@@ -56,6 +56,7 @@ var _ = Describe("Humio Scheduled Search v1beta1", Ordered, Label("envtest", "du
 			Spec: dependentEmailActionSpec,
 		}
 		Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateDependentAction, testTimeout) })
 
 		localAction = &humiov1alpha1.HumioAction{}
 		Eventually(func() string {
@@ -270,6 +271,7 @@ var _ = Describe("Humio Scheduled Search v1beta1", Ordered, Label("envtest", "du
 
 		suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating the scheduled search successfully")
 		Expect(k8sClient.Create(ctx, toCreateScheduledSearch)).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateScheduledSearch, testTimeout) })
 
 		fetchedScheduledSearch := &humiov1alpha1.HumioScheduledSearch{}
 		_ = k8sClient.Get(ctx, key, fetchedScheduledSearch)
@@ -494,6 +496,7 @@ var _ = Describe("Humio Scheduled Search v1beta1", Ordered, Label("envtest", "du
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating scheduled search")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioScheduledSearch{}
 			Eventually(func() string {
@@ -556,6 +559,7 @@ var _ = Describe("Humio Scheduled Search v1beta1", Ordered, Label("envtest", "du
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating scheduled search")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioScheduledSearch{}
 			Eventually(func() string {
@@ -623,6 +627,7 @@ var _ = Describe("HumioScheduledSearch - AllowDataDeletion", Ordered, Label("env
 
 		suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch AllowDataDeletion: Creating action for scheduled search")
 		Expect(k8sClient.Create(ctx, actionForScheduledSearch)).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, actionForScheduledSearch, testTimeout) })
 
 		fetchedAction := &humiov1alpha1.HumioAction{}
 		Eventually(func() string {
@@ -663,6 +668,7 @@ var _ = Describe("HumioScheduledSearch - AllowDataDeletion", Ordered, Label("env
 
 		suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch AllowDataDeletion: Creating scheduled search with allowDataDeletion=false")
 		Expect(k8sClient.Create(ctx, toCreateScheduledSearch)).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateScheduledSearch, testTimeout) })
 
 		fetchedSearch := &humiov1beta1.HumioScheduledSearch{}
 		Eventually(func() string {
@@ -731,6 +737,7 @@ var _ = Describe("HumioScheduledSearch - AllowDataDeletion", Ordered, Label("env
 
 		suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch AllowDataDeletion: Creating scheduled search with allowDataDeletion=true")
 		Expect(k8sClient.Create(ctx, toCreateScheduledSearch)).Should(Succeed())
+		DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateScheduledSearch, testTimeout) })
 
 		fetchedSearch := &humiov1beta1.HumioScheduledSearch{}
 		Eventually(func() string {

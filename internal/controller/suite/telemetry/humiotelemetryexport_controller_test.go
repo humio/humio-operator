@@ -540,7 +540,7 @@ var _ = Describe("HumioTelemetryExport Controller", func() {
 			Expect(k8sClient.Create(ctx, tokenSecret)).Should(Succeed())
 
 			// Create export that references all collections
-			var registeredCollections []humiov1alpha1.HumioTelemetryCollectionReference
+			registeredCollections := make([]humiov1alpha1.HumioTelemetryCollectionReference, 0, len(collectionNames))
 			for _, name := range collectionNames {
 				registeredCollections = append(registeredCollections, humiov1alpha1.HumioTelemetryCollectionReference{
 					Name: name,

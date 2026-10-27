@@ -53,7 +53,7 @@ func SanitizeTimestamps(data interface{}) interface{} {
 // IsTimestampField checks if a field name represents a timestamp that might need sanitization
 func IsTimestampField(fieldName string) bool {
 	timestampFields := []string{
-		"last_activity_time",
+		telemetryFieldLastActivityTime,
 		"event_time",
 		"created_at",
 		"updated_at",

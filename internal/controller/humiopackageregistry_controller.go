@@ -97,7 +97,7 @@ func (r *HumioPackageRegistryReconciler) Reconcile(ctx context.Context, req ctrl
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			r.Log.Info("HumioPackageRegistry contains finalizer so run finalize method")
@@ -357,5 +357,5 @@ func (r *HumioPackageRegistryReconciler) detectAndHandleRename(ctx context.Conte
 	r.Log.Info("Package registry rename complete, requeueing",
 		"newName", hpr.Spec.DisplayName)
 
-	return true, reconcile.Result{Requeue: true}, nil
+	return true, reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }

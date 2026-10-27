@@ -239,7 +239,9 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// ensure pods that does not run the desired version or config gets deleted and update state accordingly
-	for _, pool := range humioNodePools.Items {
+	// NodePoolFilterIsConfigured excludes the phantom default pool (nodeCount=nil, no autoscaling)
+	// which would otherwise fail constructPodAttachments and block reconciliation for all pools.
+	for _, pool := range humioNodePools.Filter(NodePoolFilterIsConfigured) {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			result, err := r.ensureMismatchedPodsAreDeleted(ctx, hc, pool)
 			if result != emptyResult || err != nil {
@@ -255,6 +257,17 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withMessage(err.Error()))
 	}
 
+	// Fetch pods once for use by both shadow CR cleanup and orphan detection
+	humioPodList := &corev1.PodList{}
+	if err := r.List(ctx, humioPodList,
+		client.InNamespace(hc.Namespace),
+		client.MatchingLabels(kubernetes.LabelsForHumio(hc.Name)),
+	); err != nil {
+		r.Log.Error(err, "failed to list pods")
+		return reconcile.Result{}, err
+	}
+	humioPods := humioPodList.Items
+
 	// create various k8s objects, e.g. Issuer, Certificate, ConfigMap, Ingress, Service, ServiceAccount, ClusterRole, ClusterRoleBinding
 	for _, fun := range []ctxHumioClusterFunc{
 		r.ensureValidCASecret,
@@ -269,7 +282,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 					r.Log.Error(fmt.Errorf("panic in shadow node pool sync: %v", rec), "recovered from panic in ensureNodePoolResources", "component", "shadow-node-pool-sync")
 				}
 			}()
-			return r.ensureNodePoolResources(ctx, hc)
+			return r.ensureNodePoolResources(ctx, hc, humioPods)
 		},
 	} {
 		if err := fun(ctx, hc); err != nil {
@@ -314,7 +327,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 	}
 
@@ -346,7 +359,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// ensure pods that have exceeded their expireAfter duration are deleted
 	var minRequeue time.Duration
 	var firstExpireErr error
-	for _, pool := range humioNodePools.Items {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterIsConfigured) {
 		if !r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			continue
 		}
@@ -360,6 +373,13 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	if firstExpireErr != nil {
 		return reconcile.Result{}, firstExpireErr
+	}
+
+	// remove pods from configured pools scaled to zero
+	for _, pool := range humioNodePools.Filter(NodePoolFilterIsConfigured) {
+		if result, err := r.ensureEmptyNodePoolHasNoPods(ctx, pool); result != emptyResult || err != nil {
+			return result, err
+		}
 	}
 
 	// patch the pods with managedFields
@@ -424,7 +444,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// downscale cluster if needed
 	// Feature is only available for LogScale versions >= v1.173.0
-	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterIsConfigured) {
 		// Check if downscaling feature flag is enabled
 		if pool.IsDownscalingFeatureEnabled() && r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			if result, err := r.processDownscaling(ctx, hc, pool, req); result != emptyResult || err != nil {
@@ -434,6 +454,56 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				}
 				return result, err
 			}
+		}
+	}
+
+	// Orphan detection (runs after normal spec-driven downscaling)
+	orphanedPools := detectOrphanedPools(hc, humioPods)
+
+	// Record newly detected orphans in status for durable tracking
+	statusChanged := mergeOrphanedPoolsIntoStatus(hc, orphanedPools)
+
+	if len(orphanedPools) > 0 {
+		if statusChanged {
+			r.Log.Info("orphan pool detection", "count", len(orphanedPools), "pools", orphanedPools)
+		}
+		for _, orphanedPoolName := range orphanedPools {
+			descriptor, err := buildEphemeralDescriptor(hc, orphanedPoolName)
+			if err != nil {
+				r.Log.Error(err, "ephemeral descriptor validation failed, skipping pool", "pool", orphanedPoolName)
+				continue
+			}
+
+			// Best-effort eviction: kick off or advance eviction but never block reconciliation.
+			// The shadow CR guard clause prevents premature deletion regardless.
+			if _, err := r.processDownscaling(ctx, hc, descriptor, req); err != nil {
+				r.Log.Error(err, "orphan pool eviction attempt failed, will retry next reconcile", "pool", orphanedPoolName)
+			}
+		}
+	}
+
+	// Pools in status but no longer detected = all pods gone, ready for resource cleanup
+	readyPools := poolsReadyForCleanup(hc.Status.OrphanedNodePools, orphanedPools)
+	for _, poolName := range readyPools {
+		if hc.Spec.OperatorFeatureFlags.EnableOrphanedResourceCleanup {
+			r.Log.Info("cleaning up resources for orphaned pool", "pool", poolName, "cluster", hc.Name)
+			if err := r.cleanupOrphanedPoolResources(ctx, hc, poolName); err != nil {
+				r.Log.Error(err, "orphaned pool resource cleanup failed, will retry next reconcile", "pool", poolName)
+				continue
+			}
+			removePoolFromStatus(hc, poolName)
+			statusChanged = true
+		} else {
+			r.Log.Info("orphaned pool resources may exist but cleanup is disabled (set featureFlags.enableOrphanedResourceCleanup=true to enable)", "pool", poolName, "cluster", hc.Name)
+		}
+	}
+
+	// Set or clear condition based on remaining orphans and pending cleanup
+	conditionChanged := r.setOrphanPoolCondition(hc, orphanedPools, humioPods, readyPools)
+
+	if statusChanged || conditionChanged {
+		if err := r.Client.Status().Update(ctx, hc); err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "failed to update status with orphan pool state")
 		}
 	}
 
@@ -475,7 +545,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Initialize staleness counter
 	r.stalenessCounters = &stalenessCounter{counts: make(map[string]int)}
-	r.Recorder = mgr.GetEventRecorderFor("humiocluster-controller")
+	r.Recorder = mgr.GetEventRecorderFor("humiocluster-controller") //nolint:staticcheck // SA1019: GetEventRecorderFor is deprecated; migration to GetEventRecorder tracked as follow-up
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioCluster{}).
@@ -734,7 +804,10 @@ func (r *HumioClusterReconciler) hasNoUnusedNodePoolStatus(hc *humiov1alpha1.Hum
 	for idx, poolStatus := range hc.Status.NodePoolStatus {
 		var validPool bool
 		for _, pool := range hnps.Items {
-			if poolStatus.Name == pool.GetNodePoolName() && pool.GetNodeCount() > 0 {
+			// Use NodePoolFilterIsConfigured (not GetNodeCount) to preserve status for pools
+			// explicitly set to nodeCount=0. Using GetNodeCount would strip their status entry
+			// every reconcile, triggering re-creation and blocking other pools.
+			if poolStatus.Name == pool.GetNodePoolName() && NodePoolFilterIsConfigured(pool) {
 				validPool = true
 			}
 		}
@@ -777,7 +850,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Co
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not create bootstrap token resource")
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 func (r *HumioClusterReconciler) validateInitialPodSpec(hnp *HumioNodePool) error {
@@ -790,6 +863,11 @@ func (r *HumioClusterReconciler) validateInitialPodSpec(hnp *HumioNodePool) erro
 func (r *HumioClusterReconciler) validateNodeCount(hc *humiov1alpha1.HumioCluster, hnps []*HumioNodePool) error {
 	totalNodeCount := 0
 	for _, pool := range hnps {
+		// Exclude phantom default pool — it has no user intent and its zero count
+		// would artificially lower the total below the replication factor threshold.
+		if !NodePoolFilterIsConfigured(pool) {
+			continue
+		}
 		totalNodeCount += pool.GetNodeCount()
 	}
 
@@ -1354,7 +1432,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 		if k8serrors.IsNotFound(err) {
 			randomPass := kubernetes.RandomString()
 			secretData := map[string][]byte{
-				"passphrase": []byte(randomPass), // TODO: do we need separate passwords for different aspects?
+				PassphraseFieldName: []byte(randomPass), // TODO: do we need separate passwords for different aspects?
 			}
 			secret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, fmt.Sprintf("%s-keystore-passphrase", hc.Name), secretData, nil, nil)
 			if err := controllerutil.SetControllerReference(hc, secret, r.Scheme()); err != nil {
@@ -1804,7 +1882,7 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 
 			r.Log.Info(fmt.Sprintf("successfully installed initial license: uid=%s expires=%s",
 				licenseUID, licenseExpiry.String()))
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to get license: %w", getErr)
 	}
@@ -1850,7 +1928,7 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 			return reconcile.Result{}, fmt.Errorf("could not install license: %w", err)
 		}
 		r.Log.Info(fmt.Sprintf("successfully installed license: uid=%s", desiredLicenseUID))
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	return reconcile.Result{}, nil
@@ -2023,7 +2101,7 @@ func (r *HumioClusterReconciler) ensureWorkloadLabels(ctx context.Context, hc *h
 		}
 		desiredLabels := make(map[string]string)
 		for _, wt := range hnp.GetWorkloadTypes() {
-			desiredLabels[kubernetes.WorkloadTypeLabelPrefix+wt] = "true"
+			desiredLabels[kubernetes.WorkloadTypeLabelPrefix+wt] = helpers.TrueStr
 		}
 		pods, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), client.MatchingLabels(hnp.GetNodePoolLabels()))
 		if err != nil {
@@ -2571,6 +2649,12 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
 	r.Log.Info("ensuring mismatching pods are deleted")
 
+	// Skip pools explicitly scaled to zero — there are no desired pods to compare against,
+	// and constructPodAttachments can fail on missing secrets, blocking sibling pools.
+	if hnp.humioNodeSpec.NodeCount != nil && *hnp.humioNodeSpec.NodeCount == 0 {
+		return reconcile.Result{}, nil
+	}
+
 	attachments, result, err := r.constructPodAttachments(ctx, hc, hnp)
 	emptyResult := reconcile.Result{}
 	if result != emptyResult || err != nil {
@@ -2615,7 +2699,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				return result, err
 			}
 
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		if !desiredLifecycleState.FoundVersionDifference() && desiredLifecycleState.FoundConfigurationDifference() {
 			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateRestarting, hnp.GetDesiredPodRevision(), hnp.GetNodePoolName()))
@@ -2624,7 +2708,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				return result, err
 			}
 
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 	}
 
@@ -2641,7 +2725,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// we expect an annotation for the bootstrap token to be present
@@ -2683,7 +2767,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 	}
 
@@ -2872,7 +2956,7 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		}
 
 		// We have created all pods. Requeue immediately even if the pods are not ready. We will check the readiness status on the next reconciliation.
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	return reconcile.Result{}, nil
@@ -2896,7 +2980,7 @@ func (r *HumioClusterReconciler) ensurePodsPatchedWithManagedFields(ctx context.
 			}
 		}
 		if !hasOperatorManagedField {
-			err = r.Patch(context.Background(), hnp.GetManagedFieldsPod(pod.Name, pod.Namespace), client.Apply,
+			err = r.Patch(context.Background(), hnp.GetManagedFieldsPod(pod.Name, pod.Namespace), client.Apply, //nolint:staticcheck // SA1019: client.Apply is deprecated; migration tracked as follow-up
 				&client.PatchOptions{
 					FieldManager: fieldManagerOperatorManagedName,
 					Force:        helpers.BoolPtr(true),
@@ -2904,7 +2988,7 @@ func (r *HumioClusterReconciler) ensurePodsPatchedWithManagedFields(ctx context.
 			if err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "failed to patch new pod with managed fields")
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 
 	}
@@ -3864,7 +3948,7 @@ func (r *HumioClusterReconciler) cleanupTelemetryResources(ctx context.Context, 
 	// Clear telemetry status from cluster
 	if hc.Status.TelemetryStatus != nil {
 		hc.Status.TelemetryStatus = nil
-		return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc)
+		return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc) //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	return reconcile.Result{}, nil
@@ -3928,7 +4012,7 @@ func (r *HumioClusterReconciler) createTelemetryCollectionResource(ctx context.C
 	}
 
 	r.Log.Info("Successfully created HumioTelemetryCollection resource", "name", collectionName)
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // updateTelemetryCollectionResource updates an existing HumioTelemetryCollection resource if needed
@@ -3969,7 +4053,7 @@ func (r *HumioClusterReconciler) updateTelemetryCollectionResource(ctx context.C
 		}
 
 		r.Log.Info("Successfully updated HumioTelemetryCollection resource", "name", htc.Name)
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	return reconcile.Result{}, nil
@@ -4031,7 +4115,7 @@ func (r *HumioClusterReconciler) createTelemetryExportResource(ctx context.Conte
 	}
 
 	r.Log.Info("Successfully created HumioTelemetryExport resource", "name", exportName)
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // updateTelemetryExportResource updates an existing HumioTelemetryExport resource if needed
@@ -4068,7 +4152,7 @@ func (r *HumioClusterReconciler) updateTelemetryExportResource(ctx context.Conte
 		}
 
 		r.Log.Info("Successfully updated HumioTelemetryExport resource", "name", hte.Name)
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	return reconcile.Result{}, nil
@@ -4111,7 +4195,7 @@ func (r *HumioClusterReconciler) syncHumioTelemetryStatus(ctx context.Context, h
 
 	// Always update status when it's first initialized or when changes are detected
 	if needsStatusUpdate {
-		return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc)
+		return reconcile.Result{Requeue: true}, r.Status().Update(ctx, hc) //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	return reconcile.Result{}, nil
@@ -4164,7 +4248,7 @@ func (r *HumioClusterReconciler) initializeTelemetryStatus(hc *humiov1alpha1.Hum
 		hc.Status.TelemetryStatus = &humiov1alpha1.HumioTelemetryStatus{
 			Collections: []humiov1alpha1.HumioTelemetryResourceStatus{},
 			Exports:     []humiov1alpha1.HumioTelemetryResourceStatus{},
-			State:       "Disabled", // Initialize with a valid state
+			State:       humiov1alpha1.HumioTelemetryCollectionStateDisabled, // Initialize with a valid state
 		}
 		return true
 	}
@@ -4172,7 +4256,7 @@ func (r *HumioClusterReconciler) initializeTelemetryStatus(hc *humiov1alpha1.Hum
 }
 
 func (r *HumioClusterReconciler) buildCollectionsStatus(collections []humiov1alpha1.HumioTelemetryCollection) ([]humiov1alpha1.HumioTelemetryResourceStatus, int, *metav1.Time) {
-	collectionsStatus := []humiov1alpha1.HumioTelemetryResourceStatus{}
+	collectionsStatus := make([]humiov1alpha1.HumioTelemetryResourceStatus, 0, len(collections))
 	activeCollections := 0
 	var latestCollectionTime *metav1.Time
 
@@ -4212,7 +4296,7 @@ func (r *HumioClusterReconciler) buildCollectionsStatus(collections []humiov1alp
 }
 
 func (r *HumioClusterReconciler) buildExportsStatus(exports []humiov1alpha1.HumioTelemetryExport) ([]humiov1alpha1.HumioTelemetryResourceStatus, int, *metav1.Time) {
-	exportsStatus := []humiov1alpha1.HumioTelemetryResourceStatus{}
+	exportsStatus := make([]humiov1alpha1.HumioTelemetryResourceStatus, 0, len(exports))
 	activeExports := 0
 	var latestExportTime *metav1.Time
 
@@ -4297,10 +4381,10 @@ func (r *HumioClusterReconciler) updateOverallState(hc *humiov1alpha1.HumioClust
 		if activeCollections > 0 && activeExports > 0 {
 			overallState = "Enabled"
 		} else if activeCollections == 0 && activeExports == 0 {
-			overallState = "Disabled"
+			overallState = humiov1alpha1.HumioTelemetryCollectionStateDisabled
 		}
 	} else if len(collections) == 0 && len(exports) == 0 {
-		overallState = "Disabled"
+		overallState = humiov1alpha1.HumioTelemetryCollectionStateDisabled
 	}
 
 	if hc.Status.TelemetryStatus.State != overallState {

@@ -321,7 +321,7 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 					Name:      "cluster-7",
 					Namespace: "namespace-7",
 				},
-				Spec: humiov1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{ //nolint:gosec // G101: secret name reference in test fixture, not a credential literal
 					Url:                "https://humio-7.example.com/",
 					APITokenSecretName: "cluster-7-admin-token",
 					CASecretName:       "cluster-7-ca-secret",
@@ -336,7 +336,7 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 					Name:      "cluster-8",
 					Namespace: "namespace-8",
 				},
-				Spec: humiov1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{ //nolint:gosec // G101: secret name reference in test fixture, not a credential literal
 					Url:                "http://humio-8.example.com/",
 					APITokenSecretName: "cluster-8-admin-token",
 					CASecretName:       "cluster-8-ca-secret",

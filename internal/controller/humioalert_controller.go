@@ -130,7 +130,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, client *
 				if err := r.Update(ctx, ha); err != nil {
 					return reconcile.Result{}, err
 				}
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 			_, err := r.HumioClient.GetAlert(ctx, client, ha)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
@@ -140,7 +140,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, client *
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for humioFinalizer. If the
@@ -169,7 +169,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, client *
 
 			r.Log.Info("Successfully deleted alert", "alertName", ha.Spec.Name)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -184,7 +184,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, client *
 			return reconcile.Result{}, err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	r.Log.Info("Checking if alert needs to be created")
@@ -200,7 +200,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, client *
 			r.Log.Info("Created alert",
 				"Alert", ha.Spec.Name,
 			)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if alert exists")
 	}

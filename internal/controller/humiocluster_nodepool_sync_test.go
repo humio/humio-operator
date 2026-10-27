@@ -97,7 +97,7 @@ func TestShadowNodePoolForeignCollision(t *testing.T) {
 	}
 
 	// Run ensureNodePoolResources
-	err := reconciler.ensureNodePoolResources(ctx, hc)
+	err := reconciler.ensureNodePoolResources(ctx, hc, nil)
 
 	// Assert no error returned
 	assert.NoError(t, err, "ensureNodePoolResources should not return error for foreign resource")
@@ -173,7 +173,7 @@ func TestShadowNodePoolDeletionTimestamp(t *testing.T) {
 			Log:    logger,
 		}
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err, "ensureNodePoolResources should return nil without error")
 
 		nodePoolList := &humiov1alpha1.HumioNodePoolList{}
@@ -215,7 +215,7 @@ func TestShadowNodePoolDeletionTimestamp(t *testing.T) {
 			Log:    logger,
 		}
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err, "ensureNodePoolResources should succeed")
 
 		nodePoolList := &humiov1alpha1.HumioNodePoolList{}
@@ -297,7 +297,7 @@ func TestShadowNodePoolFinalizer(t *testing.T) {
 		}
 
 		// Run ensureNodePoolResources
-		err := reconciler.ensureNodePoolResources(ctx, hc)
+		err := reconciler.ensureNodePoolResources(ctx, hc, nil)
 
 		// Assert no error returned
 		assert.NoError(t, err, "ensureNodePoolResources should not return error when finalizer detected")
@@ -381,7 +381,7 @@ func TestShadowNodePoolFinalizer(t *testing.T) {
 		}
 
 		// Run ensureNodePoolResources
-		err := reconciler.ensureNodePoolResources(ctx, hc)
+		err := reconciler.ensureNodePoolResources(ctx, hc, nil)
 
 		// Assert no error returned
 		assert.NoError(t, err, "ensureNodePoolResources should succeed normally")
@@ -437,7 +437,7 @@ func TestShadowNodePool_FlattenedNodeCount(t *testing.T) {
 			Log:    logger,
 		}
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err, "ensureNodePoolResources should succeed")
 
 		shadowNodePool := &humiov1alpha1.HumioNodePool{}
@@ -483,7 +483,7 @@ func TestShadowNodePool_FlattenedNodeCount(t *testing.T) {
 			Log:    logger,
 		}
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err, "ensureNodePoolResources should succeed")
 
 		shadowNodePool := &humiov1alpha1.HumioNodePool{}
@@ -533,7 +533,7 @@ func TestShadowNodePool_FlattenedNodeCount(t *testing.T) {
 		}
 
 		// When nodeCount=0, main pool should not be created
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err, "ensureNodePoolResources should succeed")
 
 		nodePoolList := &humiov1alpha1.HumioNodePoolList{}
@@ -592,7 +592,7 @@ func TestShadowNodePool_NilNodeCountNoAutoscaling_SkipsMainPool(t *testing.T) {
 		Log:    logr.Discard(),
 	}
 
-	err := r.ensureNodePoolResources(ctx, hc)
+	err := r.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err, "ensureNodePoolResources should succeed without storage validation error")
 
 	nodePoolList := &humiov1alpha1.HumioNodePoolList{}
@@ -650,7 +650,7 @@ func TestShadowNodePool_NilNodeCountWithAutoscaling_CreatesMainPool(t *testing.T
 		Log:    logr.Discard(),
 	}
 
-	err := r.ensureNodePoolResources(ctx, hc)
+	err := r.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err, "ensureNodePoolResources should succeed")
 
 	// Main pool shadow should be created because autoscaling is configured
@@ -697,7 +697,7 @@ func TestShadowNodePool_ExplicitNodeCountPositive_CreatesMainPool(t *testing.T) 
 		Log:    logr.Discard(),
 	}
 
-	err := r.ensureNodePoolResources(ctx, hc)
+	err := r.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err)
 
 	shadowNodePool := &humiov1alpha1.HumioNodePool{}
@@ -834,7 +834,8 @@ func TestShadowNodePoolStatusPatch(t *testing.T) {
 				pods = append(pods, pod)
 			}
 
-			objects := []client.Object{hc}
+			objects := make([]client.Object, 0, 1+len(pods))
+			objects = append(objects, hc)
 			objects = append(objects, pods...)
 
 			fakeClient := fake.NewClientBuilder().
@@ -850,7 +851,7 @@ func TestShadowNodePoolStatusPatch(t *testing.T) {
 				Log:    logger,
 			}
 
-			err := r.ensureNodePoolResources(ctx, hc)
+			err := r.ensureNodePoolResources(ctx, hc, nil)
 			assert.NoError(t, err, "ensureNodePoolResources should succeed")
 
 			// Retrieve the shadow CR
@@ -912,7 +913,7 @@ func TestShadowNodePoolIntegration(t *testing.T) {
 		r := &HumioClusterReconciler{Client: fakeClient, Log: zap.New(zap.UseDevMode(true))}
 		ctx := context.Background()
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
 		var shadowList humiov1alpha1.HumioNodePoolList
@@ -955,7 +956,7 @@ func TestShadowNodePoolIntegration(t *testing.T) {
 		r := &HumioClusterReconciler{Client: fakeClient, Log: zap.New(zap.UseDevMode(true))}
 		ctx := context.Background()
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
 		var shadowList humiov1alpha1.HumioNodePoolList
@@ -990,12 +991,12 @@ func TestShadowNodePoolIntegration(t *testing.T) {
 		r := &HumioClusterReconciler{Client: fakeClient, Log: zap.New(zap.UseDevMode(true))}
 		ctx := context.Background()
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
 		// Disable feature flag
 		hc.Spec.OperatorFeatureFlags.EnableIndependentHumioNodePools = false
-		err = r.ensureNodePoolResources(ctx, hc)
+		err = r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
 		var shadowList humiov1alpha1.HumioNodePoolList
@@ -1033,12 +1034,12 @@ func TestShadowNodePoolIntegration(t *testing.T) {
 		r := &HumioClusterReconciler{Client: fakeClient, Log: zap.New(zap.UseDevMode(true))}
 		ctx := context.Background()
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
-		// Remove ingest pool
+		// Remove ingest pool — pass empty pod list to indicate no remaining pods
 		hc.Spec.NodePools = nil
-		err = r.ensureNodePoolResources(ctx, hc)
+		err = r.ensureNodePoolResources(ctx, hc, []corev1.Pod{})
 		assert.NoError(t, err)
 
 		var shadowList humiov1alpha1.HumioNodePoolList
@@ -1074,12 +1075,12 @@ func TestShadowNodePoolIntegration(t *testing.T) {
 		r := &HumioClusterReconciler{Client: fakeClient, Log: zap.New(zap.UseDevMode(true))}
 		ctx := context.Background()
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
 		// Change nodeCount
 		hc.Spec.NodeCount = ptr.To(int32(7))
-		err = r.ensureNodePoolResources(ctx, hc)
+		err = r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
 		var shadow humiov1alpha1.HumioNodePool
@@ -1114,7 +1115,7 @@ func TestShadowNodePoolIntegration(t *testing.T) {
 		r := &HumioClusterReconciler{Client: fakeClient, Log: zap.New(zap.UseDevMode(true))}
 		ctx := context.Background()
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
 		var shadow humiov1alpha1.HumioNodePool
@@ -1151,7 +1152,7 @@ func TestShadowNodePoolIntegration(t *testing.T) {
 		r := &HumioClusterReconciler{Client: fakeClient, Log: zap.New(zap.UseDevMode(true))}
 		ctx := context.Background()
 
-		err := r.ensureNodePoolResources(ctx, hc)
+		err := r.ensureNodePoolResources(ctx, hc, nil)
 		assert.NoError(t, err)
 
 		var shadow humiov1alpha1.HumioNodePool
@@ -1194,7 +1195,7 @@ func TestShadowNodePoolImmutability(t *testing.T) {
 	r := &HumioClusterReconciler{Client: fakeClient, Log: zap.New(zap.UseDevMode(true))}
 	ctx := context.Background()
 
-	err := r.ensureNodePoolResources(ctx, hc)
+	err := r.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err)
 
 	// Verify initial values
@@ -1207,7 +1208,7 @@ func TestShadowNodePoolImmutability(t *testing.T) {
 
 	// Re-sync with different nodeCount (simulating nodeCount update)
 	hc.Spec.NodePools[0].HumioNodeSpec.NodeCount = ptr.To(int32(5))
-	err = r.ensureNodePoolResources(ctx, hc)
+	err = r.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err)
 
 	// Verify clusterName and poolName are unchanged, only nodeCount updated
@@ -1251,7 +1252,7 @@ func TestHumioNodePoolStatusNoDesiredReplicas(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	err := r.ensureNodePoolResources(ctx, hc)
+	err := r.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err)
 
 	var shadowList humiov1alpha1.HumioNodePoolList
@@ -1360,7 +1361,7 @@ func TestShadowNodePoolPodListFailure(t *testing.T) {
 	}
 
 	// Call ensureNodePoolResources which internally calls patchShadowNodePoolStatus
-	err := r.ensureNodePoolResources(ctx, hc)
+	err := r.ensureNodePoolResources(ctx, hc, nil)
 
 	// CRITICAL: Must return nil, not an error
 	assert.NoError(t, err, "ensureNodePoolResources must return nil when pod listing fails")
@@ -1989,7 +1990,7 @@ func TestForwardSyncNodeCount_NilNodeCountPreservesShadowForNodePool(t *testing.
 	}
 
 	// Run ensureNodePoolResources which should call forwardSyncNodeCount
-	err := r.ensureNodePoolResources(ctx, hc)
+	err := r.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err, "ensureNodePoolResources should succeed")
 
 	// Retrieve shadow and verify nodeCount was NOT overwritten
@@ -2044,7 +2045,7 @@ func TestShadowNodePool_MainPoolNilNodeCountCreatesHPAManagedShadow(t *testing.T
 		Log:    logger,
 	}
 
-	err := r.ensureNodePoolResources(ctx, hc)
+	err := r.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err, "ensureNodePoolResources should succeed")
 
 	// Verify shadow was created
@@ -2140,6 +2141,68 @@ func (c *alreadyExistsOnCreateClient) Create(ctx context.Context, obj client.Obj
 	return c.Client.Create(ctx, obj, opts...)
 }
 
+func TestIsOwnedBy(t *testing.T) {
+	hc := &humiov1alpha1.HumioCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "default",
+			UID:       types.UID("owner-uid-123"),
+		},
+	}
+
+	t.Run("owned service returns true", func(t *testing.T) {
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				OwnerReferences: []metav1.OwnerReference{
+					{UID: types.UID("owner-uid-123")},
+				},
+			},
+		}
+		assert.True(t, isOwnedBy(svc, hc))
+	})
+
+	t.Run("unowned service returns false", func(t *testing.T) {
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				OwnerReferences: []metav1.OwnerReference{
+					{UID: types.UID("other-uid")},
+				},
+			},
+		}
+		assert.False(t, isOwnedBy(svc, hc))
+	})
+
+	t.Run("no owner references returns false", func(t *testing.T) {
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{},
+		}
+		assert.False(t, isOwnedBy(svc, hc))
+	})
+
+	t.Run("service account with matching owner", func(t *testing.T) {
+		sa := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				OwnerReferences: []metav1.OwnerReference{
+					{UID: types.UID("other-uid")},
+					{UID: types.UID("owner-uid-123")},
+				},
+			},
+		}
+		assert.True(t, isOwnedBy(sa, hc))
+	})
+
+	t.Run("secret with wrong owner", func(t *testing.T) {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				OwnerReferences: []metav1.OwnerReference{
+					{UID: types.UID("foreign-uid")},
+				},
+			},
+		}
+		assert.False(t, isOwnedBy(secret, hc))
+	})
+}
+
 func TestShadowNodePoolCreateAlreadyExistsRace(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = humiov1alpha1.AddToScheme(scheme)
@@ -2209,7 +2272,7 @@ func TestShadowNodePoolCreateAlreadyExistsRace(t *testing.T) {
 		Log:    logr.Discard(),
 	}
 
-	err := reconciler.ensureNodePoolResources(ctx, hc)
+	err := reconciler.ensureNodePoolResources(ctx, hc, nil)
 	assert.NoError(t, err, "ensureNodePoolResources should handle AlreadyExists gracefully")
 	assert.Equal(t, 1, raceClient.createCalls, "Create should have been called once for the shadow pool")
 

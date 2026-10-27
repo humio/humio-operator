@@ -94,6 +94,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating Kafka Event Forwarder")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwarder{}
 			Eventually(func() string {
@@ -194,6 +195,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating forwarder for deletion test")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwarder{}
 			Eventually(func() string {
@@ -271,6 +273,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating event forwarder")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwarder{}
 			Eventually(func() string {
@@ -355,6 +358,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating event forwarder")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwarder{}
 			Eventually(func() string {
@@ -427,6 +431,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating event forwarder")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwarder{}
 			Eventually(func() string {
@@ -528,6 +533,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 			}
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating Secret for Kafka credentials")
 			Expect(k8sClient.Create(ctx, kafkaSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, kafkaSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, kafkaSecret)
 				return err == nil
@@ -559,6 +565,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating forwarder with PropertiesSecretRef")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			// Verify forwarder becomes ready
 			fetched := &humiov1alpha1.HumioEventForwarder{}
@@ -655,6 +662,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating forwarder with missing secret")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			// Verify forwarder does not become ready AND has specific error message
 			fetched := &humiov1alpha1.HumioEventForwarder{}
@@ -702,6 +710,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 			}
 			suite.UsingClusterBy(clusterKey.Name, "Creating different namespace for secret")
 			Expect(k8sClient.Create(ctx, ns)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, ns, testTimeout) })
 
 			secretKey := types.NamespacedName{
 				Name:      fmt.Sprintf("cross-ns-kafka-secret-%d", GinkgoParallelProcess()),
@@ -719,6 +728,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 			}
 			suite.UsingClusterBy(clusterKey.Name, "Creating secret in different namespace")
 			Expect(k8sClient.Create(ctx, kafkaSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, kafkaSecret, testTimeout) })
 
 			// Create forwarder trying to reference secret from different namespace
 			toCreate := &humiov1alpha1.HumioEventForwarder{
@@ -747,6 +757,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating forwarder with cross-namespace secret")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			// Verify forwarder does not become ready AND has security error message
 			fetched := &humiov1alpha1.HumioEventForwarder{}
@@ -814,6 +825,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder Force-Finalize: Creating forwarder with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioEventForwarder{}
 			Eventually(func() string {
@@ -933,6 +945,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating CRD")
 			Expect(k8sClient.Create(ctx, toCreateEventForwarder)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateEventForwarder, testTimeout) })
 
 			// Step 3: Verify adoption succeeded
 			// The forwarder should become Ready and the status should contain the adopted ID
@@ -1060,6 +1073,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating CRD")
 			Expect(k8sClient.Create(ctx, toCreateEventForwarder)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreateEventForwarder, testTimeout) })
 
 			// Step 3: Verify adoption was REJECTED
 			// The forwarder should NOT become Ready because adoption was rejected
@@ -1159,6 +1173,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating event forwarder")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				Eventually(func() string {
 					fresh := &humiov1alpha1.HumioEventForwarder{}
@@ -1234,6 +1249,7 @@ var _ = Describe("HumioEventForwarder Controller", Label("envtest", "dummy", "re
 
 				suite.UsingClusterBy(clusterKey.Name, "HumioEventForwarder: Creating event forwarder")
 				Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+				DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 				Eventually(func() string {
 					fresh := &humiov1alpha1.HumioEventForwarder{}

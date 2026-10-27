@@ -131,7 +131,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 				if err := r.Update(ctx, haa); err != nil {
 					return reconcile.Result{}, err
 				}
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 			_, err := r.HumioClient.GetAggregateAlert(ctx, client, haa)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
@@ -141,7 +141,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for humioFinalizer. If the
@@ -170,7 +170,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 
 			r.Log.Info("Successfully deleted aggregate alert", "alertName", haa.Spec.Name)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
@@ -185,7 +185,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 			return reconcile.Result{}, err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	if haa.Spec.ThrottleTimeSeconds > 0 && haa.Spec.ThrottleTimeSeconds < 60 {
@@ -210,7 +210,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 			r.Log.Info("Created aggregate alert",
 				"AggregateAlert", haa.Spec.Name,
 			)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if aggregate alert exists")
 	}

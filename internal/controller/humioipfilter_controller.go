@@ -149,7 +149,7 @@ func (r *HumioIPFilterReconciler) handleIPFilterDeletion(ctx context.Context, hu
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully via force-finalize annotation")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	_, err := r.HumioClient.GetIPFilter(ctx, humioHttpClient, hi)
@@ -161,7 +161,7 @@ func (r *HumioIPFilterReconciler) handleIPFilterDeletion(ctx context.Context, hu
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed successfully")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// first iteration on delete we run the finalize function which includes delete
@@ -171,7 +171,7 @@ func (r *HumioIPFilterReconciler) handleIPFilterDeletion(ctx context.Context, hu
 	}
 
 	// If no error was detected, we need to requeue so that we can remove the finalizer
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 }
 
 // handleFinalizationError handles errors during finalization with special retry logic
@@ -215,7 +215,7 @@ func (r *HumioIPFilterReconciler) handleInUseError(ctx context.Context, hi *humi
 			return reconcile.Result{}, err
 		}
 		r.Log.Info("Finalizer removed after max retries - IPFilter may still exist in LogScale")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	// Update retry count annotation
@@ -253,7 +253,7 @@ func (r *HumioIPFilterReconciler) ensureIPFilterExists(ctx context.Context, humi
 			if err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "could not update IPFilter Status")
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if IPFilter exists")
 	}

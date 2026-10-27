@@ -91,6 +91,7 @@ var _ = Describe("HumioPackageRegistry Controller", Label("envtest", "dummy", "r
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry: Creating package registry")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -137,6 +138,7 @@ var _ = Describe("HumioPackageRegistry Controller", Label("envtest", "dummy", "r
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioPackageRegistry Force-Finalize: Creating registry with allowDataDeletion=false")
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			fetched := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {

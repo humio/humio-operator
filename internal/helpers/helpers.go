@@ -33,13 +33,14 @@ import (
 )
 
 const (
-	TrueStr string = "true"
+	TrueStr  string = "true"
+	FalseStr string = "false"
 )
 
 // GetTypeName returns the name of the type of object which is obtained by using reflection
 func GetTypeName(myvar interface{}) string {
 	t := reflect.TypeOf(myvar)
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		return t.Elem().Name()
 	}
 	return t.Name()

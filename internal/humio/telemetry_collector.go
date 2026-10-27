@@ -151,7 +151,7 @@ func (h *ClientConfig) CollectLicenseData(ctx context.Context, client *api.Clien
 	switch v := (*installedLicense).(type) {
 	case *humiographql.GetLicenseForTelemetryInstalledLicenseOnPremLicense:
 		licenseData.LicenseUID = v.GetUid()
-		licenseData.LicenseType = "onprem"
+		licenseData.LicenseType = LicenseTypeOnPrem
 		licenseData.ExpirationDate = v.GetExpiresAt()
 		licenseData.IssuedDate = v.GetIssuedAt()
 		licenseData.Owner = v.GetOwner()
@@ -230,7 +230,7 @@ func (h *ClientConfig) extractJWTLicenseFields(ctx context.Context, k8sClient cl
 	}
 
 	// Verify JWT UID matches GraphQL UID for OnPrem licenses
-	if licenseData.LicenseType == "onprem" && licenseData.LicenseUID != "" {
+	if licenseData.LicenseType == LicenseTypeOnPrem && licenseData.LicenseUID != "" {
 		if jwtFields.UID != licenseData.LicenseUID {
 			ctrl.Log.Error(nil, "License UID mismatch detected - JWT license UID does not match GraphQL license UID, skipping JWT data extraction for security",
 				"cluster", hc.Name,
@@ -683,8 +683,8 @@ func (h *ClientConfig) FlattenRepositoryUsageData(timestamp time.Time, clusterID
 
 	// Create a summary event with aggregate information
 	summaryData := map[string]interface{}{
-		"total_repositories": repositoryUsage.TotalRepositories,
-		"event_type":         "repository_usage_summary",
+		"total_repositories":    repositoryUsage.TotalRepositories,
+		telemetryFieldEventType: "repository_usage_summary",
 	}
 
 	// Add error tracking to summary data
@@ -713,13 +713,13 @@ func (h *ClientConfig) FlattenRepositoryUsageData(timestamp time.Time, clusterID
 	// Create individual events for each repository
 	for _, repo := range repositoryUsage.Repositories {
 		repoData := map[string]interface{}{
-			"name":                 repo.Name,
-			"ingest_volume_gb_24h": repo.IngestVolumeGB24h,
-			"event_count_24h":      repo.EventCount24h,
-			"retention_days":       repo.RetentionDays,
-			"storage_usage_gb":     repo.StorageUsageGB,
-			"last_activity_time":   repo.LastActivityTime,
-			"event_type":           "repository_usage_detail",
+			"name":                         repo.Name,
+			"ingest_volume_gb_24h":         repo.IngestVolumeGB24h,
+			"event_count_24h":              repo.EventCount24h,
+			"retention_days":               repo.RetentionDays,
+			"storage_usage_gb":             repo.StorageUsageGB,
+			telemetryFieldLastActivityTime: repo.LastActivityTime,
+			telemetryFieldEventType:        "repository_usage_detail",
 		}
 
 		// Add error tracking to individual repository data
@@ -755,13 +755,13 @@ func (h *ClientConfig) FlattenRepositoryUsageData(timestamp time.Time, clusterID
 	// Mark them with a different event_type to distinguish them
 	for _, topRepo := range repositoryUsage.TopRepositories {
 		topRepoData := map[string]interface{}{
-			"name":                 topRepo.Name,
-			"ingest_volume_gb_24h": topRepo.IngestVolumeGB24h,
-			"event_count_24h":      topRepo.EventCount24h,
-			"retention_days":       topRepo.RetentionDays,
-			"storage_usage_gb":     topRepo.StorageUsageGB,
-			"last_activity_time":   topRepo.LastActivityTime,
-			"event_type":           "top_repository_usage",
+			"name":                         topRepo.Name,
+			"ingest_volume_gb_24h":         topRepo.IngestVolumeGB24h,
+			"event_count_24h":              topRepo.EventCount24h,
+			"retention_days":               topRepo.RetentionDays,
+			"storage_usage_gb":             topRepo.StorageUsageGB,
+			telemetryFieldLastActivityTime: topRepo.LastActivityTime,
+			telemetryFieldEventType:        "top_repository_usage",
 		}
 
 		// Add error tracking to top repository data
@@ -938,7 +938,7 @@ func (h *ClientConfig) discoverQueryCapableServices(hc *humiov1alpha1.HumioClust
 		"cluster", hc.Name,
 		"total_services", len(queryCapableServices),
 		"services", func() []string {
-			var names []string
+			names := make([]string, 0, len(queryCapableServices))
 			for _, svc := range queryCapableServices {
 				names = append(names, svc.Name)
 			}
@@ -1300,7 +1300,7 @@ func (h *ClientConfig) FlattenIngestionMetricsData(timestamp time.Time, clusterI
 			"cloud":                                  orgMetrics.Cloud,
 			"measurement_point":                      orgMetrics.MeasurementPoint,
 			"cid":                                    orgMetrics.CID,
-			"event_type":                             TelemetryCollectionTypeIngestionMetrics,
+			telemetryFieldEventType:                  TelemetryCollectionTypeIngestionMetrics,
 		}
 
 		// Add error tracking to organization data

@@ -78,6 +78,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			// status.state should be set to Active
@@ -124,11 +125,12 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretKey.Name,
 					Namespace: secretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (test-gitlab-token)
 					"token": "test-gitlab-token",
 				},
 			}
 			Expect(k8sClient.Create(ctx, gitlabSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, gitlabSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, gitlabSecret)
 				return err == nil
@@ -163,6 +165,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -207,11 +210,12 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretKey.Name,
 					Namespace: secretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (test-github-token)
 					"token": "test-github-token",
 				},
 			}
 			Expect(k8sClient.Create(ctx, githubSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, githubSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, githubSecret)
 				return err == nil
@@ -248,6 +252,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			// status.state should be set to Active
@@ -297,6 +302,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, artifactorySecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, artifactorySecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, artifactorySecret)
 				return err == nil
@@ -330,6 +336,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				Spec: hprSpec,
 			}
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			// status.state should be set to Active
@@ -381,7 +388,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretAccessKeyRef.Name,
 					Namespace: secretAccessKeyRef.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: AWS documentation example access key, not a real credential
 					"access-key": "AKIAIOSFODNN7EXAMPLE",
 				},
 			}
@@ -390,12 +397,14 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretSecretKey.Name,
 					Namespace: secretSecretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (wJalrXUtnFEMI/K7MDEN...)
 					"secret-key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			}
 			Expect(k8sClient.Create(ctx, accessKeySecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, accessKeySecret, testTimeout) })
 			Expect(k8sClient.Create(ctx, accessSecretSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, accessSecretSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretAccessKeyRef, accessKeySecret)
 				return err == nil
@@ -441,6 +450,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			// status.state should be set to Active
@@ -505,6 +515,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, gcloudSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, gcloudSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, gcloudSecret)
 				return err == nil
@@ -544,6 +555,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			// status.state should be set to Active since we're properly mocking OAuth2
@@ -612,6 +624,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -640,11 +653,12 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretKey.Name,
 					Namespace: secretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (test-gitlab-token)
 					"token": "test-gitlab-token",
 				},
 			}
 			Expect(k8sClient.Create(ctx, gitlabSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, gitlabSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, gitlabSecret)
 				return err == nil
@@ -679,6 +693,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -706,11 +721,12 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretKey.Name,
 					Namespace: secretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (test-github-token)
 					"token": "test-github-token",
 				},
 			}
 			Expect(k8sClient.Create(ctx, githubSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, githubSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, githubSecret)
 				return err == nil
@@ -747,6 +763,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -778,6 +795,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, artifactorySecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, artifactorySecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, artifactorySecret)
 				return err == nil
@@ -811,6 +829,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				Spec: hprSpec,
 			}
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -844,7 +863,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretAccessKeyRef.Name,
 					Namespace: secretAccessKeyRef.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: AWS documentation example access key, not a real credential
 					"access-key": "AKIAIOSFODNN7EXAMPLE",
 				},
 			}
@@ -853,12 +872,14 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretSecretKey.Name,
 					Namespace: secretSecretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (wJalrXUtnFEMI/K7MDEN...)
 					"secret-key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			}
 			Expect(k8sClient.Create(ctx, accessKeySecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, accessKeySecret, testTimeout) })
 			Expect(k8sClient.Create(ctx, accessSecretSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, accessSecretSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretAccessKeyRef, accessKeySecret)
 				return err == nil
@@ -904,6 +925,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -949,6 +971,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, gcloudSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, gcloudSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, gcloudSecret)
 				return err == nil
@@ -987,6 +1010,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -1052,6 +1076,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -1065,7 +1090,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				Name:      viewName,
 				Namespace: clusterKey.Namespace,
 			}
-			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections := make([]humiov1alpha1.HumioViewConnection, 0, 1)
 			connections = append(connections, humiov1alpha1.HumioViewConnection{
 				RepositoryName: "humio",
 				Filter:         "*",
@@ -1084,6 +1109,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, view, testTimeout) })
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, viewKey, fetchedView)
@@ -1159,6 +1185,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			setupMockHTTPResponses(mockHTTPClient, "GetWithContext", 200, string(zipContent), 30, 0, mock.Anything, "https://packages.humio.com/packages/crowdstrike/fdr/1.1.4/download")
 
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				if err := k8sClient.Get(ctx, packageKey, foundHp); err != nil {
@@ -1196,6 +1223,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			setupMockHTTPResponses(mockHTTPClient, "GetWithContext", 200, mockVersionsResponse, 1, 10, mock.Anything, "https://packages.humio.com/packages/crowdstrike/fdr/versions")
 
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				if err := k8sClient.Get(ctx, packageKey, foundHp); err != nil {
@@ -1240,11 +1268,12 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretKey.Name,
 					Namespace: secretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (test-gitlab-token)
 					"token": "test-gitlab-token",
 				},
 			}
 			Expect(k8sClient.Create(ctx, gitlabSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, gitlabSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, gitlabSecret)
 				return err == nil
@@ -1283,6 +1312,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -1296,7 +1326,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				Name:      viewName,
 				Namespace: clusterKey.Namespace,
 			}
-			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections := make([]humiov1alpha1.HumioViewConnection, 0, 1)
 			connections = append(connections, humiov1alpha1.HumioViewConnection{
 				RepositoryName: "humio",
 				Filter:         "*",
@@ -1315,6 +1345,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, view, testTimeout) })
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, viewKey, fetchedView)
@@ -1407,6 +1438,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 
 			// Create the HumioPackage
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -1444,6 +1476,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				mock.Anything, "https://gitlab.example.com/api/v4/projects/myproject/packages/generic/fdr/1.1.4/crowdstrike-fdr-1.1.4.zip", mock.Anything)
 
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -1488,11 +1521,12 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretKey.Name,
 					Namespace: secretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (test-github-token)
 					"token": "test-github-token",
 				},
 			}
 			Expect(k8sClient.Create(ctx, githubSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, githubSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, githubSecret)
 				return err == nil
@@ -1531,6 +1565,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -1544,7 +1579,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				Name:      viewName,
 				Namespace: clusterKey.Namespace,
 			}
-			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections := make([]humiov1alpha1.HumioViewConnection, 0, 1)
 			connections = append(connections, humiov1alpha1.HumioViewConnection{
 				RepositoryName: "humio",
 				Filter:         "*",
@@ -1563,6 +1598,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, view, testTimeout) })
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, viewKey, fetchedView)
@@ -1658,6 +1694,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 
 			// Create the HumioPackage
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -1694,6 +1731,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			setupMockHTTPResponses(mockHTTPClient, "GetWithHeadersAndContext", 404, "", 1, 1, mock.Anything, "https://api.github.com/repos/myorg/fdr-package/releases/tags/1.1.4",
 				mock.Anything)
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -1742,6 +1780,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, artifactorySecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, artifactorySecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, artifactorySecret)
 				return err == nil
@@ -1780,6 +1819,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -1793,7 +1833,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				Name:      viewName,
 				Namespace: clusterKey.Namespace,
 			}
-			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections := make([]humiov1alpha1.HumioViewConnection, 0, 1)
 			connections = append(connections, humiov1alpha1.HumioViewConnection{
 				RepositoryName: "humio",
 				Filter:         "*",
@@ -1812,6 +1852,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, view, testTimeout) })
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, viewKey, fetchedView)
@@ -1894,6 +1935,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 
 			// Create the HumioPackage
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -1931,6 +1973,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				mock.Anything)
 
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -1980,7 +2023,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretAccessKeyRef.Name,
 					Namespace: secretAccessKeyRef.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: AWS documentation example access key, not a real credential
 					"access-key": "AKIAIOSFODNN7EXAMPLE",
 				},
 			}
@@ -1989,12 +2032,14 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 					Name:      secretSecretKey.Name,
 					Namespace: secretSecretKey.Namespace,
 				},
-				StringData: map[string]string{
+				StringData: map[string]string{ //nolint:gosec // G101: test fixture value, not a real credential (wJalrXUtnFEMI/K7MDEN...)
 					"secret-key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			}
 			Expect(k8sClient.Create(ctx, accessKeySecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, accessKeySecret, testTimeout) })
 			Expect(k8sClient.Create(ctx, accessSecretSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, accessSecretSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretAccessKeyRef, accessKeySecret)
 				return err == nil
@@ -2044,6 +2089,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -2057,7 +2103,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				Name:      viewName,
 				Namespace: clusterKey.Namespace,
 			}
-			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections := make([]humiov1alpha1.HumioViewConnection, 0, 1)
 			connections = append(connections, humiov1alpha1.HumioViewConnection{
 				RepositoryName: "humio",
 				Filter:         "*",
@@ -2076,6 +2122,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, view, testTimeout) })
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, viewKey, fetchedView)
@@ -2173,6 +2220,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 
 			// Create the HumioPackage
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -2217,6 +2265,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				return strings.Contains(url, "codeartifact") && strings.Contains(url, "/v1/package/version/assets")
 			}), mock.Anything, mock.Anything)
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -2276,6 +2325,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, gcloudSecret)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, gcloudSecret, testTimeout) })
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, secretKey, gcloudSecret)
 				return err == nil
@@ -2319,6 +2369,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 			}
 
 			Expect(k8sClient.Create(ctx, hpr)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hpr, testTimeout) })
 
 			k8sHpr := &humiov1alpha1.HumioPackageRegistry{}
 			Eventually(func() string {
@@ -2332,7 +2383,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				Name:      viewName,
 				Namespace: clusterKey.Namespace,
 			}
-			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections := make([]humiov1alpha1.HumioViewConnection, 0, 1)
 			connections = append(connections, humiov1alpha1.HumioViewConnection{
 				RepositoryName: "humio",
 				Filter:         "*",
@@ -2351,6 +2402,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 				},
 			}
 			Expect(k8sClient.Create(ctx, view)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, view, testTimeout) })
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, viewKey, fetchedView)
@@ -2437,6 +2489,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 
 			// Create the HumioPackage
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -2480,6 +2533,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 
 			// Create the HumioPackage
 			Expect(k8sClient.Create(ctx, hp)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, hp, testTimeout) })
 			foundHp := &humiov1alpha1.HumioPackage{}
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, packageKey, foundHp)
@@ -2525,6 +2579,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 
 			setupMockHTTPResponses(mockHTTPClient, "GetWithContext", 200, "", 2, 2, mock.Anything, mock.Anything)
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			Eventually(func() string {
 				fetched := &humiov1alpha1.HumioPackageRegistry{}
@@ -2582,6 +2637,7 @@ var _ = Describe("Humio Registry and Package", Ordered, Label("envtest", "dummy"
 
 			setupMockHTTPResponses(mockHTTPClient, "GetWithContext", 200, "", 2, 2, mock.Anything, mock.Anything)
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			DeferCleanup(func() { cleanupK8sResource(k8sClient, toCreate, testTimeout) })
 
 			Eventually(func() string {
 				fetched := &humiov1alpha1.HumioPackageRegistry{}

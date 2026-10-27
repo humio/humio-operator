@@ -63,7 +63,7 @@ func (g *GithubRegistryClient) CheckConnection(ctx context.Context) error {
 	}
 
 	headers := map[string]string{
-		"Accept": "application/vnd.github.v3+json",
+		headerAccept: acceptGitHubV3JSON,
 	}
 
 	// Add authentication
@@ -72,7 +72,7 @@ func (g *GithubRegistryClient) CheckConnection(ctx context.Context) error {
 		return fmt.Errorf("error retrieving auth credentials: %w", err)
 	}
 	if token != "" {
-		headers["Authorization"] = fmt.Sprintf("token %s", token)
+		headers[headerAuthorization] = fmt.Sprintf("token %s", token)
 	}
 
 	resp, err := g.HTTPClient.GetWithHeadersAndContext(ctx, endpoint, headers)
@@ -115,7 +115,7 @@ func (g *GithubRegistryClient) CheckPackageExists(humioPackage *humiov1alpha1.Hu
 	g.Logger.Info("CheckPackageExists: Making GitHub API request", "endpoint", endpoint, "path", path, "assetName", humioPackage.Spec.Github.AssetName)
 
 	headers := map[string]string{
-		"Accept": "application/vnd.github.v3+json",
+		headerAccept: acceptGitHubV3JSON,
 	}
 
 	token, err := g.getSecretValue(ctx)
@@ -123,7 +123,7 @@ func (g *GithubRegistryClient) CheckPackageExists(humioPackage *humiov1alpha1.Hu
 		g.Logger.Error(err, "failed to get GitHub token")
 		return false
 	}
-	headers["Authorization"] = fmt.Sprintf("token %s", token)
+	headers[headerAuthorization] = fmt.Sprintf("token %s", token)
 
 	g.Logger.Info("CheckPackageExists: Making GitHub API request", "endpoint", endpoint, "assetName", humioPackage.Spec.Github.AssetName)
 
@@ -199,7 +199,7 @@ func (g *GithubRegistryClient) DownloadPackage(ctx context.Context, humioPackage
 	g.Logger.Info("DownloadPackage: Making release info API request", "endpoint", endpoint, "assetName", humioPackage.Spec.Github.AssetName)
 
 	headers := map[string]string{
-		"Accept": "application/vnd.github.v3+json",
+		headerAccept: acceptGitHubV3JSON,
 	}
 
 	// Add authentication
@@ -208,7 +208,7 @@ func (g *GithubRegistryClient) DownloadPackage(ctx context.Context, humioPackage
 		return fmt.Errorf("error retrieving auth credentials: %w", err)
 	}
 	if token != "" {
-		headers["Authorization"] = fmt.Sprintf("token %s", token)
+		headers[headerAuthorization] = fmt.Sprintf("token %s", token)
 	}
 
 	resp, err := g.HTTPClient.GetWithHeadersAndContext(apiCtx, endpoint, headers)
@@ -260,13 +260,13 @@ func (g *GithubRegistryClient) DownloadPackage(ctx context.Context, humioPackage
 
 	// Download the asset
 	downloadHeaders := map[string]string{}
-	downloadHeaders["Accept"] = "application/vnd.github+json"
+	downloadHeaders[headerAccept] = "application/vnd.github+json"
 
 	token, tokenErr := g.getSecretValue(downloadCtx)
 	if tokenErr != nil || token == "" {
 		return fmt.Errorf("error retrieving auth credentials: %w", tokenErr)
 	}
-	downloadHeaders["Authorization"] = fmt.Sprintf("token %s", token)
+	downloadHeaders[headerAuthorization] = fmt.Sprintf("token %s", token)
 	downloadResp, err := g.HTTPClient.GetWithHeadersAndContext(downloadCtx, downloadUrl, downloadHeaders)
 	if err != nil {
 		return fmt.Errorf("failed to download asset: %w", err)

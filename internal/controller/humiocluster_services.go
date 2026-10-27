@@ -79,7 +79,7 @@ func constructPoolHeadlessService(hnp *HumioNodePool) *corev1.Service {
 			Annotations: hnp.GetHumioServiceAnnotations(),
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP:                "None",
+			ClusterIP:                corev1.ClusterIPNone,
 			Type:                     corev1.ServiceTypeClusterIP,
 			Selector:                 hnp.GetNodePoolLabels(),
 			PublishNotReadyAddresses: true,
@@ -108,7 +108,7 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP:                "None",
+			ClusterIP:                corev1.ClusterIPNone,
 			Type:                     corev1.ServiceTypeClusterIP,
 			Selector:                 kubernetes.LabelsForHumio(hc.Name),
 			PublishNotReadyAddresses: true,
@@ -205,7 +205,7 @@ func constructWorkloadTypeService(hc *humiov1alpha1.HumioCluster, ws humiov1alph
 		Spec: corev1.ServiceSpec{
 			Type: serviceType,
 			Selector: mergeHumioServiceLabels(hc.Name, map[string]string{
-				kubernetes.WorkloadTypeLabelPrefix + ws.WorkloadType: "true",
+				kubernetes.WorkloadTypeLabelPrefix + ws.WorkloadType: helpers.TrueStr,
 			}),
 			Ports: []corev1.ServicePort{
 				{
@@ -239,10 +239,10 @@ func constructWorkloadTypeHeadlessService(hc *humiov1alpha1.HumioCluster, ws hum
 			Annotations: ws.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "None",
+			ClusterIP: corev1.ClusterIPNone,
 			Type:      corev1.ServiceTypeClusterIP,
 			Selector: mergeHumioServiceLabels(hc.Name, map[string]string{
-				kubernetes.WorkloadTypeLabelPrefix + ws.WorkloadType: "true",
+				kubernetes.WorkloadTypeLabelPrefix + ws.WorkloadType: helpers.TrueStr,
 			}),
 			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{

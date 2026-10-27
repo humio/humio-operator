@@ -410,6 +410,13 @@ type HumioOperatorFeatureFlags struct {
 	// Default: false
 	// +kubebuilder:default=false
 	EnableEvictionProtectionDuringMaintenance bool `json:"enableEvictionProtectionDuringMaintenance,omitempty"`
+	// EnableOrphanedResourceCleanup enables automatic deletion of resources associated with
+	// node pools that have been removed from the HumioCluster spec. Resources are only deleted
+	// after all pods in the orphaned pool have been fully evicted.
+	// Only resources owned by this HumioCluster (verified via ownerReference and labels) are affected.
+	// Default: false
+	// +kubebuilder:default=false
+	EnableOrphanedResourceCleanup bool `json:"enableOrphanedResourceCleanup,omitempty"`
 }
 
 // HumioNodePoolFeatures is used to toggle certain features that are specific instance of HumioNodeSpec. This means
@@ -740,6 +747,11 @@ type HumioClusterStatus struct {
 	ObservedGeneration string `json:"observedGeneration,omitempty"` // TODO: We should change the type to int64 so we don't have to convert back and forth between int64 and string
 	// EvictedNodeIds keeps track of evicted nodes for use within the downscaling functionality
 	EvictedNodeIds []int `json:"evictedNodeIds,omitempty"`
+	// OrphanedNodePools tracks node pool names that have been removed from the spec
+	// but whose associated resources have not yet been fully cleaned up.
+	// Pools are added when orphaned pods are detected and removed after resource cleanup completes.
+	// +optional
+	OrphanedNodePools []string `json:"orphanedNodePools,omitempty"`
 	// TelemetryStatus shows the status of telemetry collection for this cluster
 	TelemetryStatus *HumioTelemetryStatus `json:"telemetryStatus,omitempty"`
 }

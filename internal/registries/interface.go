@@ -9,6 +9,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// HTTP header names shared across registry client implementations
+const (
+	headerAuthorization = "Authorization"
+	headerContentType   = "Content-Type"
+	headerAccept        = "Accept"
+	headerPrivateToken  = "PRIVATE-TOKEN"
+
+	contentTypeJSON    = "application/json"
+	acceptGitHubV3JSON = "application/vnd.github.v3+json"
+)
+
 // RegistryClientInterface common interface for all PackageRegistryClients
 type RegistryClientInterface interface {
 	GetRegistryType() string
