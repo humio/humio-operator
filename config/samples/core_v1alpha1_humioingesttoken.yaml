@@ -11,6 +11,9 @@ spec:
   managedClusterName: example-humiocluster
   name: example-token
   repositoryName: humio
+  # allowDataDeletion enables deletion of this ingest token including any data.
+  # Default is false. Only considered when deletionTimestamp is set.
+  # allowDataDeletion: false
 ---
 apiVersion: core.humio.com/v1alpha1
 kind: HumioIngestToken
@@ -26,3 +29,6 @@ spec:
   name: example-token-external
   repositoryName: humio
   tokenSecretName: humio-ingesttoken
+  # allowDataDeletion enables deletion of this ingest token including any data.
+  # Default is false. Only considered when deletionTimestamp is set.
+  # allowDataDeletion: false

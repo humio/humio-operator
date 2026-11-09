@@ -64,3 +64,31 @@ query ListSearchDomains
         automaticSearch
     }
 }
+
+query ListSearchDomainsForTelemetry
+{
+    searchDomains {
+        id
+        name
+        description
+        automaticSearch
+        ... on Repository {
+            compressedByteSize
+            timeBasedRetention
+            storageSizeBasedRetention
+            ingestSizeBasedRetention
+        }
+        ... on View {
+            isFederated
+            connections {
+                repository {
+                    name
+                    compressedByteSize
+                    timeBasedRetention
+                    storageSizeBasedRetention
+                    ingestSizeBasedRetention
+                }
+            }
+        }
+    }
+}

@@ -31,6 +31,30 @@ const (
 	HumioOrganizationPermissionRoleStateConfigError = "ConfigError"
 )
 
+const (
+	// OrganizationPermissionRoleConditionTypeReady indicates whether the organization permission role is ready
+	OrganizationPermissionRoleConditionTypeReady = "Ready"
+	// OrganizationPermissionRoleConditionTypeSynced indicates whether the organization permission role is synced with LogScale
+	OrganizationPermissionRoleConditionTypeSynced = "Synced"
+)
+
+const (
+	// OrganizationPermissionRoleReasonReady indicates the organization permission role is ready
+	OrganizationPermissionRoleReasonReady = "Ready"
+	// OrganizationPermissionRoleReasonCreated indicates the organization permission role was created
+	OrganizationPermissionRoleReasonCreated = "Created"
+	// OrganizationPermissionRoleReasonUpdated indicates the organization permission role was updated
+	OrganizationPermissionRoleReasonUpdated = "Updated"
+	// OrganizationPermissionRoleReasonNotFound indicates the organization permission role was not found
+	OrganizationPermissionRoleReasonNotFound = "NotFound"
+	// OrganizationPermissionRoleReasonConfigError indicates a configuration error
+	OrganizationPermissionRoleReasonConfigError = "ConfigurationError"
+	// OrganizationPermissionRoleReasonConfigSynced indicates the configuration is synced
+	OrganizationPermissionRoleReasonConfigSynced = "ConfigurationSynced"
+	// OrganizationPermissionRoleReasonConfigDrifted indicates the configuration has drifted
+	OrganizationPermissionRoleReasonConfigDrifted = "ConfigurationDrifted"
+)
+
 // HumioOrganizationPermissionRoleSpec defines the desired state of HumioOrganizationPermissionRole.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioOrganizationPermissionRoleSpec struct {
@@ -43,7 +67,6 @@ type HumioOrganizationPermissionRoleSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the role inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// Permissions is the list of organization permissions that this role grants.
@@ -59,16 +82,31 @@ type HumioOrganizationPermissionRoleSpec struct {
 	// +kubebuilder:validation:items:MinLength=1
 	// +listType=set
 	RoleAssignmentGroupNames []string `json:"roleAssignmentGroupNames,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioOrganizationPermissionRoleStatus defines the observed state of HumioOrganizationPermissionRole.
 type HumioOrganizationPermissionRoleStatus struct {
-	// State reflects the current state of the HumioOrganizationPermissionRole
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioOrganizationPermissionRole
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // HumioOrganizationPermissionRole is the Schema for the humioorganizationpermissionroles API.
 type HumioOrganizationPermissionRole struct {

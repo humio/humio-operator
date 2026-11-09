@@ -1,0 +1,40 @@
+# Runs the manager under Delve so a remote debugger can attach on :2345.
+# See docs/debugging-with-delve.md. Not for production use.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        command:
+        - /dlv
+        args:
+        - exec
+        - /manager
+        - --headless
+        - --listen=:2345
+        - --api-version=2
+        - --accept-multiclient
+        - --continue
+        - --
+        - --enable-leader-election
+        ports:
+        - containerPort: 2345
+          name: delve
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
+          seccompProfile:
+            type: Unconfined
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi

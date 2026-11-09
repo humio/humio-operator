@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
-	"golang.org/x/exp/constraints"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,7 +21,7 @@ import (
 // GetKeyWithHighestValue returns the key corresponding to the highest value in a map. In case multiple keys have the same value, the first key is returned.
 //
 // An error is returned if the passed map is empty.
-func GetKeyWithHighestValue[K comparable, V constraints.Ordered](inputMap map[K]V) (K, error) {
+func GetKeyWithHighestValue[K comparable, V cmp.Ordered](inputMap map[K]V) (K, error) {
 	if len(inputMap) == 0 {
 		var zeroKey K
 		return zeroKey, errors.New("map is empty")

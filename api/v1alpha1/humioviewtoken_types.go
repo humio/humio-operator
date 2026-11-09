@@ -19,13 +19,14 @@ import (
 
 // HumioViewTokenSpec defines the desired state of HumioViewToken
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.ipFilterName) || self.ipFilterName == oldSelf.ipFilterName",message="Value is immutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.viewNames) || self.viewNames == oldSelf.viewNames",message="Value is immutable"
 type HumioViewTokenSpec struct {
 	HumioTokenSpec `json:",inline"`
 	// ViewNames is the Humio list of View names for the token.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=100
 	// +kubebuilder:validation:XValidation:rule="self.all(item, size(item) >= 1 && size(item) <= 253)",message="viewNames: each item must be 1-253 characters long"
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	ViewNames []string `json:"viewNames"`
 }
@@ -39,6 +40,7 @@ type HumioViewTokenStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioviewtokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the View Token"
 // +kubebuilder:printcolumn:name="HumioID",type="string",JSONPath=".status.humioId",description="Humio generated ID"
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio View Token"

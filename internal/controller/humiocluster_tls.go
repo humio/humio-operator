@@ -225,7 +225,7 @@ func ConstructNodeCertificate(hnp *HumioNodePool, nodeSuffix string) cmapi.Certi
 						LocalObjectReference: cmmeta.LocalObjectReference{
 							Name: fmt.Sprintf("%s-keystore-passphrase", hnp.GetClusterName()),
 						},
-						Key: "passphrase",
+						Key: PassphraseFieldName,
 					},
 				},
 			},

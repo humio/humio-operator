@@ -108,6 +108,29 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 lint-config: golangci-lint ## Verify golangci-lint linter configuration
 	$(GOLANGCI_LINT) config verify
 
+.PHONY: deadcode
+deadcode: ## Run deadcode analysis to find unused code
+	@command -v deadcode >/dev/null 2>&1 || { \
+		echo "Installing deadcode..." ; \
+		PATH=$$PATH:$(GOBIN) go install golang.org/x/tools/cmd/deadcode@latest ; \
+	}
+	PATH=$$PATH:$(GOBIN) deadcode ./...
+
+.PHONY: test-monitor
+test-monitor: ## Launch the Ginkgo test monitor dashboard
+	@cd hack/test-monitor && go build -o ../../bin/test-monitor . && cd ../.. && ./bin/test-monitor $(ARGS)
+
+.PHONY: security
+security: ## Run gosec security scanner
+	@command -v gosec >/dev/null 2>&1 || { \
+		echo "Installing gosec..." ; \
+		PATH=$$PATH:$(GOBIN) go install github.com/securego/gosec/v2/cmd/gosec@latest ; \
+	}
+	PATH=$$PATH:$(GOBIN) gosec -exclude-dir images/logscale-dummy -exclude-generated ./...
+
+.PHONY: check-all
+check-all: fmt vet lint deadcode security ## Run all code quality checks
+
 ##@ Build
 
 .PHONY: build
@@ -176,6 +199,12 @@ deploy: manifests kustomize  ## Deploy controller to the K8s cluster specified i
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: deploy-debug
+deploy-debug: manifests kustomize ## Deploy a Delve-enabled controller to the K8s cluster specified in ~/.kube/config. See docs/debugging-with-delve.md.
+	$(MAKE) uninstall ignore-not-found=true
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/debug | $(KUBECTL) create -f -
 
 ##@ Dependencies
 
@@ -258,24 +287,38 @@ update-schema:
 test: manifests generate fmt vet setup-envtest ginkgo ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./...
+	$(GINKGO) run --label-filter=envtest $(if $(FOCUS),--focus="$(FOCUS)") -vv --no-color --procs=1 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 30m ./...
 
 # run e2e tests
 .PHONY: run-e2e-tests
 run-e2e-tests: manifests generate fmt vet setup-envtest ginkgo
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -output-dir=./test-reports -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all --flake-attempts=2 -timeout 30m  $(if $(SUITE),./internal/controller/suite/$(SUITE)/...)
 
 .PHONY: run-e2e-tests-local-kind
 run-e2e-tests-local-kind: manifests generate fmt vet ## Run tests.
 	hack/run-e2e-using-kind.sh
 
+.PHONY: local-kind
+local-kind: manifests generate fmt vet ## Spin up a local kind cluster with operator deployed for interactive use.
+	hack/run-local-kind.sh
+
+.PHONY: local-kind-redeploy
+local-kind-redeploy: ## Rebuild and redeploy the operator into a running local kind cluster.
+	docker build -f Dockerfile.operator -t $${IMG:-controller:local} .
+	tmp/kind load docker-image $${IMG:-controller:local} --name kind
+	tmp/kubectl rollout restart deployment -n humio-operator-system -l app.kubernetes.io/name=humio-operator
+
+.PHONY: local-kind-hpa
+local-kind-hpa: manifests generate fmt vet ## Spin up a local kind cluster with operator, metrics-server, and HPA configured.
+	SAMPLE=core_v1alpha1_humiocluster-hpa-kind-local.yaml hack/run-local-kind.sh && hack/setup-hpa.sh
+
 .PHONY: run-telemetry-tests
 run-telemetry-tests: manifests generate fmt vet setup-envtest ginkgo ## Run telemetry controller tests with envtest.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
-	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -timeout 10m ./internal/controller/suite/telemetry/...
+	$(GINKGO) run --label-filter=envtest -vv --no-color --procs=1 -timeout 30m ./internal/controller/suite/telemetry/...
 
 .PHONY: run-telemetry-integration-tests
 run-telemetry-integration-tests: manifests generate fmt vet ## Run telemetry integration tests using Kind cluster.
@@ -291,10 +334,29 @@ fmt-simple:
 docker-build-operator:
 	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.operator .
 
+# Build a debug operator docker image with Delve baked in. See docs/debugging-with-delve.md.
+.PHONY: docker-build-operator-debug
+docker-build-operator-debug:
+	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.operator.debug .
+
 # Build the webhook operator docker image
 .PHONY: docker-build-operator-webhook
 docker-build-operator-webhook:
 	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.webhook .
+
+# Build a debug webhook operator docker image with Delve baked in. See docs/debugging-with-delve.md.
+.PHONY: docker-build-operator-webhook-debug
+docker-build-operator-webhook-debug:
+	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} -f Dockerfile.webhook.debug .
+
+.PHONY: docker-buildx-operator-webhook
+docker-buildx-operator-webhook: ## Build and push docker image for the webhook operator for cross-platform support
+	sed -e '1 s/\(^FROM\)/FROM --platform=$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=$$\{BUILDPLATFORM\}/' Dockerfile.webhook > Dockerfile.webhook.cross
+	- $(CONTAINER_TOOL) buildx create --name humio-webhook-builder
+	$(CONTAINER_TOOL) buildx use humio-webhook-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.webhook.cross .
+	- $(CONTAINER_TOOL) buildx rm humio-webhook-builder
+	rm Dockerfile.webhook.cross
 
 # Build the helper docker image
 .PHONY: docker-build-helper

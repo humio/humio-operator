@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.0
-  name: humiotelemetries.core.humio.com
+  name: humiotelemetrycollections.core.humio.com
   labels:
     app: 'humio-operator'
     app.kubernetes.io/name: 'humio-operator'
@@ -14,18 +14,21 @@ metadata:
 spec:
   group: core.humio.com
   names:
-    kind: HumioTelemetry
-    listKind: HumioTelemetryList
-    plural: humiotelemetries
-    singular: humiotelemetry
+    kind: HumioTelemetryCollection
+    listKind: HumioTelemetryCollectionList
+    plural: humiotelemetrycollections
+    singular: humiotelemetrycollection
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
     - description: Managed cluster name
       jsonPath: .spec.managedClusterName
       name: Cluster
       type: string
-    - description: Telemetry state
+    - description: Collection state
       jsonPath: .status.state
       name: State
       type: string
@@ -33,17 +36,14 @@ spec:
       jsonPath: .status.lastCollectionTime
       name: Last Collection
       type: date
-    - description: Last export time
-      jsonPath: .status.lastExportTime
-      name: Last Export
-      type: date
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioTelemetry is the Schema for the humiotelemetries API
+        description: HumioTelemetryCollection is the Schema for the humiotelemetrycollections
+          API
         properties:
           apiVersion:
             description: |-
@@ -63,11 +63,13 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioTelemetrySpec defines the desired state of HumioTelemetry.
+            description: HumioTelemetryCollectionSpec defines the desired state of
+              HumioTelemetryCollection.
             properties:
               clusterIdentifier:
-                description: ClusterIdentifier is a unique identifier for this cluster
-                  used in telemetry data
+                description: |-
+                  ClusterIdentifier is a unique identifier for this cluster used in telemetry data
+                  If not specified, defaults to ManagedClusterName
                 minLength: 1
                 type: string
               collections:
@@ -99,97 +101,17 @@ spec:
                   that is managed by the operator
                 minLength: 1
                 type: string
-              remoteReport:
-                description: RemoteReport defines the configuration for sending telemetry
-                  data to a remote cluster
-                properties:
-                  tls:
-                    description: TLS contains TLS configuration for the connection
-                    properties:
-                      insecureSkipVerify:
-                        default: false
-                        description: InsecureSkipVerify controls whether the client
-                          verifies the server's certificate chain and hostname
-                        type: boolean
-                    type: object
-                  token:
-                    description: Token contains the authentication token for the telemetry
-                      cluster
-                    properties:
-                      secretKeyRef:
-                        description: SecretKeyRef allows specifying which secret and
-                          what key in that secret holds the value we want to use
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                  url:
-                    description: URL is the endpoint URL for the telemetry cluster
-                      HEC endpoint
-                    pattern: ^https?://
-                    type: string
-                required:
-                - token
-                - url
-                type: object
             required:
-            - clusterIdentifier
             - collections
             - managedClusterName
-            - remoteReport
             type: object
             x-kubernetes-validations:
             - message: Must specify managedClusterName
               rule: has(self.managedClusterName) && self.managedClusterName != ""
           status:
-            description: HumioTelemetryStatus defines the observed state of HumioTelemetry.
+            description: HumioTelemetryCollectionStatus defines the observed state
+              of HumioTelemetryCollection.
             properties:
-              collectionErrors:
-                description: CollectionErrors contains any errors from data collection
-                items:
-                  description: TelemetryError represents an error that occurred during
-                    telemetry operations
-                  properties:
-                    dataType:
-                      description: DataType indicates which data type this error relates
-                        to (if applicable)
-                      type: string
-                    message:
-                      description: Message is the human-readable error message
-                      type: string
-                    timestamp:
-                      description: Timestamp indicates when this error occurred
-                      format: date-time
-                      type: string
-                    type:
-                      description: Type is the category of error (e.g., "collection",
-                        "export", "configuration")
-                      type: string
-                  required:
-                  - message
-                  - timestamp
-                  - type
-                  type: object
-                type: array
               collectionStatus:
                 additionalProperties:
                   description: CollectionTypeStatus represents the status of a specific
@@ -225,7 +147,7 @@ spec:
                           type: string
                         type:
                           description: Type is the category of error (e.g., "collection",
-                            "export", "configuration")
+                            "configuration")
                           type: string
                       required:
                       - message
@@ -241,40 +163,127 @@ spec:
                 description: CollectionStatus contains the status of individual collection
                   types
                 type: object
-              exportErrors:
-                description: ExportErrors contains any errors from data export
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the resource's state
                 items:
-                  description: TelemetryError represents an error that occurred during
-                    telemetry operations
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
-                    dataType:
-                      description: DataType indicates which data type this error relates
-                        to (if applicable)
-                      type: string
-                    message:
-                      description: Message is the human-readable error message
-                      type: string
-                    timestamp:
-                      description: Timestamp indicates when this error occurred
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
                     type:
-                      description: Type is the category of error (e.g., "collection",
-                        "export", "configuration")
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
                   required:
+                  - lastTransitionTime
                   - message
-                  - timestamp
+                  - reason
+                  - status
                   - type
+                  type: object
+                type: array
+              exportPushResults:
+                description: ExportPushResults tracks the results of pushing data
+                  to registered exporters
+                items:
+                  description: ExportPushResult tracks the result of pushing data
+                    to a specific exporter
+                  properties:
+                    exporterName:
+                      description: ExporterName is the name of the HumioTelemetryExport
+                        resource
+                      type: string
+                    exporterNamespace:
+                      description: ExporterNamespace is the namespace of the HumioTelemetryExport
+                        resource
+                      type: string
+                    lastPushError:
+                      description: LastPushError contains the most recent push error
+                      properties:
+                        dataType:
+                          description: DataType indicates which data type this error
+                            relates to (if applicable)
+                          type: string
+                        message:
+                          description: Message is the human-readable error message
+                          type: string
+                        timestamp:
+                          description: Timestamp indicates when this error occurred
+                          format: date-time
+                          type: string
+                        type:
+                          description: Type is the category of error (e.g., "collection",
+                            "configuration")
+                          type: string
+                      required:
+                      - message
+                      - timestamp
+                      - type
+                      type: object
+                    lastPushSuccess:
+                      description: LastPushSuccess indicates whether the last push
+                        was successful
+                      type: boolean
+                    lastPushTime:
+                      description: LastPushTime indicates when data was last pushed
+                        to this exporter
+                      format: date-time
+                      type: string
+                    successfulPushes:
+                      description: SuccessfulPushes is the number of successful pushes
+                        to this exporter
+                      type: integer
+                    totalPushes:
+                      description: TotalPushes is the total number of push attempts
+                        to this exporter
+                      type: integer
+                  required:
+                  - exporterName
+                  - exporterNamespace
+                  - lastPushSuccess
                   type: object
                 type: array
               lastCollectionTime:
                 description: LastCollectionTime indicates when data was last collected
-                format: date-time
-                type: string
-              lastExportTime:
-                description: LastExportTime indicates when data was last exported
-                  successfully
                 format: date-time
                 type: string
               nextScheduledCollection:
@@ -285,8 +294,9 @@ spec:
                   times by type
                 type: object
               state:
-                description: State represents the current state of the HumioTelemetry
-                  resource
+                description: State is deprecated (use Conditions instead). Will be
+                  removed in a future release. Represents the current state of the
+                  collection
                 type: string
             type: object
         required:

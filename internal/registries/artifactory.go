@@ -55,8 +55,8 @@ func (a *ArtifactoryRegistryClient) CheckConnection(ctx context.Context) error {
 	}
 
 	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", token),
-		"Content-Type":  "application/json",
+		headerAuthorization: fmt.Sprintf("Bearer %s", token),
+		headerContentType:   contentTypeJSON,
 	}
 	resp, err := a.HTTPClient.GetWithHeadersAndContext(ctx, endpoint, headers)
 	if err != nil {
@@ -96,7 +96,7 @@ func (a *ArtifactoryRegistryClient) CheckPackageExists(humioPackage *humiov1alph
 	}
 
 	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", token),
+		headerAuthorization: fmt.Sprintf("Bearer %s", token),
 	}
 	// Use GET with context instead of HEAD to ensure context-aware timeout handling
 	resp, err := a.HTTPClient.GetWithHeadersAndContext(ctx, endpoint, headers)
@@ -137,7 +137,7 @@ func (a *ArtifactoryRegistryClient) DownloadPackage(ctx context.Context, humioPa
 	}
 
 	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", token),
+		headerAuthorization: fmt.Sprintf("Bearer %s", token),
 	}
 
 	resp, err := a.HTTPClient.GetWithHeadersAndContext(ctx, endpoint, headers)

@@ -1,0 +1,87 @@
+# Event Forwarding Rules GraphQL Operations
+# These operations manage LogScale event forwarding rules that filter and forward
+# events from a repository to external systems via event forwarders.
+
+fragment EventForwardingRuleDetails on EventForwardingRule {
+    id
+    queryString
+    eventForwarderId
+    createdAt
+    languageVersion {
+        name
+        futureName
+    }
+}
+
+# Query to list all event forwarding rules in a repository/view
+query GetEventForwardingRules($ViewName: String!) {
+    searchDomain(name: $ViewName) {
+        ... on Repository {
+            eventForwardingRules {
+                ...EventForwardingRuleDetails
+            }
+        }
+    }
+}
+
+# Query to list all repositories with their event forwarding rules
+# Used to check for dependent rules before deleting a forwarder
+query ListAllEventForwardingRules {
+    searchDomains {
+        __typename
+        name
+        ... on Repository {
+            eventForwardingRules {
+                id
+                eventForwarderId
+            }
+        }
+    }
+}
+
+# Mutation to create a new event forwarding rule
+mutation CreateEventForwardingRule(
+    $RepoName: String!
+    $QueryString: String!
+    $EventForwarderID: String!
+    $LanguageVersion: LanguageVersionEnum
+) {
+    createEventForwardingRule(input: {
+        repoName: $RepoName
+        queryString: $QueryString
+        eventForwarderId: $EventForwarderID
+        languageVersion: $LanguageVersion
+    }) {
+        ...EventForwardingRuleDetails
+    }
+}
+
+# Mutation to update an existing event forwarding rule
+mutation UpdateEventForwardingRule(
+    $RepoName: String!
+    $ID: String!
+    $QueryString: String!
+    $EventForwarderID: String!
+    $LanguageVersion: LanguageVersionEnum
+) {
+    updateEventForwardingRule(input: {
+        repoName: $RepoName
+        id: $ID
+        queryString: $QueryString
+        eventForwarderId: $EventForwarderID
+        languageVersion: $LanguageVersion
+    }) {
+        ...EventForwardingRuleDetails
+    }
+}
+
+# Mutation to delete an event forwarding rule
+mutation DeleteEventForwardingRule(
+    $RepoName: String!
+    $ID: String!
+) {
+    deleteEventForwardingRule(input: {
+        repoName: $RepoName
+        id: $ID
+    })
+}

@@ -27,6 +27,7 @@ import (
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	"github.com/humio/humio-operator/internal/cacheconfig"
 	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/suite"
 	"github.com/humio/humio-operator/internal/helpers"
@@ -128,7 +129,7 @@ var _ = BeforeSuite(func() {
 	err = humiov1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	cacheOptions, err := helpers.GetCacheOptionsWithWatchNamespace()
+	cacheOptions, err := cacheconfig.GetCacheOptionsWithWatchNamespace()
 	if err != nil {
 		ctrl.Log.Info("unable to get WatchNamespace: the manager will watch and manage resources in all namespaces")
 	}

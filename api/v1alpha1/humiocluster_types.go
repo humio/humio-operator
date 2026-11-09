@@ -50,12 +50,38 @@ const (
 	HumioPersistentVolumeReclaimTypeOnNodeDelete = "OnNodeDelete"
 )
 
+const (
+	// ClusterConditionTypeReady indicates whether the cluster is ready
+	ClusterConditionTypeReady = "Ready"
+	// ClusterConditionTypeSynced indicates whether the cluster configuration is synced
+	ClusterConditionTypeSynced = "Synced"
+)
+
+const (
+	// ClusterReasonReady indicates the cluster is running and ready
+	ClusterReasonReady = "Ready"
+	// ClusterReasonRunning indicates the cluster is running normally
+	ClusterReasonRunning = "Running"
+	// ClusterReasonRestarting indicates the cluster is restarting
+	ClusterReasonRestarting = "Restarting"
+	// ClusterReasonUpgrading indicates the cluster is being upgraded
+	ClusterReasonUpgrading = "Upgrading"
+	// ClusterReasonConfigError indicates a configuration error
+	ClusterReasonConfigError = "ConfigurationError"
+	// ClusterReasonPending indicates the cluster is pending
+	ClusterReasonPending = "Pending"
+	// ClusterReasonBootstrapping indicates the cluster is bootstrapping
+	ClusterReasonBootstrapping = "Bootstrapping"
+)
+
 // HumioClusterSpec defines the desired state of HumioCluster.
 type HumioClusterSpec struct {
 	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
 	// If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
 	// Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.
 	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
+	// BootstrapToken controls bootstrap token creation behavior
+	BootstrapToken *HumioBootstrapTokenConfig `json:"bootstrapToken,omitempty"`
 	// OperatorFeatureFlags contains feature flags applied to the Humio operator.
 	OperatorFeatureFlags HumioOperatorFeatureFlags `json:"featureFlags,omitempty"`
 	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
@@ -107,12 +133,26 @@ type HumioClusterSpec struct {
 	// NodePools can be used to define additional groups of Humio cluster pods that share a set of configuration.
 	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
 
+	// WorkloadServices defines aggregate services that span multiple node pools sharing the same workload type.
+	// Each entry creates a service named {cluster}-{name} that selects pods with the matching workload-type label.
+	// No aggregate services are created unless this field is populated.
+	WorkloadServices []WorkloadServiceSpec `json:"workloadServices,omitempty"`
+
 	// TelemetryConfig contains the configuration for telemetry collection when enabled
 	// Telemetry is enabled if this field is not nil
-	TelemetryConfig *TelemetryConfig `json:"telemetryConfig,omitempty"`
+	TelemetryConfig *HumioTelemetryConfig `json:"telemetryConfig,omitempty"`
+}
+
+// HumioBootstrapTokenConfig controls bootstrap token creation behavior for a HumioCluster
+type HumioBootstrapTokenConfig struct {
+	// AutoCreate controls whether the operator should automatically create HumioBootstrapToken CRs.
+	// When false, the operator expects users to create their own HumioBootstrapToken CR.
+	// When nil, defaults to true (maintains backward compatibility).
+	AutoCreate *bool `json:"autoCreate,omitempty"`
 }
 
 // HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.
+// +kubebuilder:validation:XValidation:rule="!has(self.dnsPolicy) || self.dnsPolicy != 'None' || has(self.dnsConfig)",message="dnsConfig is required when dnsPolicy is None"
 type HumioNodeSpec struct {
 	// Image is the desired humio container image, including the image tag.
 	// The value from ImageSource takes precedence over Image.
@@ -124,8 +164,13 @@ type HumioNodeSpec struct {
 	ImageSource *HumioImageSource `json:"imageSource,omitempty"`
 
 	// NodeCount is the desired number of humio cluster nodes
-	// +kubebuilder:default=0
-	NodeCount int `json:"nodeCount,omitempty"`
+	NodeCount *int32 `json:"nodeCount,omitempty"`
+
+	// Autoscaling defines bounds for HPA-driven scaling.
+	// When configured with EnableIndependentHumioNodePools, allows external autoscalers
+	// (HPA, KEDA) to manage replica counts within specified bounds.
+	// +optional
+	Autoscaling *AutoscalingSpec `json:"autoscaling,omitempty"`
 
 	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
 	DataVolumePersistentVolumeClaimSpecTemplate corev1.PersistentVolumeClaimSpec `json:"dataVolumePersistentVolumeClaimSpecTemplate,omitempty"`
@@ -209,9 +254,25 @@ type HumioNodeSpec struct {
 	// TopologySpreadConstraints defines the topologySpreadConstraints that will be attached to the humio pods
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 
+	// DNSPolicy sets the DNS policy for the pod.
+	// Valid values: ClusterFirst, ClusterFirstWithHostNet, Default, None.
+	// When unset, Kubernetes applies ClusterFirst default.
+	// +kubebuilder:validation:Enum=ClusterFirst;ClusterFirstWithHostNet;Default;None
+	// +optional
+	DNSPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty"`
+
+	// DNSConfig defines the DNS configuration for the pod.
+	// This field is required when DNSPolicy is set to None.
+	// +optional
+	DNSConfig *corev1.PodDNSConfig `json:"dnsConfig,omitempty"`
+
 	// SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the
 	// Humio pod to help out in debugging purposes.
 	SidecarContainers []corev1.Container `json:"sidecarContainer,omitempty"`
+
+	// ExtraInitContainers can be used to add additional init containers to the Humio pod.
+	// These are appended after the operator-managed init container.
+	ExtraInitContainers []corev1.Container `json:"extraInitContainers,omitempty"`
 
 	// NodeUUIDPrefix is the prefix for the Humio Node's UUID. By default this does not include the zone. If it's
 	// necessary to include zone, there is a special `Zone` variable that can be used. To use this, set `{{.Zone}}`. For
@@ -280,6 +341,37 @@ type HumioNodeSpec struct {
 
 	// PodDisruptionBudget defines the PDB configuration for this node spec
 	PodDisruptionBudget *HumioPodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
+
+	// DependencyCheck configures startup dependency checking
+	// When configured, the init container will check dependency availability
+	// before allowing the main Humio container to start
+	// If not specified, dependency checks are disabled (backwards compatible)
+	// +optional
+	DependencyCheck *DependencyCheckConfig `json:"dependencyCheck,omitempty"`
+
+	// ContainerLifecycle defines lifecycle actions for the main Humio container.
+	// This can be used to configure preStop hooks for graceful shutdown.
+	// +optional
+	ContainerLifecycle *corev1.Lifecycle `json:"containerLifecycle,omitempty"`
+
+	// WorkloadTypes is a list of workload types this pool participates in.
+	// Each entry adds a label humio.com/workload-type/{value}: "true" to pods.
+	// If nil, workload types are automatically derived from NODE_ROLES:
+	//   all / "" / unset → ["digest", "ingest"]
+	//   httponly / ingestonly / lightweightingestonly → ["ingest"]
+	// Set explicitly to override automatic derivation (e.g., when using INITIAL_DISABLED_NODE_TASKS).
+	// +kubebuilder:validation:Optional
+	WorkloadTypes *[]string `json:"workloadTypes,omitempty"`
+
+	// EnableNodePoolService controls whether the per-node-pool service is created for this pool.
+	// When nil or true, the per-pool service is created as normal (backwards compatible default).
+	// Set to false to opt out of per-pool service creation once workload-type aggregate services are in place.
+	// +kubebuilder:validation:Optional
+	EnableNodePoolService *bool `json:"enableNodePoolService,omitempty"`
+
+	// ExpireAfter is the maximum pod lifetime; pods older than this are cycled using MaxUnavailable/MinReadySeconds/zone-awareness safety gates. Uses Go duration format (e.g. "24h").
+	// +kubebuilder:validation:XValidation:rule="duration(self) >= duration('1h')",message="expireAfter must be at least 1h"
+	ExpireAfter *metav1.Duration `json:"expireAfter,omitempty"`
 }
 
 // HumioOperatorFeatureFlags contains feature flags applied to the Humio operator.
@@ -289,6 +381,42 @@ type HumioOperatorFeatureFlags struct {
 	// Preview: this feature is in a preview state
 	// +kubebuilder:default=false
 	EnableDownscalingFeature bool `json:"enableDownscalingFeature,omitempty"`
+	// EnableIndependentHumioNodePools enables independent HumioNodePool resource creation for embedded node pools.
+	// This creates shadow HumioNodePool CRD resources that mirror embedded node pool specs,
+	// enabling advanced features like HPA autoscaling and individual node pool management.
+	// When disabled, the operator works as before without creating HumioNodePool resources.
+	// Default: false
+	// +kubebuilder:default=false
+	EnableIndependentHumioNodePools bool `json:"enableIndependentHumioNodePools,omitempty"`
+	// EnableEvictionProtectionDuringMaintenance blocks voluntary evictions of Humio pods
+	// (by Karpenter consolidation, cluster-autoscaler, or manual drains) during upgrades
+	// and restarts. When enabled, the operator creates a restrictive PodDisruptionBudget
+	// per node pool whenever the cluster is not fully stable and removes it once every
+	// node pool returns to Running. The mechanism is autoscaler-agnostic (vanilla
+	// Kubernetes PDBs).
+	//
+	// Safety valve: if the cluster does not return to Running within 2 hours, the PDB
+	// is automatically relaxed (a Warning Event is recorded on the HumioCluster) so a
+	// wedged cluster does not permanently block eviction across the underlying nodes.
+	//
+	// Interaction with spec.podDisruptionBudget: independent. Both PDBs target the same
+	// pods; Kubernetes enforces the most restrictive across all matching PDBs.
+	//
+	// Interaction with aggressive pod-cycling features (e.g. expireAfter): while
+	// enabled, this feature keeps the PDB active whenever any pool is unstable.
+	// Combined with short-cadence pod cycling, voluntary evictions may be effectively
+	// disabled cluster-wide. Consider both features' cadence together.
+	//
+	// Default: false
+	// +kubebuilder:default=false
+	EnableEvictionProtectionDuringMaintenance bool `json:"enableEvictionProtectionDuringMaintenance,omitempty"`
+	// EnableOrphanedResourceCleanup enables automatic deletion of resources associated with
+	// node pools that have been removed from the HumioCluster spec. Resources are only deleted
+	// after all pods in the orphaned pool have been fully evicted.
+	// Only resources owned by this HumioCluster (verified via ownerReference and labels) are affected.
+	// Default: false
+	// +kubebuilder:default=false
+	EnableOrphanedResourceCleanup bool `json:"enableOrphanedResourceCleanup,omitempty"`
 }
 
 // HumioNodePoolFeatures is used to toggle certain features that are specific instance of HumioNodeSpec. This means
@@ -297,6 +425,40 @@ type HumioNodePoolFeatures struct {
 	// AllowedAPIRequestTypes is a list of API request types that are allowed by the node pool. Current options are:
 	// OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request types, set this to [].
 	AllowedAPIRequestTypes *[]string `json:"allowedAPIRequestTypes,omitempty"`
+}
+
+// WorkloadServiceSpec defines an aggregate service that spans multiple node pools sharing the same workload type.
+type WorkloadServiceSpec struct {
+	// Name is the suffix for the aggregate service: {cluster}-{name}.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// WorkloadType is the workload-type label value to select on.
+	// The service selector will match pods with label humio.com/workload-type/{workloadType}: "true".
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	WorkloadType string `json:"workloadType"`
+
+	// ServiceType is the Kubernetes service type for the aggregate service. Default: ClusterIP.
+	// +kubebuilder:validation:Optional
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+
+	// HumioServicePort is the port number for the HTTP interface on the aggregate service. Default: 8080.
+	// +kubebuilder:validation:Optional
+	HumioServicePort int32 `json:"humioServicePort,omitempty"`
+
+	// HumioESServicePort is the port number for the Elasticsearch interface on the aggregate service. Default: 9200.
+	// +kubebuilder:validation:Optional
+	HumioESServicePort int32 `json:"humioESServicePort,omitempty"`
+
+	// Labels to add to the aggregate service resource.
+	// +kubebuilder:validation:Optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations to add to the aggregate service resource.
+	// +kubebuilder:validation:Optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // HumioUpdateStrategy contains a set of different toggles for defining how a set of pods should be replaced during
@@ -343,6 +505,21 @@ type HumioNodePoolSpec struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
+	// ClusterName is the name of the HumioCluster this node pool belongs to.
+	// Required for standalone HumioNodePool resources, optional for embedded node pools.
+	// +kubebuilder:validation:Optional
+	ClusterName string `json:"clusterName,omitempty"`
+
+	// Selector is used by HPA to identify which pods belong to this node pool.
+	// +kubebuilder:validation:Optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+
+	// NodeCount is the top-level node count field used by the scale subresource.
+	// This is set by the controller for shadow HumioNodePool CRs.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	NodeCount int32 `json:"nodeCount"`
+
 	HumioNodeSpec `json:"spec,omitempty"`
 }
 
@@ -370,7 +547,46 @@ type HumioPodDisruptionBudgetSpec struct {
 	// Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.
 	// +kubebuilder:validation:Optional
 	Enabled bool `json:"enabled,omitempty"`
+
+	// FreezeDuringUpdate blocks all voluntary pod evictions when the cluster is
+	// in Upgrading or Restarting state by setting minAvailable equal to the
+	// replica count. When nil or false, PDB fields reflect user-configured values.
+	// +kubebuilder:validation:Optional
+	FreezeDuringUpdate *bool `json:"freezeDuringUpdate,omitempty"`
 }
+
+// DependencyCheckConfig configures startup dependency checks in the init container.
+// When present (non-nil) on HumioNodeSpec, dependency checking is enabled.
+// Dependencies (kafka, s3, gcs) are auto-discovered from environment variables.
+// +kubebuilder:validation:Optional
+type DependencyCheckConfig struct {
+	// Enforcement controls how dependency check failures are handled:
+	//   required  - (default) pod startup is blocked until all checks pass
+	//   advisory  - failures are logged but pod startup is not blocked
+	//   disabled  - dependency checking is completely disabled
+	// +kubebuilder:validation:Enum=required;advisory;disabled
+	// +kubebuilder:default="required"
+	Enforcement string `json:"enforcement,omitempty"`
+
+	// TimeoutSeconds is the maximum time for the entire dependency check process
+	// +kubebuilder:default=600
+	// +kubebuilder:validation:Minimum=60
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
+
+	// RetryIntervalSeconds is the time between retry attempts
+	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=1
+	RetryIntervalSeconds int `json:"retryIntervalSeconds,omitempty"`
+
+	// Exclude lists check types to skip even if auto-discovered from environment variables.
+	// Valid values are: kafka, s3, gcs
+	// +optional
+	Exclude []DependencyCheckType `json:"exclude,omitempty"`
+}
+
+// DependencyCheckType represents the type of dependency check to perform.
+// +kubebuilder:validation:Enum=kafka;s3;gcs
+type DependencyCheckType string
 
 // HumioHostnameSource is the possible references to a hostname value that is stored outside of the HumioCluster resource
 type HumioHostnameSource struct {
@@ -427,6 +643,19 @@ type HumioImageSource struct {
 // HumioPersistentVolumeReclaimType is the type of reclaim which will occur on a persistent volume
 type HumioPersistentVolumeReclaimType string
 
+// AutoscalingSpec defines bounds for HPA-driven scaling.
+type AutoscalingSpec struct {
+	// MinReplicas is the lower bound for autoscaling. Must be >= 1.
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+
+	// MaxReplicas is the upper bound for autoscaling. Must be >= 1.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Required
+	MaxReplicas int32 `json:"maxReplicas"`
+}
+
 // HumioPersistentVolumeClaimPolicy contains the policy for handling persistent volumes
 type HumioPersistentVolumeClaimPolicy struct {
 	// ReclaimType is used to indicate what reclaim type should be used. This e.g. allows the user to specify if the
@@ -452,6 +681,9 @@ type HumioPodStatus struct {
 	NodeId int `json:"nodeId,omitempty"`
 	// NodeName is the name of the Kubernetes worker node where this pod is currently running
 	NodeName string `json:"nodeName,omitempty"`
+	// ExpiresAt is the time at which this pod becomes eligible for expiry-based cycling. Only set when expireAfter is configured.
+	// +optional
+	ExpiresAt *metav1.Time `json:"expiresAt,omitempty"`
 }
 
 // HumioLicenseStatus shows the status of Humio license
@@ -481,12 +713,24 @@ type HumioNodePoolStatus struct {
 	DesiredPodHash string `json:"desiredPodHash,omitempty"`
 	// DesiredBootstrapTokenHash holds a SHA256 of the value set in environment variable BOOTSTRAP_ROOT_TOKEN_HASHED
 	DesiredBootstrapTokenHash string `json:"desiredBootstrapTokenHash,omitempty"`
+	// CurrentReplicas is the actual number of nodes running in this node pool
+	CurrentReplicas int32 `json:"currentReplicas,omitempty"`
+	// DesiredReplicas is the target number of nodes for this node pool
+	DesiredReplicas int32 `json:"desiredReplicas,omitempty"`
+	// Selector is the label selector string for the scale subresource
+	Selector string `json:"selector,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster.
 type HumioClusterStatus struct {
-	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Empty before cluster is bootstrapped, then "Running", "Upgrading", "Restarting" or "Pending"
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
 	// Message contains additional information about the state of the cluster
 	Message string `json:"message,omitempty"`
 	// Version is the version of humio running
@@ -503,13 +747,92 @@ type HumioClusterStatus struct {
 	ObservedGeneration string `json:"observedGeneration,omitempty"` // TODO: We should change the type to int64 so we don't have to convert back and forth between int64 and string
 	// EvictedNodeIds keeps track of evicted nodes for use within the downscaling functionality
 	EvictedNodeIds []int `json:"evictedNodeIds,omitempty"`
+	// OrphanedNodePools tracks node pool names that have been removed from the spec
+	// but whose associated resources have not yet been fully cleaned up.
+	// Pools are added when orphaned pods are detected and removed after resource cleanup completes.
+	// +optional
+	OrphanedNodePools []string `json:"orphanedNodePools,omitempty"`
 	// TelemetryStatus shows the status of telemetry collection for this cluster
-	TelemetryStatus *TelemetryStatus `json:"telemetryStatus,omitempty"`
+	TelemetryStatus *HumioTelemetryStatus `json:"telemetryStatus,omitempty"`
+}
+
+// HumioTelemetryResourceStatus represents the status of a single telemetry resource (collection or export)
+type HumioTelemetryResourceStatus struct {
+	// Name is the name of the telemetry resource
+	Name string `json:"name"`
+
+	// State is the current state of the resource (e.g., "Enabled", "Disabled", "ConfigError")
+	State string `json:"state"`
+
+	// LastActivity indicates when this resource last performed its function (collection or export)
+	LastActivity *metav1.Time `json:"lastActivity,omitempty"`
+
+	// ErrorCount is the number of errors encountered by this resource
+	ErrorCount int `json:"errorCount,omitempty"`
+
+	// LastError contains the most recent error message from this resource
+	LastError string `json:"lastError,omitempty"`
+}
+
+// HumioTelemetryStatus represents the status of telemetry collection for a cluster
+type HumioTelemetryStatus struct {
+	// State represents the current state of telemetry collection
+	State string `json:"state,omitempty"`
+
+	// LastCollectionTime indicates when data was last collected
+	LastCollectionTime *metav1.Time `json:"lastCollectionTime,omitempty"`
+
+	// LastExportTime indicates when data was last exported successfully
+	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
+
+	// ExportErrors contains any errors from data export
+	ExportErrors []HumioTelemetryExportError `json:"exportErrors,omitempty"`
+
+	// CollectionResourceName is the name of the HumioTelemetryCollection resource
+	// Deprecated: Use Collections list instead. This field is only populated when there is exactly one collection resource.
+	CollectionResourceName string `json:"collectionResourceName,omitempty"`
+
+	// CollectionState is the state of the collection resource
+	// Deprecated: Use Collections list instead. This field is only populated when there is exactly one collection resource.
+	CollectionState string `json:"collectionState,omitempty"`
+
+	// ExportResourceName is the name of the HumioTelemetryExport resource
+	// Deprecated: Use Exports list instead. This field is only populated when there is exactly one export resource.
+	ExportResourceName string `json:"exportResourceName,omitempty"`
+
+	// ExportState is the state of the export resource
+	// Deprecated: Use Exports list instead. This field is only populated when there is exactly one export resource.
+	ExportState string `json:"exportState,omitempty"`
+
+	// Collections contains status information for all HumioTelemetryCollection resources that reference this cluster
+	// +optional
+	Collections []HumioTelemetryResourceStatus `json:"collections,omitempty"`
+
+	// Exports contains status information for all HumioTelemetryExport resources that reference this cluster
+	// +optional
+	Exports []HumioTelemetryResourceStatus `json:"exports,omitempty"`
+
+	// TotalCollections is the total number of collection resources referencing this cluster
+	// +optional
+	TotalCollections int `json:"totalCollections,omitempty"`
+
+	// ActiveCollections is the number of collection resources in an active/enabled state
+	// +optional
+	ActiveCollections int `json:"activeCollections,omitempty"`
+
+	// TotalExports is the total number of export resources referencing this cluster
+	// +optional
+	TotalExports int `json:"totalExports,omitempty"`
+
+	// ActiveExports is the number of export resources in an active/enabled state
+	// +optional
+	ActiveExports int `json:"activeExports,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the cluster"
 // +kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.nodeCount",description="The number of nodes in the cluster"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humio"
@@ -546,10 +869,6 @@ func (hc *HumioCluster) GetObservedGeneration() int64 {
 	return val
 }
 
-func init() {
-	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{})
-}
-
 // Len is the number of elements in the collection
 func (l HumioPodStatusList) Len() int {
 	return len(l)
@@ -565,53 +884,35 @@ func (l HumioPodStatusList) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
 
-// TelemetryConfig contains configuration for telemetry collection
-type TelemetryConfig struct {
-	// RemoteReport defines the configuration for sending telemetry data to a remote cluster
-	RemoteReport *TelemetryRemoteReportConfig `json:"remoteReport,omitempty"`
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.nodeCount,statuspath=.status.currentReplicas,selectorpath=.status.selector
+// +kubebuilder:resource:path=humionodepools,scope=Namespaced
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.clusterName",description="The cluster this node pool belongs to"
+// +kubebuilder:printcolumn:name="Pool",type="string",JSONPath=".spec.name",description="The name of the node pool"
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".status.currentReplicas",description="Current replicas"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the node pool"
 
-	// ClusterIdentifier is a unique identifier for this cluster used in telemetry data
-	ClusterIdentifier string `json:"clusterIdentifier,omitempty"`
+// HumioNodePool is the Schema for the humionodepools API.
+// This resource represents an individual node pool within a HumioCluster and supports the scale subresource for HPA.
+type HumioNodePool struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Collections defines what data to collect and how frequently
-	Collections []TelemetryCollectionConfig `json:"collections,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   HumioNodePoolSpec   `json:"spec"`
+	Status HumioNodePoolStatus `json:"status,omitempty"`
 }
 
-// TelemetryRemoteReportConfig defines configuration for exporting telemetry data
-type TelemetryRemoteReportConfig struct {
-	// URL is the endpoint URL for the telemetry cluster HEC endpoint
-	URL string `json:"url,omitempty"`
+// +kubebuilder:object:root=true
 
-	// Token contains the authentication token for the telemetry cluster
-	Token VarSource `json:"token,omitempty"`
+// HumioNodePoolList contains a list of HumioNodePool.
+type HumioNodePoolList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []HumioNodePool `json:"items"`
 }
 
-// TelemetryCollectionConfig defines what data to collect and collection frequency
-type TelemetryCollectionConfig struct {
-	// Interval defines how frequently to collect this data (e.g., "15m", "1h", "1d")
-	Interval string `json:"interval,omitempty"`
-
-	// Include defines which data types to collect in this collection
-	Include []string `json:"include,omitempty"`
-}
-
-// TelemetryStatus represents the status of telemetry collection for a cluster
-type TelemetryStatus struct {
-	// State represents the current state of telemetry collection
-	State string `json:"state,omitempty"`
-
-	// LastCollectionTime indicates when data was last collected
-	LastCollectionTime *metav1.Time `json:"lastCollectionTime,omitempty"`
-
-	// LastExportTime indicates when data was last exported successfully
-	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
-
-	// CollectionErrors contains any errors from data collection
-	CollectionErrors []TelemetryError `json:"collectionErrors,omitempty"`
-
-	// ExportErrors contains any errors from data export
-	ExportErrors []TelemetryError `json:"exportErrors,omitempty"`
-
-	// TelemetryResourceName is the name of the HumioTelemetry resource managing this cluster's telemetry
-	TelemetryResourceName string `json:"telemetryResourceName,omitempty"`
+func init() {
+	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{}, &HumioNodePool{}, &HumioNodePoolList{})
 }

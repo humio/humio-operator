@@ -92,7 +92,7 @@ func (p *PodLifeCycleState) FoundConfigurationDifference() bool {
 }
 
 func (p *PodLifeCycleState) namesOfPodsToBeReplaced() []string {
-	podNames := []string{}
+	podNames := make([]string, 0, len(p.podsToBeReplaced))
 	for _, pod := range p.podsToBeReplaced {
 		podNames = append(podNames, pod.Name)
 	}

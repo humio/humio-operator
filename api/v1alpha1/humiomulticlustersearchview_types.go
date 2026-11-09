@@ -39,6 +39,28 @@ const (
 	HumioMultiClusterSearchViewStateConfigError = "ConfigError"
 )
 
+const (
+	// MultiClusterSearchViewConditionTypeReady indicates whether the MultiClusterSearchView is ready
+	MultiClusterSearchViewConditionTypeReady = "Ready"
+	// MultiClusterSearchViewConditionTypeSynced indicates whether the MultiClusterSearchView is synchronized with Humio
+	MultiClusterSearchViewConditionTypeSynced = "Synced"
+)
+
+const (
+	// MultiClusterSearchViewReasonReady indicates the MultiClusterSearchView is ready
+	MultiClusterSearchViewReasonReady = "Ready"
+	// MultiClusterSearchViewReasonCreated indicates the MultiClusterSearchView was created
+	MultiClusterSearchViewReasonCreated = "Created"
+	// MultiClusterSearchViewReasonUpdated indicates the MultiClusterSearchView was updated
+	MultiClusterSearchViewReasonUpdated = "Updated"
+	// MultiClusterSearchViewReasonNotFound indicates the MultiClusterSearchView was not found
+	MultiClusterSearchViewReasonNotFound = "NotFound"
+	// MultiClusterSearchViewReasonConfigError indicates a configuration error
+	MultiClusterSearchViewReasonConfigError = "ConfigurationError"
+	// MultiClusterSearchViewReasonUnknown indicates the MultiClusterSearchView state is unknown
+	MultiClusterSearchViewReasonUnknown = "Unknown"
+)
+
 // HumioMultiClusterSearchViewConnectionTag represents a tag that will be applied to a connection.
 type HumioMultiClusterSearchViewConnectionTag struct {
 	// Key specifies the key of the tag
@@ -61,6 +83,10 @@ type HumioMultiClusterSearchViewConnectionAPITokenSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self != null && has(self.name) && self.name != \"\" && has(self.key) && self.key != \"\"",message="SecretKeyRef must have both name and key fields set"
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioMultiClusterSearchViewConnection represents a connection to a specific repository with an optional filter
@@ -135,7 +161,6 @@ type HumioMultiClusterSearchViewSpec struct {
 	// Name is the name of the view inside Humio
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=100
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
@@ -157,16 +182,30 @@ type HumioMultiClusterSearchViewSpec struct {
 	// AutomaticSearch is used to specify the start search automatically on loading the search page option.
 	// +kubebuilder:validation:Optional
 	AutomaticSearch *bool `json:"automaticSearch,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioMultiClusterSearchViewStatus defines the observed state of HumioMultiClusterSearchView.
 type HumioMultiClusterSearchViewStatus struct {
-	// State reflects the current state of the HumioMultiClusterSearchView
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioMultiClusterSearchView
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // HumioMultiClusterSearchView is the Schema for the humiomulticlustersearchviews API.
 type HumioMultiClusterSearchView struct {

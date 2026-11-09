@@ -218,9 +218,8 @@ func setupWebhooks(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Duratio
 	userAgent := fmt.Sprintf("humio-operator/%s (%s on %s)", version, commit, date)
 
 	// Setup validation + conversion webhooks
-	if err := ctrl.NewWebhookManagedBy(mgr).
-		For(&corev1alpha1.HumioScheduledSearch{}).
-		WithValidator(&webhooks.HumioScheduledSearchValidator{
+	if err := ctrl.NewWebhookManagedBy(mgr, &corev1alpha1.HumioScheduledSearch{}).
+		WithValidator(&webhooks.HumioScheduledSearchValidator[*corev1alpha1.HumioScheduledSearch]{
 			BaseLogger:  log,
 			Client:      mgr.GetClient(),
 			HumioClient: humio.NewClient(log, userAgent),
@@ -230,9 +229,8 @@ func setupWebhooks(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Duratio
 		ctrl.Log.Error(err, "unable to create conversion webhook for corev1alpha1.HumioScheduledSearch")
 		os.Exit(1)
 	}
-	if err := ctrl.NewWebhookManagedBy(mgr).
-		For(&corev1beta1.HumioScheduledSearch{}).
-		WithValidator(&webhooks.HumioScheduledSearchValidator{
+	if err := ctrl.NewWebhookManagedBy(mgr, &corev1beta1.HumioScheduledSearch{}).
+		WithValidator(&webhooks.HumioScheduledSearchValidator[*corev1beta1.HumioScheduledSearch]{
 			BaseLogger:  log,
 			Client:      mgr.GetClient(),
 			HumioClient: humio.NewClient(log, userAgent),

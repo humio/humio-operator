@@ -23,6 +23,8 @@ const (
 
 	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 
+	mockHTTPServerImageVersion = "hashicorp/http-echo:0.2.3"
+
 	defaultPDFRenderServiceImage = "humio/pdf-render-service:0.1.2--build-104--sha-9a7598de95bb9775b6f59d874c37a206713bae01"
 
 	dummyImageSuffix = "-dummy"
@@ -100,6 +102,10 @@ func UpgradeRollingBestEffortVersionJumpNewVersion() string {
 }
 func SidecarWaitForGlobalImageVersion() string {
 	return sidecarWaitForGlobalImageVersion
+}
+
+func MockHTTPServerImage() string {
+	return mockHTTPServerImageVersion
 }
 
 func DefaultPDFRenderServiceImage() string {

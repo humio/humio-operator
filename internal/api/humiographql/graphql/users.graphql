@@ -1,3 +1,11 @@
+query GetCurrentUser {
+    currentUser {
+        id
+        username
+        isRoot
+    }
+}
+
 fragment UserDetails on User {
     id
     username

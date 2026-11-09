@@ -1,0 +1,104 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  name: example-humiocluster
+  namespace: default
+spec:
+  image: humio/humio-core:1.244.0
+  tls:
+    enabled: false
+  targetReplicationFactor: 1
+  storagePartitionsCount: 24
+  digestPartitionsCount: 24
+  nodeCount: 1
+  license:
+    secretKeyRef:
+      name: example-humiocluster-license
+      key: data
+  featureFlags:
+    enableDownscalingFeature: true
+    enableIndependentHumioNodePools: true
+  resources:
+    limits:
+      cpu: "2"
+      memory: 4Gi
+    requests:
+      cpu: "1"
+      memory: 2Gi
+  dataVolumePersistentVolumeClaimSpecTemplate:
+    storageClassName: standard
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 10Gi
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/arch
+            operator: In
+            values:
+            - amd64
+            - arm64
+          - key: kubernetes.io/os
+            operator: In
+            values:
+            - linux
+  environmentVariables:
+    - name: "HUMIO_MEMORY_OPTS"
+      value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g"
+    - name: "ZOOKEEPER_URL"
+      value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+    - name: "KAFKA_SERVERS"
+      value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+    - name: "STATIC_USERS"
+      value: "user:user"
+    - name: "AUTHENTICATION_METHOD"
+      value: "static"
+  nodePools:
+    - name: ingest-only
+      spec:
+        autoscaling:
+          minReplicas: 1
+          maxReplicas: 2
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
+        dataVolumePersistentVolumeClaimSpecTemplate:
+          storageClassName: standard
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                  - amd64
+                  - arm64
+                - key: kubernetes.io/os
+                  operator: In
+                  values:
+                  - linux
+        environmentVariables:
+          - name: "HUMIO_MEMORY_OPTS"
+            value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g"
+          - name: "ZOOKEEPER_URL"
+            value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+          - name: "KAFKA_SERVERS"
+            value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+          - name: ENABLE_LIGHTWEIGHT_INGEST_COMPATIBILITY
+            value: "true"
+          - name: INITIAL_DISABLED_NODE_TASKS
+            value: digest,query
+          - name: NODE_ROLES
+            value: lightweightingestonly

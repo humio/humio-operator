@@ -1,0 +1,19 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ingest-only-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: core.humio.com/v1alpha1
+    kind: HumioNodePool
+    name: example-humiocluster-ingest-only
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50

@@ -19,6 +19,7 @@ const (
 	entityTypeFeatureFlag                entityType = "feature-flag"
 	entityTypeScheduledSearch            entityType = "scheduled-search"
 	entityTypeAggregateAlert             entityType = "aggregate-alert"
+	entityTypeSavedQuery                 entityType = "saved-query"
 	entityTypeUser                       entityType = "user"
 	entityTypeSystemPermissionRole       entityType = "system-permission-role"
 	entityTypeOrganizationPermissionRole entityType = "organization-permission-role"
@@ -27,6 +28,8 @@ const (
 	entityTypeViewToken                  entityType = "view-token"
 	entityTypeSystemToken                entityType = "system-token"
 	entityTypeOrganizationToken          entityType = "organization-token"
+	entityTypeEventForwardingRule        entityType = "event-forwarding-rule"
+	entityTypeEventForwarder             entityType = "event-forwarder"
 )
 
 func (e entityType) String() string {
@@ -134,6 +137,13 @@ func AggregateAlertNotFound(name string) error {
 	}
 }
 
+func SavedQueryNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeSavedQuery,
+		key:        name,
+	}
+}
+
 func UserNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeUser,
@@ -187,5 +197,19 @@ func OrganizationTokenNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeOrganizationToken,
 		key:        name,
+	}
+}
+
+func EventForwardingRuleNotFound(id string) error {
+	return EntityNotFound{
+		entityType: entityTypeEventForwardingRule,
+		key:        id,
+	}
+}
+
+func EventForwarderNotFound(id string) error {
+	return EntityNotFound{
+		entityType: entityTypeEventForwarder,
+		key:        id,
 	}
 }

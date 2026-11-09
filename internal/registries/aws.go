@@ -371,7 +371,7 @@ func (a *AwsRegistryClient) signRequest(req *http.Request, accessKey, secretKey,
 	authorization := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
 		accessKey, credentialScope, signedHeaders, signature)
 
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set(headerAuthorization, authorization)
 }
 
 // buildCanonicalRequest creates the canonical request string for AWS v4 signing
@@ -390,7 +390,7 @@ func (a *AwsRegistryClient) buildCanonicalRequest(req *http.Request) (string, st
 	query := ""
 	if req.URL.RawQuery != "" {
 		values, _ := url.ParseQuery(req.URL.RawQuery)
-		var keys []string
+		keys := make([]string, 0, len(values))
 		for k := range values {
 			keys = append(keys, k)
 		}
@@ -414,7 +414,7 @@ func (a *AwsRegistryClient) buildCanonicalRequest(req *http.Request) (string, st
 		headerKeys = append(headerKeys, lowerName)
 
 		// Trim whitespace and join multiple values
-		var trimmedValues []string
+		trimmedValues := make([]string, 0, len(values))
 		for _, value := range values {
 			trimmedValues = append(trimmedValues, strings.TrimSpace(value))
 		}

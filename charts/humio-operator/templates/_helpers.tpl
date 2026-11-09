@@ -13,7 +13,6 @@ app: '{{ .Chart.Name }}'
 app.kubernetes.io/name: '{{ .Chart.Name }}'
 app.kubernetes.io/instance: '{{ .Release.Name }}'
 app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-helm.sh/chart: '{{ include "humio.chart" . }}'
 {{- if .Values.commonLabels }}
 {{ toYaml .Values.commonLabels }}
 {{- end }}

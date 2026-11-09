@@ -16,3 +16,6 @@ spec:
   description: Error counts
   actions:
     - example-email-action
+  # allowDataDeletion enables deletion of this scheduled search including any data.
+  # Default is false. Only considered when deletionTimestamp is set.
+  # allowDataDeletion: false

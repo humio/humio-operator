@@ -134,3 +134,15 @@ mutation UpdateS3ArchivingConfiguration(
         __typename
     }
 }
+mutation RenameSearchDomain(
+    $name: String!
+    $newName: String!
+) {
+    renameSearchDomain(
+        name: $name
+        renameTo: $newName
+    ) {
+        __typename
+        name
+    }
+}

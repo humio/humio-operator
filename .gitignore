@@ -88,3 +88,4 @@ tmp/**
 humio-operator.iml
 cmd/__debug*
 .mirrord/
+docs/plans

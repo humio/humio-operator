@@ -26,17 +26,20 @@ import (
 const (
 	NodePoolLabelName        = "humio.com/node-pool"
 	FeatureLabelName         = "humio.com/feature"
+	WorkloadTypeLabelPrefix  = "humio.com/workload-type-"
 	PodMarkedForDataEviction = "humio.com/marked-for-data-eviction"
 	LogScaleClusterVhost     = "humio.com/cluster-vhost"
+	ManagedByLabelKey        = "app.kubernetes.io/managed-by"
+	ManagedByLabelValue      = "humio-operator"
 )
 
 // LabelsForHumio returns the set of common labels for Humio resources.
 // NB: There is a copy of this function in images/helper/main.go to work around helper depending on main project.
 func LabelsForHumio(clusterName string) map[string]string {
 	labels := map[string]string{
-		"app.kubernetes.io/instance":   clusterName,
-		"app.kubernetes.io/managed-by": "humio-operator",
-		"app.kubernetes.io/name":       "humio",
+		"app.kubernetes.io/instance": clusterName,
+		ManagedByLabelKey:            ManagedByLabelValue,
+		"app.kubernetes.io/name":     "humio",
 	}
 	return labels
 }

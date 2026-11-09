@@ -171,7 +171,7 @@ var _ = SynchronizedBeforeSuite(func() {
 	}, 30*time.Second, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
 
-	var tlsOpts []func(*tls.Config)
+	tlsOpts := make([]func(*tls.Config), 0, 2)
 	tlsVersion := func(c *tls.Config) {
 		c.MinVersion = tls.VersionTLS12
 	}
@@ -478,12 +478,12 @@ var _ = SynchronizedBeforeSuite(func() {
 			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
-	testEndpoint1 := corev1.Endpoints{
+	testEndpoint1 := corev1.Endpoints{ //nolint:staticcheck // keeping deprecated API for test compatibility
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testService1.Name,
 			Namespace: testService1.Namespace,
 		},
-		Subsets: []corev1.EndpointSubset{
+		Subsets: []corev1.EndpointSubset{ //nolint:staticcheck // keeping deprecated API for test compatibility
 			{
 				Addresses: []corev1.EndpointAddress{
 					{
@@ -506,12 +506,12 @@ var _ = SynchronizedBeforeSuite(func() {
 			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
-	testEndpoint2 := corev1.Endpoints{
+	testEndpoint2 := corev1.Endpoints{ //nolint:staticcheck // keeping deprecated API for test compatibility
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testService2.Name,
 			Namespace: testService2.Namespace,
 		},
-		Subsets: []corev1.EndpointSubset{
+		Subsets: []corev1.EndpointSubset{ //nolint:staticcheck // keeping deprecated API for test compatibility
 			{
 				Addresses: []corev1.EndpointAddress{
 					{
@@ -640,6 +640,32 @@ var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
 	u, _ := json.Marshal(specReport)
 	fmt.Println(string(u))
 })
+
+func cleanupK8sResource(c client.Client, obj client.Object, timeout time.Duration) {
+	cleanupCtx := context.Background()
+	err := c.Delete(cleanupCtx, obj)
+	if err != nil {
+		return
+	}
+	if timeout > 30*time.Second {
+		timeout = 30 * time.Second
+	}
+	key := client.ObjectKeyFromObject(obj)
+	fresh := obj.DeepCopyObject().(client.Object)
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(suite.TestInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-deadline:
+			return
+		case <-ticker.C:
+			if k8serrors.IsNotFound(c.Get(cleanupCtx, key, fresh)) {
+				return
+			}
+		}
+	}
+}
 
 func registerSchemes(scheme *runtime.Scheme) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -932,6 +958,18 @@ func registerControllers(k8sOperatorManager ctrl.Manager, log logr.Logger) {
 	err = (humioPackageRegistryReconciler).SetupWithManager(k8sOperatorManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioSavedQueryReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controller.HumioPackageReconciler{
 		Client: k8sOperatorManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
@@ -942,6 +980,28 @@ func registerControllers(k8sOperatorManager ctrl.Manager, log logr.Logger) {
 		BaseLogger:  log,
 		Namespace:   clusterKey.Namespace,
 		HTTPClient:  mockHTTPClient,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioEventForwarderReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sOperatorManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioEventForwardingRuleReconciler{
+		Client: k8sOperatorManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sOperatorManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -977,9 +1037,8 @@ func registerWebhooks(k8sWebhookManager ctrl.Manager, log logr.Logger) {
 	}
 	utilruntime.Must(k8sWebhookManager.Add(webhookSetupReconciler))
 
-	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager).
-		For(&corev1alpha1.HumioScheduledSearch{}).
-		WithValidator(&webhooks.HumioScheduledSearchValidator{
+	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager, &corev1alpha1.HumioScheduledSearch{}).
+		WithValidator(&webhooks.HumioScheduledSearchValidator[*corev1alpha1.HumioScheduledSearch]{
 			BaseLogger:  log,
 			Client:      k8sWebhookManager.GetClient(),
 			HumioClient: humioClient,
@@ -989,9 +1048,8 @@ func registerWebhooks(k8sWebhookManager ctrl.Manager, log logr.Logger) {
 		ctrl.Log.Error(err, "unable to create conversion webhook for corev1alpha1.HumioScheduledSearch", "webhook", "HumioScheduledSearch")
 		os.Exit(1)
 	}
-	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager).
-		For(&corev1beta1.HumioScheduledSearch{}).
-		WithValidator(&webhooks.HumioScheduledSearchValidator{
+	if err := ctrl.NewWebhookManagedBy(k8sWebhookManager, &corev1beta1.HumioScheduledSearch{}).
+		WithValidator(&webhooks.HumioScheduledSearchValidator[*corev1beta1.HumioScheduledSearch]{
 			BaseLogger:  log,
 			Client:      k8sWebhookManager.GetClient(),
 			HumioClient: humioClient,

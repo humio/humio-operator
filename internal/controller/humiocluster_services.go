@@ -66,6 +66,39 @@ func ConstructService(hnp *HumioNodePool) *corev1.Service {
 	}
 }
 
+func poolHeadlessServiceName(poolName string) string {
+	return fmt.Sprintf("%s-headless", poolName)
+}
+
+func constructPoolHeadlessService(hnp *HumioNodePool) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        poolHeadlessServiceName(hnp.GetNodePoolName()),
+			Namespace:   hnp.GetNamespace(),
+			Labels:      mergeHumioServiceLabels(hnp.GetClusterName(), hnp.GetHumioServiceLabels()),
+			Annotations: hnp.GetHumioServiceAnnotations(),
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP:                corev1.ClusterIPNone,
+			Type:                     corev1.ServiceTypeClusterIP,
+			Selector:                 hnp.GetNodePoolLabels(),
+			PublishNotReadyAddresses: true,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       HumioPortName,
+					Port:       HumioPort,
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
+				},
+				{
+					Name:       ElasticPortName,
+					Port:       ElasticPort,
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
+				},
+			},
+		},
+	}
+}
+
 func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -75,18 +108,20 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP:                "None",
+			ClusterIP:                corev1.ClusterIPNone,
 			Type:                     corev1.ServiceTypeClusterIP,
 			Selector:                 kubernetes.LabelsForHumio(hc.Name),
 			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
-					Name: HumioPortName,
-					Port: HumioPort,
+					Name:       HumioPortName,
+					Port:       HumioPort,
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
 				},
 				{
-					Name: ElasticPortName,
-					Port: ElasticPort,
+					Name:       ElasticPortName,
+					Port:       ElasticPort,
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
 				},
 			},
 		},
@@ -107,12 +142,14 @@ func constructInternalService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			}),
 			Ports: []corev1.ServicePort{
 				{
-					Name: HumioPortName,
-					Port: HumioPort,
+					Name:       HumioPortName,
+					Port:       HumioPort,
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
 				},
 				{
-					Name: ElasticPortName,
-					Port: ElasticPort,
+					Name:       ElasticPortName,
+					Port:       ElasticPort,
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
 				},
 			},
 		},
@@ -125,6 +162,101 @@ func headlessServiceName(clusterName string) string {
 
 func internalServiceName(clusterName string) string {
 	return fmt.Sprintf("%s-internal", clusterName)
+}
+
+func workloadTypeServiceName(clusterName, name string) string {
+	return fmt.Sprintf("%s-%s", clusterName, name)
+}
+
+func workloadTypeHeadlessServiceName(clusterName, name string) string {
+	return fmt.Sprintf("%s-%s-headless", clusterName, name)
+}
+
+func constructWorkloadTypeService(hc *humiov1alpha1.HumioCluster, ws humiov1alpha1.WorkloadServiceSpec) *corev1.Service {
+	labels := kubernetes.LabelsForHumio(hc.Name)
+	for k, v := range ws.Labels {
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+
+	serviceType := corev1.ServiceTypeClusterIP
+	if ws.ServiceType != "" {
+		serviceType = ws.ServiceType
+	}
+
+	humioServicePort := int32(HumioPort)
+	if ws.HumioServicePort != 0 {
+		humioServicePort = ws.HumioServicePort
+	}
+
+	esServicePort := int32(ElasticPort)
+	if ws.HumioESServicePort != 0 {
+		esServicePort = ws.HumioESServicePort
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        workloadTypeServiceName(hc.Name, ws.Name),
+			Namespace:   hc.Namespace,
+			Labels:      labels,
+			Annotations: ws.Annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Type: serviceType,
+			Selector: mergeHumioServiceLabels(hc.Name, map[string]string{
+				kubernetes.WorkloadTypeLabelPrefix + ws.WorkloadType: helpers.TrueStr,
+			}),
+			Ports: []corev1.ServicePort{
+				{
+					Name:       HumioPortName,
+					Port:       humioServicePort,
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
+				},
+				{
+					Name:       ElasticPortName,
+					Port:       esServicePort,
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
+				},
+			},
+		},
+	}
+}
+
+func constructWorkloadTypeHeadlessService(hc *humiov1alpha1.HumioCluster, ws humiov1alpha1.WorkloadServiceSpec) *corev1.Service {
+	labels := kubernetes.LabelsForHumio(hc.Name)
+	for k, v := range ws.Labels {
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        workloadTypeHeadlessServiceName(hc.Name, ws.Name),
+			Namespace:   hc.Namespace,
+			Labels:      labels,
+			Annotations: ws.Annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: corev1.ClusterIPNone,
+			Type:      corev1.ServiceTypeClusterIP,
+			Selector: mergeHumioServiceLabels(hc.Name, map[string]string{
+				kubernetes.WorkloadTypeLabelPrefix + ws.WorkloadType: helpers.TrueStr,
+			}),
+			PublishNotReadyAddresses: true,
+			Ports: []corev1.ServicePort{
+				{
+					Name: HumioPortName,
+					Port: HumioPort,
+				},
+				{
+					Name: ElasticPortName,
+					Port: ElasticPort,
+				},
+			},
+		},
+	}
 }
 
 func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bool, error) {
@@ -151,6 +283,34 @@ func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bo
 	if existingSelector != selector {
 		return false, fmt.Errorf("service selector does not match: got %s, expected: %s", existingSelector, selector)
 	}
+
+	if existingService.Spec.Type != service.Spec.Type {
+		return false, fmt.Errorf("service type does not match: got %s, expected: %s", existingService.Spec.Type, service.Spec.Type)
+	}
+
+	// Compare ports
+	if len(existingService.Spec.Ports) != len(service.Spec.Ports) {
+		return false, fmt.Errorf("service port count does not match: got %d, expected: %d", len(existingService.Spec.Ports), len(service.Spec.Ports))
+	}
+	for _, expectedPort := range service.Spec.Ports {
+		found := false
+		for _, existingPort := range existingService.Spec.Ports {
+			if existingPort.Name == expectedPort.Name {
+				found = true
+				if existingPort.Port != expectedPort.Port {
+					return false, fmt.Errorf("service port %s does not match: got %d, expected: %d", expectedPort.Name, existingPort.Port, expectedPort.Port)
+				}
+				if existingPort.TargetPort != expectedPort.TargetPort {
+					return false, fmt.Errorf("service targetPort %s does not match: got %v, expected: %v", expectedPort.Name, existingPort.TargetPort, expectedPort.TargetPort)
+				}
+				break
+			}
+		}
+		if !found {
+			return false, fmt.Errorf("service port %s not found in existing service", expectedPort.Name)
+		}
+	}
+
 	return true, nil
 }
 
@@ -159,4 +319,6 @@ func updateService(existingService *corev1.Service, service *corev1.Service) {
 	existingService.Labels = service.Labels
 	existingService.Spec.Selector = service.Spec.Selector
 	existingService.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses
+	existingService.Spec.Type = service.Spec.Type
+	existingService.Spec.Ports = service.Spec.Ports
 }

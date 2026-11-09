@@ -31,6 +31,30 @@ const (
 	HumioViewPermissionRoleStateConfigError = "ConfigError"
 )
 
+const (
+	// ViewPermissionRoleConditionTypeReady indicates whether the view permission role is ready
+	ViewPermissionRoleConditionTypeReady = "Ready"
+	// ViewPermissionRoleConditionTypeSynced indicates whether the view permission role is synced with LogScale
+	ViewPermissionRoleConditionTypeSynced = "Synced"
+)
+
+const (
+	// ViewPermissionRoleReasonReady indicates the view permission role is ready
+	ViewPermissionRoleReasonReady = "Ready"
+	// ViewPermissionRoleReasonCreated indicates the view permission role was created
+	ViewPermissionRoleReasonCreated = "Created"
+	// ViewPermissionRoleReasonUpdated indicates the view permission role was updated
+	ViewPermissionRoleReasonUpdated = "Updated"
+	// ViewPermissionRoleReasonNotFound indicates the view permission role was not found
+	ViewPermissionRoleReasonNotFound = "NotFound"
+	// ViewPermissionRoleReasonConfigError indicates a configuration error
+	ViewPermissionRoleReasonConfigError = "ConfigurationError"
+	// ViewPermissionRoleReasonConfigSynced indicates the configuration is synced
+	ViewPermissionRoleReasonConfigSynced = "ConfigurationSynced"
+	// ViewPermissionRoleReasonConfigDrifted indicates the configuration has drifted
+	ViewPermissionRoleReasonConfigDrifted = "ConfigurationDrifted"
+)
+
 // HumioViewPermissionRoleAssignment specifies a view or repo and a group to assign it to.
 type HumioViewPermissionRoleAssignment struct {
 	// RepoOrViewName specifies the name of the view or repo to assign the view permission role.
@@ -55,7 +79,6 @@ type HumioViewPermissionRoleSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the role inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// Permissions is the list of view permissions that this role grants.
@@ -69,16 +92,31 @@ type HumioViewPermissionRoleSpec struct {
 	// It is optional to specify the list of role assignments. If not specified, the role will not be assigned to any groups.
 	// +kubebuilder:validation:Optional
 	RoleAssignments []HumioViewPermissionRoleAssignment `json:"roleAssignments,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioViewPermissionRoleStatus defines the observed state of HumioViewPermissionRole.
 type HumioViewPermissionRoleStatus struct {
-	// State reflects the current state of the HumioViewPermissionRole
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioViewPermissionRole
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // HumioViewPermissionRole is the Schema for the humioviewpermissionroles API.
 type HumioViewPermissionRole struct {

@@ -40,7 +40,7 @@ more_set_headers "X-Content-Type-Options: nosniff";
 more_set_headers "X-Frame-Options: DENY";
 more_set_headers "X-XSS-Protection: 1; mode=block";`
 
-	annotations["nginx.ingress.kubernetes.io/cors-allow-credentials"] = "false"
+	annotations["nginx.ingress.kubernetes.io/cors-allow-credentials"] = helpers.FalseStr
 	annotations["nginx.ingress.kubernetes.io/cors-allow-headers"] = "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
 	annotations["nginx.ingress.kubernetes.io/cors-allow-methods"] = "GET, PUT, POST, DELETE, PATCH, OPTIONS"
 	annotations["nginx.ingress.kubernetes.io/cors-allow-origin"] = fmt.Sprintf("https://%s", hostname)

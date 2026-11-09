@@ -32,6 +32,9 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -80,25 +83,36 @@ func (r *HumioFilterAlertReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	cluster, err := helpers.NewCluster(ctx, r, hfa.Spec.ManagedClusterName, hfa.Spec.ExternalClusterName, hfa.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioFilterAlertStateConfigError, hfa)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set filter alert state")
+		setConditionErr := r.setCondition(ctx, hfa, humiov1alpha1.FilterAlertConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.FilterAlertReasonConfigError, fmt.Sprintf("unable to obtain humio client config: %s", err))
+		if setConditionErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setConditionErr, "unable to set filter alert condition")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
+	// Check for rename BEFORE processing the resource
+	// This ensures we handle the delete-recreate before normal reconciliation
+	renamed, result, err := r.detectAndHandleRename(ctx, humioHttpClient, hfa)
+	if err != nil {
+		return result, r.logErrorAndReturn(err, "failed to handle filter alert rename")
+	}
+	if renamed {
+		// Rename was initiated, requeue to continue with creation
+		return result, nil
+	}
+
 	defer func(ctx context.Context, hfa *humiov1alpha1.HumioFilterAlert) {
 		_, err := r.HumioClient.GetFilterAlert(ctx, humioHttpClient, hfa)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateNotFound, hfa)
+			_ = r.setCondition(ctx, hfa, humiov1alpha1.FilterAlertConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.FilterAlertReasonNotFound, "Filter alert not found")
 			return
 		}
 		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateUnknown, hfa)
+			_ = r.setCondition(ctx, hfa, humiov1alpha1.FilterAlertConditionTypeReady, metav1.ConditionUnknown, humiov1alpha1.FilterAlertReasonConfigError, fmt.Sprintf("unable to get filter alert: %s", err))
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateExists, hfa)
+		_ = r.setCondition(ctx, hfa, humiov1alpha1.FilterAlertConditionTypeReady, metav1.ConditionTrue, humiov1alpha1.FilterAlertReasonReady, "Filter alert is ready")
 	}(ctx, hfa)
 
 	return r.reconcileHumioFilterAlert(ctx, humioHttpClient, hfa)
@@ -110,6 +124,14 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 	if isMarkedForDeletion {
 		r.Log.Info("FilterAlert marked to be deleted")
 		if helpers.ContainsElement(hfa.GetFinalizers(), HumioFinalizer) {
+			if ShouldSkipFinalizer(r.CommonConfig, hfa) {
+				r.Log.Info("Finalizer skip triggered, removing finalizer without cleanup")
+				hfa.SetFinalizers(helpers.RemoveElement(hfa.GetFinalizers(), HumioFinalizer))
+				if err := r.Update(ctx, hfa); err != nil {
+					return reconcile.Result{}, err
+				}
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
+			}
 			_, err := r.HumioClient.GetFilterAlert(ctx, client, hfa)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hfa.SetFinalizers(helpers.RemoveElement(hfa.GetFinalizers(), HumioFinalizer))
@@ -118,25 +140,43 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 					return reconcile.Result{}, err
 				}
 				r.Log.Info("Finalizer removed successfully")
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 			}
 
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting filter alert")
+
+			// Check if data deletion is allowed
+			if !hfa.Spec.AllowDataDeletion {
+				err := fmt.Errorf("filter alert may contain data and data deletion not enabled. Set spec.allowDataDeletion to true to allow deletion")
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete filter alert blocked")
+			}
+
+			// Audit log before deletion
+			r.Log.Info("Proceeding with filter alert deletion",
+				"allowDataDeletion", hfa.Spec.AllowDataDeletion,
+				"alertName", hfa.Spec.Name,
+				"viewName", hfa.Spec.ViewName,
+				"namespace", hfa.Namespace,
+				"deletionTimestamp", hfa.GetDeletionTimestamp(),
+			)
+
 			if err := r.HumioClient.DeleteFilterAlert(ctx, client, hfa); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete filter alert returned error")
 			}
+
+			r.Log.Info("Successfully deleted filter alert", "alertName", hfa.Spec.Name)
 			// If no error was detected, we need to requeue so that we can remove the finalizer
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, nil
 	}
 
 	r.Log.Info("Checking if filter alert requires finalizer")
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hfa.GetFinalizers(), HumioFinalizer) {
+	if !ShouldSkipFinalizer(r.CommonConfig, hfa) && !helpers.ContainsElement(hfa.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to filter alert")
 		hfa.SetFinalizers(append(hfa.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hfa)
@@ -144,14 +184,14 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 			return reconcile.Result{}, err
 		}
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 	}
 
 	if hfa.Spec.ThrottleTimeSeconds > 0 && hfa.Spec.ThrottleTimeSeconds < 60 {
 		r.Log.Error(fmt.Errorf("ThrottleTimeSeconds must be at least 60 seconds"), "error managing filter alert")
-		err := r.setState(ctx, humiov1alpha1.HumioFilterAlertStateConfigError, hfa)
+		err := r.setCondition(ctx, hfa, humiov1alpha1.FilterAlertConditionTypeReady, metav1.ConditionFalse, humiov1alpha1.FilterAlertReasonConfigError, "ThrottleTimeSeconds must be at least 60 seconds")
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set filter alert state")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set filter alert condition")
 		}
 		return reconcile.Result{}, err
 	}
@@ -168,7 +208,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 			r.Log.Info("Created filter alert",
 				"FilterAlert", hfa.Spec.Name,
 			)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil //nolint:staticcheck // SA1019: Requeue is deprecated; migration to RequeueAfter tracked as follow-up
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if alert exists")
 	}
@@ -203,13 +243,55 @@ func (r *HumioFilterAlertReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioFilterAlertReconciler) setState(ctx context.Context, state string, hfa *humiov1alpha1.HumioFilterAlert) error {
-	if hfa.Status.State == state {
-		return nil
+// setCondition sets a condition on the HumioFilterAlert resource and maintains backward compatibility with the State field
+//
+//nolint:unparam // conditionType is kept as parameter for future use with additional condition types (e.g., Synced)
+func (r *HumioFilterAlertReconciler) setCondition(ctx context.Context,
+	hfa *humiov1alpha1.HumioFilterAlert,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string) error {
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &humiov1alpha1.HumioFilterAlert{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hfa), latest); err != nil {
+			return err
+		}
+
+		meta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             status,
+			ObservedGeneration: latest.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
+
+		// BACKWARD COMPATIBILITY: Update State field based on condition
+		latest.Status.State = filterAlertStateFromCondition(status, reason)
+
+		// Track the synced name when filter alert is ready
+		if conditionType == humiov1alpha1.FilterAlertConditionTypeReady && status == metav1.ConditionTrue {
+			latest.Status.LastSyncedName = latest.Spec.Name
+		}
+
+		return r.Status().Update(ctx, latest)
+	})
+}
+
+// filterAlertStateFromCondition converts a condition status and reason to a legacy state string for backward compatibility
+func filterAlertStateFromCondition(status metav1.ConditionStatus, reason string) string {
+	if status == metav1.ConditionTrue {
+		return humiov1alpha1.HumioFilterAlertStateExists
 	}
-	r.Log.Info(fmt.Sprintf("setting filter alert state to %s", state))
-	hfa.Status.State = state
-	return r.Status().Update(ctx, hfa)
+	switch reason {
+	case humiov1alpha1.FilterAlertReasonNotFound:
+		return humiov1alpha1.HumioFilterAlertStateNotFound
+	case humiov1alpha1.FilterAlertReasonConfigError:
+		return humiov1alpha1.HumioFilterAlertStateConfigError
+	default:
+		return humiov1alpha1.HumioFilterAlertStateUnknown
+	}
 }
 
 func (r *HumioFilterAlertReconciler) logErrorAndReturn(err error, msg string) error {
@@ -255,4 +337,40 @@ func filterAlertAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.Hu
 	}
 
 	return len(keyValues) == 0, keyValues
+}
+
+// detectAndHandleRename checks if the filter alert name has changed and performs delete-recreate
+// Returns true if a rename was initiated, false otherwise
+func (r *HumioFilterAlertReconciler) detectAndHandleRename(ctx context.Context,
+	httpClient *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) (bool, reconcile.Result, error) {
+
+	config := DeleteRecreateRenameConfig{
+		ResourceType: "filter alert",
+		GetSpecName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioFilterAlert).Spec.Name
+		},
+		SetSpecName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioFilterAlert).Spec.Name = name
+		},
+		GetLastSyncedName: func(obj client.Object) string {
+			return obj.(*humiov1alpha1.HumioFilterAlert).Status.LastSyncedName
+		},
+		SetLastSyncedName: func(obj client.Object, name string) {
+			obj.(*humiov1alpha1.HumioFilterAlert).Status.LastSyncedName = name
+		},
+		DeleteResource: func(ctx context.Context, apiClient *humioapi.Client, obj client.Object) error {
+			return r.HumioClient.DeleteFilterAlert(ctx, apiClient, obj.(*humiov1alpha1.HumioFilterAlert))
+		},
+		SetErrorState: func(ctx context.Context, obj client.Object) error {
+			return r.setCondition(ctx, obj.(*humiov1alpha1.HumioFilterAlert),
+				humiov1alpha1.FilterAlertConditionTypeReady,
+				metav1.ConditionFalse,
+				humiov1alpha1.FilterAlertReasonConfigError,
+				"Configuration error during rename")
+		},
+		Client:        r.Client,
+		StatusUpdater: r.Status(),
+	}
+
+	return HandleDeleteRecreateRename(ctx, httpClient, hfa, config, r.Log)
 }

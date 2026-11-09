@@ -15,6 +15,30 @@ const (
 	HumioGroupStateConfigError = "ConfigError"
 )
 
+const (
+	// GroupConditionTypeReady indicates whether the group is ready
+	GroupConditionTypeReady = "Ready"
+	// GroupConditionTypeSynced indicates whether the group is synced with LogScale
+	GroupConditionTypeSynced = "Synced"
+)
+
+const (
+	// GroupReasonReady indicates the group is ready
+	GroupReasonReady = "Ready"
+	// GroupReasonCreated indicates the group was created
+	GroupReasonCreated = "Created"
+	// GroupReasonUpdated indicates the group was updated
+	GroupReasonUpdated = "Updated"
+	// GroupReasonNotFound indicates the group was not found
+	GroupReasonNotFound = "NotFound"
+	// GroupReasonConfigError indicates a configuration error
+	GroupReasonConfigError = "ConfigurationError"
+	// GroupReasonConfigSynced indicates the configuration is synced
+	GroupReasonConfigSynced = "ConfigurationSynced"
+	// GroupReasonConfigDrifted indicates the configuration has drifted
+	GroupReasonConfigDrifted = "ConfigurationDrifted"
+)
+
 // HumioGroupSpec defines the desired state of HumioGroup.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioGroupSpec struct {
@@ -27,24 +51,37 @@ type HumioGroupSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the display name of the HumioGroup
 	// +kubebuilder:validation:MinLength=2
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ExternalMappingName is the mapping name from the external provider that will assign the user to this HumioGroup
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	ExternalMappingName *string `json:"externalMappingName,omitempty"`
+	// AllowDataDeletion enables deletion of the LogScale resource when this CR is deleted.
+	// If false or unset, the operator will not delete the LogScale resource on CR deletion.
+	// +kubebuilder:validation:Optional
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioGroupStatus defines the observed state of HumioGroup.
 type HumioGroupStatus struct {
-	// State reflects the current state of the HumioGroup
+	// State is deprecated (use Conditions instead). Will be removed in a future release. Reflects the current state of the HumioGroup
+	// +kubebuilder:validation:Optional
 	State string `json:"state,omitempty"`
+
+	// Conditions represent the latest available observations of the resource's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// LastSyncedName is the last name successfully synced with LogScale
+	// Used to detect renames
+	// +optional
+	LastSyncedName string `json:"lastSyncedName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humiogroups,scope=Namespaced
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the group"
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Group"
 

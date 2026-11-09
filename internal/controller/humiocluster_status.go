@@ -22,6 +22,8 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -187,9 +189,41 @@ func (messageOption) GetResult() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
+// stateToCondition converts a cluster state to a Condition status, reason, and message
+func stateToCondition(state string) (metav1.ConditionStatus, string, string) {
+	switch state {
+	case humiov1alpha1.HumioClusterStateRunning:
+		return metav1.ConditionTrue, humiov1alpha1.ClusterReasonRunning, "Cluster is running"
+	case humiov1alpha1.HumioClusterStateRestarting:
+		return metav1.ConditionFalse, humiov1alpha1.ClusterReasonRestarting, "Cluster is restarting"
+	case humiov1alpha1.HumioClusterStateUpgrading:
+		return metav1.ConditionFalse, humiov1alpha1.ClusterReasonUpgrading, "Cluster is upgrading"
+	case humiov1alpha1.HumioClusterStateConfigError:
+		return metav1.ConditionFalse, humiov1alpha1.ClusterReasonConfigError, "Cluster has a configuration error"
+	case humiov1alpha1.HumioClusterStatePending:
+		return metav1.ConditionFalse, humiov1alpha1.ClusterReasonPending, "Cluster is pending"
+	case "":
+		return metav1.ConditionUnknown, humiov1alpha1.ClusterReasonBootstrapping, "Cluster is bootstrapping"
+	default:
+		return metav1.ConditionUnknown, humiov1alpha1.ClusterReasonBootstrapping, fmt.Sprintf("Unknown cluster state: %s", state)
+	}
+}
+
 func (s stateOption) Apply(hc *humiov1alpha1.HumioCluster) {
 	if s.state != "" {
+		// BACKWARD COMPATIBILITY: Update State field
 		hc.Status.State = s.state
+
+		// Update Conditions
+		conditionStatus, reason, message := stateToCondition(s.state)
+		meta.SetStatusCondition(&hc.Status.Conditions, metav1.Condition{
+			Type:               humiov1alpha1.ClusterConditionTypeReady,
+			Status:             conditionStatus,
+			ObservedGeneration: hc.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		})
 	}
 
 	if s.nodePoolName != "" {
@@ -309,7 +343,7 @@ func (r *HumioClusterReconciler) updateStatus(ctx context.Context, statusWriter 
 	}
 	for _, opt := range opts {
 		res, _ := opt.GetResult()
-		if res.Requeue || res.RequeueAfter > 0 {
+		if res.Requeue || res.RequeueAfter > 0 { //nolint:staticcheck // keeping Requeue for backwards compatibility
 			return res, nil
 		}
 	}
@@ -340,7 +374,20 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 					return err
 				}
 			}
+			// BACKWARD COMPATIBILITY: Update State field
 			hc.Status.State = state
+
+			// Update Conditions
+			conditionStatus, reason, message := stateToCondition(state)
+			meta.SetStatusCondition(&hc.Status.Conditions, metav1.Condition{
+				Type:               humiov1alpha1.ClusterConditionTypeReady,
+				Status:             conditionStatus,
+				ObservedGeneration: hc.Generation,
+				LastTransitionTime: metav1.Now(),
+				Reason:             reason,
+				Message:            message,
+			})
+
 			return r.Status().Update(ctx, hc)
 		})
 		if err != nil {
@@ -355,6 +402,19 @@ func (r *HumioClusterReconciler) setStateOptimistically(ctx context.Context, sta
 	if hc.Status.State == state {
 		return nil
 	}
+	// BACKWARD COMPATIBILITY: Update State field
 	hc.Status.State = state
+
+	// Update Conditions
+	conditionStatus, reason, message := stateToCondition(state)
+	meta.SetStatusCondition(&hc.Status.Conditions, metav1.Condition{
+		Type:               humiov1alpha1.ClusterConditionTypeReady,
+		Status:             conditionStatus,
+		ObservedGeneration: hc.Generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             reason,
+		Message:            message,
+	})
+
 	return r.Status().Update(ctx, hc)
 }

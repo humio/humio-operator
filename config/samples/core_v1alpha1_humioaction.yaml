@@ -13,3 +13,6 @@ spec:
     bodyTemplate: |-
       {alert_name} has alerted
       click {url} to see the alert
+  # allowDataDeletion enables deletion of this action including any data.
+  # Default is false. Only considered when deletionTimestamp is set.
+  # allowDataDeletion: false

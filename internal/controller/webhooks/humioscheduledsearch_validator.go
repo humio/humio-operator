@@ -20,11 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/go-logr/logr"
@@ -35,83 +33,43 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 )
 
-var _ webhook.CustomValidator = &HumioScheduledSearchValidator{}
-
-const (
-	expectedKindHss string = "HumioScheduledSearch"
-	v1Hss           string = "v1alpha1"
-	v2Hss           string = "v1beta1"
+var (
+	_ admission.Validator[*corev1alpha1.HumioScheduledSearch] = &HumioScheduledSearchValidator[*corev1alpha1.HumioScheduledSearch]{}
+	_ admission.Validator[*corev1beta1.HumioScheduledSearch]  = &HumioScheduledSearchValidator[*corev1beta1.HumioScheduledSearch]{}
 )
 
-var expectedVersions = []string{v1Hss, v2Hss}
-
-// HumioScheduledSearchValidator validates HumioScheduledSearch
-type HumioScheduledSearchValidator struct {
+// HumioScheduledSearchValidator validates a HumioScheduledSearch of API version T.
+type HumioScheduledSearchValidator[T runtime.Object] struct {
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	Client      client.Client
 	HumioClient humio.Client
 }
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type
-func (v *HumioScheduledSearchValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	err := v.validateKind(obj, expectedKindHss, expectedVersions)
-	if err != nil {
-		return nil, fmt.Errorf("error encountered while running HumioScheduledSearch validation webhook: %v", err)
-	}
-
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type
+func (v *HumioScheduledSearchValidator[T]) ValidateCreate(ctx context.Context, obj T) (admission.Warnings, error) {
 	return v.validatePayload(ctx, obj)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type
-func (v *HumioScheduledSearchValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	err := v.validateKind(newObj, expectedKindHss, expectedVersions)
-	if err != nil {
-		return nil, fmt.Errorf("error encountered while running HumioScheduledSearch validation webhook: %v", err)
-	}
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type
+func (v *HumioScheduledSearchValidator[T]) ValidateUpdate(ctx context.Context, oldObj, newObj T) (admission.Warnings, error) {
 	return v.validatePayload(ctx, newObj)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type
-func (v *HumioScheduledSearchValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type
+func (v *HumioScheduledSearchValidator[T]) ValidateDelete(ctx context.Context, obj T) (admission.Warnings, error) {
 	// DELETE operatons don't hit the validate endpoint
 	return nil, nil
 }
 
-func (v *HumioScheduledSearchValidator) buildWarnings(obj runtime.Object) (admission.Warnings, error) {
-	_, ok := obj.(*corev1alpha1.HumioScheduledSearch)
-	if !ok {
-		return nil, fmt.Errorf("expected a HumioScheduledSearch object but got %T", obj)
-	}
-	return admission.Warnings{
-		"core.humio.com/v1alpha1 HumioScheduledSearch is being deprecated; use core.humio.com/v1beta1",
-	}, nil
-}
-
-func (v *HumioScheduledSearchValidator) validateKind(obj runtime.Object, expectedK string, expectedV []string) error {
-	var err error
-
-	kind := obj.GetObjectKind()
-	if kind.GroupVersionKind().Kind != expectedK {
-		return fmt.Errorf("unexpected Kind received in HumioScheduledSearch validation webhook: %v", kind.GroupVersionKind().Kind)
-	}
-
-	if !slices.Contains(expectedV, kind.GroupVersionKind().Version) {
-		return fmt.Errorf("unexpected Version received in HumioScheduledSearch validation webhook: %v", kind.GroupVersionKind().Version)
-	}
-	return err
-}
-
-func (v *HumioScheduledSearchValidator) validatePayload(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	var err error
-	kind := obj.GetObjectKind()
-
-	if kind.GroupVersionKind().Version == v1Hss {
-		return v.buildWarnings(obj)
-	}
-	if kind.GroupVersionKind().Version == v2Hss {
+func (v *HumioScheduledSearchValidator[T]) validatePayload(ctx context.Context, obj T) (admission.Warnings, error) {
+	switch hss := any(obj).(type) {
+	case *corev1alpha1.HumioScheduledSearch:
+		return admission.Warnings{
+			"core.humio.com/v1alpha1 HumioScheduledSearch is being deprecated; use core.humio.com/v1beta1",
+		}, nil
+	case *corev1beta1.HumioScheduledSearch:
 		// we need to check if the running Logscale version supports v1beta1 HumioScheduledSearch QueryTimestampType
-		hss := obj.(*corev1beta1.HumioScheduledSearch)
 		if hss.Spec.QueryTimestampType == humiographql.QueryTimestampTypeIngesttimestamp {
 			clusterVersion, err := helpers.GetClusterImageVersion(ctx, v.Client, hss.Namespace, hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName)
 			if err != nil {
@@ -128,6 +86,8 @@ func (v *HumioScheduledSearchValidator) validatePayload(ctx context.Context, obj
 				return nil, errors.New(errString)
 			}
 		}
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("unexpected type received in HumioScheduledSearch validation webhook: %T", obj)
 	}
-	return nil, err
 }

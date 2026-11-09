@@ -71,6 +71,22 @@ make run-e2e-tests-local-kind
 make run-telemetry-tests
 ```
 
+### Local Development Cluster
+
+Spin up a local kind cluster with the operator deployed for interactive use:
+
+```bash
+make local-kind
+```
+
+This creates a kind cluster with ZooKeeper, Kafka, cert-manager, and the operator, then applies a sample `HumioCluster` resource. Once ready, you can interact with `kubectl` directly.
+
+To rebuild and redeploy the operator after code changes (without recreating the cluster):
+
+```bash
+make local-kind-redeploy
+```
+
 ## Publishing new releases
 
 In order to publish new release of the different components, we have the following procedures we can follow:

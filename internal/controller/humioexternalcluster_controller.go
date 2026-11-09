@@ -27,6 +27,7 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -75,7 +76,11 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 	r.Log = r.Log.WithValues("Request.UID", hec.UID)
 
 	if hec.Status.State == "" {
-		err := r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
+		err := r.setCondition(ctx, hec,
+			humiov1alpha1.ExternalClusterConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.ExternalClusterReasonUnknown,
+			"External cluster state not yet determined")
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
@@ -93,7 +98,11 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
 		}
-		err = r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
+		err = r.setCondition(ctx, hec,
+			humiov1alpha1.ExternalClusterConditionTypeReady,
+			metav1.ConditionFalse,
+			humiov1alpha1.ExternalClusterReasonConfigError,
+			fmt.Sprintf("Unable to test API token: %v", err))
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
@@ -105,7 +114,11 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
 	}
 	if hec.Status.State != humiov1alpha1.HumioExternalClusterStateReady {
-		err = r.setState(ctx, humiov1alpha1.HumioExternalClusterStateReady, hec)
+		err = r.setCondition(ctx, hec,
+			humiov1alpha1.ExternalClusterConditionTypeReady,
+			metav1.ConditionTrue,
+			humiov1alpha1.ExternalClusterReasonReady,
+			"External cluster is ready")
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}

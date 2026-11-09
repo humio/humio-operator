@@ -32,6 +32,8 @@ operator:
   nodeSelector: {}
   tolerations: []
   watchNamespaces: []
+  watchLabelSelector: ""
+  enableFinalizers: true
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:

@@ -1,0 +1,62 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  name: example-humiocluster
+spec:
+  license:
+    secretKeyRef:
+      name: example-humiocluster-license
+      key: data
+  nodeCount: 1
+  tls:
+    enabled: false
+  targetReplicationFactor: 1
+  digestPartitionsCount: 24
+  resources:
+    limits:
+      cpu: "2"
+      memory: 4Gi
+    requests:
+      cpu: "1"
+      memory: 2Gi
+  dataVolumePersistentVolumeClaimSpecTemplate:
+    storageClassName: standard
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 10Gi
+  extraInitContainers:
+    - name: wait-for-kafka
+      image: busybox:latest
+      command: ["sh", "-c", "until nc -z humio-cp-kafka-0.humio-cp-kafka-headless.default 9092; do echo waiting for kafka; sleep 2; done"]
+  nodePools:
+    - name: ingest-only
+      spec:
+        nodeCount: 1
+        dataVolumePersistentVolumeClaimSpecTemplate:
+          storageClassName: standard
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
+        extraInitContainers:
+          - name: wait-for-kafka
+            image: busybox:latest
+            command: ["sh", "-c", "until nc -z humio-cp-kafka-0.humio-cp-kafka-headless.default 9092; do echo waiting for kafka; sleep 2; done"]
+          - name: prepare-config
+            image: busybox:latest
+            command: ["sh", "-c", "echo ready > /tmp/status"]
+  environmentVariables:
+    - name: "HUMIO_MEMORY_OPTS"
+      value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g"
+    - name: "ZOOKEEPER_URL"
+      value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+    - name: "KAFKA_SERVERS"
+      value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"

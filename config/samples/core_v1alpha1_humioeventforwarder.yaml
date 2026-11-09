@@ -1,0 +1,71 @@
+# Example HumioEventForwarder - manages Kafka event forwarder destination
+apiVersion: core.humio.com/v1alpha1
+kind: HumioEventForwarder
+metadata:
+  name: example-kafka-forwarder
+  # namespace: default  # Specify your namespace here
+spec:
+  # Cluster selection (choose one):
+  managedClusterName: "example-humiocluster"
+  # externalClusterName: "my-external-cluster"
+
+  # Name of the event forwarder in LogScale (immutable)
+  name: "production-kafka-forwarder"
+
+  # Description of the event forwarder
+  description: "Forwards events to production Kafka cluster"
+
+  # Type of forwarder (currently only "kafka" is supported)
+  forwarderType: kafka
+
+  # Whether the forwarder is enabled
+  enabled: true
+
+  # Kafka-specific configuration (required when forwarderType is "kafka")
+  kafkaConfig:
+    # Kafka topic to forward events to
+    topic: "humio-events"
+
+    # RECOMMENDED: Use propertiesSecretRef for sensitive credentials
+    # Create a secret with:
+    # kubectl create secret generic kafka-credentials \
+    #   --from-literal=kafka.properties='sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="user" password="secure-password";
+    # ssl.truststore.password=truststore-pass
+    # ssl.keystore.password=keystore-pass'
+    propertiesSecretRef:
+      name: kafka-credentials
+      key: kafka.properties
+      # namespace: default  # Optional, defaults to the same namespace as this resource
+
+    # Non-sensitive Kafka producer configuration in x.y.z=abc format
+    # Newline-separated list of properties
+    # See: https://library.humio.com/falcon-logscale-self-hosted/ingesting-data-event-forwarders.html#ingesting-data-event-forwarders-kafka
+    properties: |
+      bootstrap.servers=kafka.example.com:9092
+      security.protocol=SASL_SSL
+      sasl.mechanism=PLAIN
+      compression.type=snappy
+
+# NOTE: Properties from both 'properties' and 'propertiesSecretRef' are merged.
+# Properties from the secret take precedence if there are conflicts.
+# At least one of 'properties' or 'propertiesSecretRef' must be specified.
+
+# Check status with: kubectl get heff example-kafka-forwarder -o yaml
+# Ready condition indicates if the forwarder exists in LogScale
+# Synced condition indicates if configuration matches desired state
+
+---
+# Example Secret for Kafka credentials (for reference)
+# Create this secret in your cluster before applying the HumioEventForwarder
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kafka-credentials
+  # namespace: default
+type: Opaque
+stringData:
+  kafka.properties: |
+    sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="user" password="secure-password";
+    ssl.truststore.password=truststore-pass
+    ssl.keystore.password=keystore-pass
+

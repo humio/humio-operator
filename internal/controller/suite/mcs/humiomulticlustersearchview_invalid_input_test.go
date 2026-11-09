@@ -103,7 +103,7 @@ var _ = Describe("HumioMultiClusterSearchView", Label("envtest", "dummy", "real"
 				},
 			},
 		}),
-		Entry("duplicate cluster identity", "spec.connections[1]: Duplicate value: map[string]interface {}{\"clusterIdentity\":\"same-identity\"}", humiov1alpha1.HumioMultiClusterSearchView{
+		Entry("duplicate cluster identity", "spec.connections[1]: Duplicate value:", humiov1alpha1.HumioMultiClusterSearchView{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-view", Namespace: "default"},
 			Spec: humiov1alpha1.HumioMultiClusterSearchViewSpec{
 				ManagedClusterName: "test-cluster",
@@ -273,7 +273,7 @@ var _ = Describe("HumioMultiClusterSearchView", Label("envtest", "dummy", "real"
 				},
 			},
 		}),
-		Entry("duplicate key for tag", "spec.connections[0].tags[1]: Duplicate value: map[string]interface {}{\"key\":\"env\"}", humiov1alpha1.HumioMultiClusterSearchView{
+		Entry("duplicate key for tag", "spec.connections[0].tags[1]: Duplicate value:", humiov1alpha1.HumioMultiClusterSearchView{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-view", Namespace: "default"},
 			Spec: humiov1alpha1.HumioMultiClusterSearchViewSpec{
 				ManagedClusterName: "test-cluster",
@@ -354,7 +354,7 @@ var _ = Describe("HumioMultiClusterSearchView", Label("envtest", "dummy", "real"
 				},
 			},
 		}),
-		Entry("empty url for type=Remote", "spec.connections[0]: Invalid value: \"object\": When type is Remote, url/apiTokenSource must be set and viewOrRepoName must not be set", humiov1alpha1.HumioMultiClusterSearchView{
+		Entry("empty url for type=Remote", "When type is Remote, url/apiTokenSource must be set and viewOrRepoName must not be set", humiov1alpha1.HumioMultiClusterSearchView{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-view", Namespace: "default"},
 			Spec: humiov1alpha1.HumioMultiClusterSearchViewSpec{
 				ManagedClusterName: "test-cluster",
@@ -435,7 +435,7 @@ var _ = Describe("HumioMultiClusterSearchView", Label("envtest", "dummy", "real"
 				},
 			},
 		}),
-		Entry("clusteridentity as tag key", "spec.connections[0].tags[0].key: Invalid value: \"string\": The key 'clusteridentity' is reserved and cannot be used", humiov1alpha1.HumioMultiClusterSearchView{
+		Entry("clusteridentity as tag key", "The key 'clusteridentity' is reserved and cannot be used", humiov1alpha1.HumioMultiClusterSearchView{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-view", Namespace: "default"},
 			Spec: humiov1alpha1.HumioMultiClusterSearchViewSpec{
 				ManagedClusterName: "test-cluster",

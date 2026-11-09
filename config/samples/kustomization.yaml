@@ -9,6 +9,7 @@ resources:
 - core_v1alpha1_humiocluster-data-volume-persistent-volume-claim-policy-kind-local.yaml
 - core_v1alpha1_humiocluster-ephemeral-with-gcs-storage.yaml
 - core_v1alpha1_humiocluster-ephemeral-with-s3-storage.yaml
+- core_v1alpha1_humiocluster-extra-init-containers.yaml
 - core_v1alpha1_humiocluster-kind-local.yaml
 - core_v1alpha1_humiocluster-multi-nodepool-kind-local.yaml
 - core_v1alpha1_humiocluster-nginx-ingress-with-cert-manager.yaml

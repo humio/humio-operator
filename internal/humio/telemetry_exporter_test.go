@@ -13,6 +13,11 @@ import (
 	"github.com/go-logr/logr"
 )
 
+const (
+	testClusterName = "test-cluster"
+	jsonSourceType  = "json"
+)
+
 func TestHECClient_ExportTelemetryPayload(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -25,9 +30,9 @@ func TestHECClient_ExportTelemetryPayload(t *testing.T) {
 		{
 			name: "successful export with Bearer authentication",
 			payload: TelemetryPayload{
-				ClusterID:      "test-cluster",
-				CollectionType: "license",
-				SourceType:     "json",
+				ClusterID:      testClusterName,
+				CollectionType: TelemetryCollectionTypeLicense,
+				SourceType:     jsonSourceType,
 				Timestamp:      time.Now(),
 				Data:           map[string]interface{}{"test": "data"},
 			},
@@ -72,14 +77,14 @@ func TestHECClient_ExportTelemetryPayload(t *testing.T) {
 				}
 
 				// Validate HEC event structure
-				if hecEvent.Host != "test-cluster" {
-					t.Errorf("Expected Host 'test-cluster', got '%s'", hecEvent.Host)
+				if hecEvent.Host != testClusterName {
+					t.Errorf("Expected Host '%s', got '%s'", testClusterName, hecEvent.Host)
 				}
 				if hecEvent.Source != "humio-operator" {
 					t.Errorf("Expected Source 'humio-operator', got '%s'", hecEvent.Source)
 				}
-				if hecEvent.SourceType != "json" {
-					t.Errorf("Expected SourceType 'json', got '%s'", hecEvent.SourceType)
+				if hecEvent.SourceType != jsonSourceType {
+					t.Errorf("Expected SourceType '%s', got '%s'", jsonSourceType, hecEvent.SourceType)
 				}
 			},
 		},
@@ -87,8 +92,8 @@ func TestHECClient_ExportTelemetryPayload(t *testing.T) {
 			name: "handles server error correctly",
 			payload: TelemetryPayload{
 				ClusterID:      "test-cluster",
-				CollectionType: "cluster_info",
-				SourceType:     "json",
+				CollectionType: TelemetryCollectionTypeClusterInfo,
+				SourceType:     TelemetrySourceTypeJSON,
 				Timestamp:      time.Now(),
 				Data:           map[string]interface{}{"error": "test"},
 			},
@@ -107,8 +112,8 @@ func TestHECClient_ExportTelemetryPayload(t *testing.T) {
 			name: "validates token format in retry scenarios",
 			payload: TelemetryPayload{
 				ClusterID:      "retry-cluster",
-				CollectionType: "usage_stats",
-				SourceType:     "json",
+				CollectionType: TelemetryCollectionTypeRepositoryUsage,
+				SourceType:     TelemetrySourceTypeJSON,
 				Timestamp:      time.Now(),
 				Data:           map[string]interface{}{"retry": "test"},
 			},
@@ -175,15 +180,15 @@ func TestTelemetryExporter_ExportPayloads(t *testing.T) {
 			payloads: []TelemetryPayload{
 				{
 					ClusterID:      "multi-test-cluster",
-					CollectionType: "license",
-					SourceType:     "json",
+					CollectionType: TelemetryCollectionTypeLicense,
+					SourceType:     TelemetrySourceTypeJSON,
 					Timestamp:      time.Now(),
 					Data:           map[string]interface{}{"license": "data"},
 				},
 				{
 					ClusterID:      "multi-test-cluster",
-					CollectionType: "cluster_info",
-					SourceType:     "json",
+					CollectionType: TelemetryCollectionTypeClusterInfo,
+					SourceType:     TelemetrySourceTypeJSON,
 					Timestamp:      time.Now(),
 					Data:           map[string]interface{}{"cluster": "info"},
 				},
@@ -196,15 +201,15 @@ func TestTelemetryExporter_ExportPayloads(t *testing.T) {
 			payloads: []TelemetryPayload{
 				{
 					ClusterID:      "mixed-test-cluster",
-					CollectionType: "license",
-					SourceType:     "json",
+					CollectionType: TelemetryCollectionTypeLicense,
+					SourceType:     TelemetrySourceTypeJSON,
 					Timestamp:      time.Now(),
 					Data:           map[string]interface{}{"success": "data"},
 				},
 				{
 					ClusterID:      "mixed-test-cluster",
-					CollectionType: "cluster_info",
-					SourceType:     "json",
+					CollectionType: TelemetryCollectionTypeClusterInfo,
+					SourceType:     TelemetrySourceTypeJSON,
 					Timestamp:      time.Now(),
 					Data:           map[string]interface{}{"failure": "data"},
 				},
@@ -266,8 +271,8 @@ func TestHECEvent_Structure(t *testing.T) {
 	// Test HEC event structure matches LogScale expectations
 	payload := TelemetryPayload{
 		ClusterID:      "struct-test-cluster",
-		CollectionType: "license",
-		SourceType:     "json",
+		CollectionType: TelemetryCollectionTypeLicense,
+		SourceType:     TelemetrySourceTypeJSON,
 		Timestamp:      time.Date(2023, 12, 25, 10, 30, 0, 0, time.UTC),
 		Data:           map[string]interface{}{"license": "test-data", "nodes": 3},
 	}
@@ -292,7 +297,7 @@ func TestHECEvent_Structure(t *testing.T) {
 		t.Errorf("Expected SourceType 'json', got '%s'", hecEvent.SourceType)
 	}
 	if hecEvent.Time == nil || *hecEvent.Time != 1703500200 {
-		t.Errorf("Expected Unix timestamp 1703500200, got %v", hecEvent.Time)
+		t.Errorf("Expected Unix timestamp 1703500200 (seconds), got %v", hecEvent.Time)
 	}
 
 	// Validate JSON serialization

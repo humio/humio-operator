@@ -1,0 +1,58 @@
+# Build a debuggable webhook-operator binary with Delve baked in.
+# NOT for production use - see docs/debugging-with-delve.md.
+FROM golang:1.26.10-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
+
+ARG RELEASE_VERSION=master
+ARG RELEASE_COMMIT=none
+ARG RELEASE_DATE=unknown
+ARG DELVE_VERSION=v1.27.2
+
+WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download
+
+# Build Delve for the target platform
+RUN GOBIN=/workspace/bin GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 \
+    go install github.com/go-delve/delve/cmd/dlv@${DELVE_VERSION}
+
+# Copy the go source
+COPY cmd/webhook-operator/main.go cmd/webhook-operator/main.go
+COPY api/ api/
+COPY internal/ internal/
+
+# Build without stripping symbols (-s -w) and with optimizations/inlining
+# disabled (-gcflags="all=-N -l") so Delve can reliably set breakpoints and
+# inspect variables.
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build \
+    -gcflags="all=-N -l" \
+    -ldflags="-X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" \
+    -a -o webhook-operator cmd/webhook-operator/main.go
+
+# alpine (rather than distroless) so we have ca-certificates and a shell for
+# troubleshooting via `kubectl exec`.
+FROM alpine:3.20
+LABEL "name"="humio-operator-webhook-debug"
+LABEL "vendor"="humio"
+LABEL "summary"="Humio Kubernetes Webhook Operator (debug build with Delve)"
+LABEL "description"="Debug build of the Humio Kubernetes Webhook Operator with Delve \
+baked in for remote debugging. Not for production use."
+
+RUN apk add --no-cache ca-certificates
+
+COPY LICENSE /licenses/LICENSE
+
+WORKDIR /
+COPY --from=builder /workspace/webhook-operator .
+COPY --from=builder /workspace/bin/dlv .
+
+USER 1001
+
+EXPOSE 2345
+
+ENTRYPOINT ["/dlv", "exec", "/webhook-operator", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "--"]
